@@ -11,6 +11,15 @@ importers:
       '@nuxt/kit':
         specifier: ^4.1.2
         version: 4.1.2(magicast@0.3.5)
+      defu:
+        specifier: ^6.1.4
+        version: 6.1.4
+      jose:
+        specifier: ^6.1.0
+        version: 6.1.0
+      ufo:
+        specifier: ^1.6.1
+        version: 1.6.1
     devDependencies:
       '@nuxt/devtools':
         specifier: ^2.6.5
@@ -48,6 +57,12 @@ importers:
       vue-tsc:
         specifier: ^3.1.0
         version: 3.1.0(typescript@5.9.3)
+
+  playground:
+    dependencies:
+      nuxt:
+        specifier: ^4.1.2
+        version: 4.1.2(@parcel/watcher@2.5.1)(@types/node@24.6.2)(@vue/compiler-sfc@3.5.22)(db0@0.3.4)(eslint@9.37.0(jiti@2.6.1))(ioredis@5.8.0)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.52.4)(terser@5.44.0)(typescript@5.9.3)(vite@7.1.9(@types/node@24.6.2)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1))(vue-tsc@3.1.0(typescript@5.9.3))(yaml@2.8.1)
 
 packages:
 
@@ -2520,6 +2535,9 @@ packages:
   jiti@2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
+
+  jose@6.1.0:
+    resolution: {integrity: sha512-TTQJyoEoKcC1lscpVDCSsVgYzUDg/0Bt3WE//WiTPK6uOCQC2KZS4MpugbMWt/zyjkopgZoXhZuCi00gLudfUA==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -6647,6 +6665,8 @@ snapshots:
   jiti@1.21.7: {}
 
   jiti@2.6.1: {}
+
+  jose@6.1.0: {}
 
   js-tokens@4.0.0: {}
 
