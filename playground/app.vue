@@ -26,7 +26,7 @@ const testProtectedRoute = async () => {
 
   try {
     // This will automatically include the bearer token
-    // because /api/user/* is in protectedRoutes
+    // because /api/user/** is in protectedRoutes
     const data = await $fetch('/api/user/profile')
     apiResponse.value = data
   }
@@ -38,7 +38,7 @@ const testProtectedRoute = async () => {
 
 <template>
   <div style="padding: 20px; font-family: sans-serif;">
-    <h1>Nuxt Aegis - Bearer Token Demo</h1>
+    <h1>Nuxt Aegis - JWT Token Demo</h1>
 
     <div style="margin: 20px 0;">
       <button
@@ -129,17 +129,16 @@ const testProtectedRoute = async () => {
       v-else
       style="margin: 20px 0; padding: 15px; background: #fff3e0; border-radius: 5px;"
     >
-      <p>Please login to test the automatic bearer token functionality.</p>
+      <p>Please login to test the JWT token functionality.</p>
     </div>
 
     <div style="margin-top: 40px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
       <h3>How it works:</h3>
       <ul>
-        <li>The plugin automatically reads the token from the session cookie</li>
+        <li>The module automatically reads the token from the session cookie</li>
         <li>When you make requests to protected routes (configured in nuxt.config.ts), the token is automatically added</li>
-        <li>Protected routes in this demo: <code>/api/user/*</code>, <code>/api/protected/*</code></li>
-        <li>The plugin intercepts all <code>$fetch</code> and <code>useFetch</code> calls</li>
-        <li>You can also use <code>$fetchWithAuth</code> for explicit authenticated requests</li>
+        <li>Protected routes in this demo: <code>/api/**</code></li>
+        <li>The middleware handles token verification and user authentication on server side</li>
       </ul>
     </div>
   </div>

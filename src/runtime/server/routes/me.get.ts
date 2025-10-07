@@ -1,10 +1,21 @@
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, createError } from 'h3'
 
+/**
+ * GET /api/user/me
+ * Returns the current authenticated user's information
+ * EP-16: Return decoded user data from JWT when valid
+ * EP-17: Return 401 when no valid JWT
+ */
 export default defineEventHandler(async (event) => {
-  // Return the user context if it exists (set by auth middleware)
+  // EP-16: Return the user context if it exists (set by auth middleware)
   if (event.context.user) {
     return event.context.user
   }
-  // Return null or empty object if no user context
-  return null
+
+  // EP-17: Return 401 if no user context (no valid JWT)
+  throw createError({
+    statusCode: 401,
+    statusMessage: 'Unauthorized',
+    message: 'Authentication required',
+  })
 })

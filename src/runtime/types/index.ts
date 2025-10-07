@@ -1,10 +1,11 @@
 import type { H3Error, H3Event } from 'h3'
 
 /**
- * Token payload interface for JWT
+ * JWT Token payload interface
+ * Represents the decoded JWT token structure with standard and custom claims
  */
 export interface TokenPayload {
-  /** Subject identifier (user ID) */
+  /** JT-6: Subject identifier (user ID) - required claim */
   sub: string
   /** User email address */
   email?: string
@@ -16,15 +17,15 @@ export interface TokenPayload {
    * Better to use a URL pointing to the image location or leave it empty
    */
   picture?: string
-  /** Issuer claim */
+  /** JT-5: Issuer claim - identifies who issued the token */
   iss?: string
-  /** Audience claim */
+  /** JT-9: Audience claim - identifies the recipients of the token */
   aud?: string | string[]
-  /** Issued at timestamp */
+  /** JT-8: Issued at timestamp - when the token was created */
   iat?: number
-  /** Expiration timestamp */
+  /** JT-7: Expiration timestamp - when the token expires */
   exp?: number
-  /** Additional custom claims */
+  /** JT-10, JT-11, JT-13: Additional custom claims */
   [key: string]: unknown
 }
 

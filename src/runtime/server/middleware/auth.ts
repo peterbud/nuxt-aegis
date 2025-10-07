@@ -3,11 +3,33 @@ import { useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils'
 import type { TokenConfig, SessionConfig } from '../../types'
 
+/**
+ * Authentication middleware for Nuxt Aegis
+ * Validates JWT tokens and protects routes according to configuration
+ */
+
+/**
+ * Convert glob pattern to regex for route matching
+ * @param pattern - Glob pattern (supports *, **, ?)
+ * @returns RegExp for testing paths
+ */
+function globToRegex(pattern: string): RegExp {
+  // Escape special regex characters except *, ?, **
+  const regexPattern = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special chars
+    .replace(/\*\*/g, '___DOUBLE_STAR___') // Temporarily replace **
+    .replace(/\*/g, '[^/]*') // * matches anything except /
+    .replace(/___DOUBLE_STAR___/g, '.*') // ** matches anything including /
+    .replace(/\?/g, '[^/]') // ? matches single character except /
+
+  return new RegExp(`^${regexPattern}$`)
+}
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const requestURL = getRequestURL(event)
 
-  // Get configuration
+  // Get configuration with proper defaults
   const sessionConfig = config.nuxtAegis?.session as SessionConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const protectedRoutes = config.nuxtAegis?.protectedRoutes as string[] || []
@@ -23,24 +45,29 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // Skip authentication for static assets and API routes that shouldn't be protected
+  if (requestURL.pathname.startsWith('/_nuxt/') || requestURL.pathname.startsWith('/api/_')) {
+    return
+  }
+
   // Check if route should be protected or public
   const isPublicRoute = publicRoutes.some((pattern) => {
-    const regex = new RegExp(pattern.replace('*', '.*'))
+    const regex = globToRegex(pattern)
     return regex.test(requestURL.pathname)
   })
 
-  // If route is explicitly public, skip authentication
+  // MW-14: If route is explicitly public, skip authentication
   if (isPublicRoute) {
     return
   }
 
   // Check if route should be protected
   const isProtectedRoute = protectedRoutes.some((pattern) => {
-    const regex = new RegExp(pattern.replace('*', '.*'))
+    const regex = globToRegex(pattern)
     return regex.test(requestURL.pathname)
   })
 
-  // If global middleware is disabled and route is not explicitly protected, skip
+  // MW-15: If global middleware is disabled and route is not explicitly protected, skip
   if (!globalMiddleware && !isProtectedRoute) {
     return
   }
@@ -95,12 +122,32 @@ export default defineEventHandler(async (event) => {
 
   // MW-4: Verify the token's issuer claim matches the configured issuer
   if (tokenConfig.issuer && payload.iss !== tokenConfig.issuer) {
-    console.debug('Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
+    if (import.meta.dev) {
+      console.debug('[Nuxt Aegis] Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
+    }
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
       message: 'Invalid token issuer',
     })
+  }
+
+  // Verify the token's audience claim if configured
+  if (tokenConfig.audience && payload.aud) {
+    const audienceMatch = Array.isArray(payload.aud)
+      ? payload.aud.includes(tokenConfig.audience)
+      : payload.aud === tokenConfig.audience
+
+    if (!audienceMatch) {
+      if (import.meta.dev) {
+        console.debug('[Nuxt Aegis] Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
+      }
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid token audience',
+      })
+    }
   }
 
   // MW-9, MW-10, MW-11: Inject decoded user data into request context

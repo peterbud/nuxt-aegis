@@ -1,6 +1,10 @@
 import type { OAuthConfig, GoogleProviderConfig } from '../../types'
 import { defineOAuthEventHandler, type OAuthProviderImplementation } from './oauthBase'
 
+/**
+ * Google OAuth provider implementation
+ * Implements OAuth 2.0 flow for Google authentication
+ */
 const googleImplementation: OAuthProviderImplementation = {
   runtimeConfigKey: 'google',
   defaultConfig: {
@@ -16,7 +20,7 @@ const googleImplementation: OAuthProviderImplementation = {
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: redirectUri,
-    scope: config.scopes?.join(' ') || '',
+    scope: config.scopes?.join(' ') || 'openid profile email',
     state: state || '',
   }),
 
@@ -29,6 +33,15 @@ const googleImplementation: OAuthProviderImplementation = {
   }),
 }
 
+/**
+ * Create a Google OAuth event handler
+ * @param options - Configuration object
+ * @param options.config - Google OAuth provider configuration
+ * @param options.onSuccess - Success callback function
+ * @param options.onError - Error callback function
+ * @param options.customClaims - Custom claims to add to JWT
+ * @returns Event handler for Google OAuth authentication
+ */
 export function defineOAuthGoogleEventHandler({
   config,
   onSuccess,

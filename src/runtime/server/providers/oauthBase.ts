@@ -8,10 +8,10 @@ import { withQuery } from 'ufo'
 
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github'
-// type ProviderKey = keyof Pick<NuxtAegisRuntimeConfig, 'google' | 'microsoft' | 'github'>
 
 /**
- * OAuth provider implementation details
+ * OAuth provider implementation interface
+ * Defines the structure required for OAuth provider implementations
  */
 export interface OAuthProviderImplementation<TKey extends ProviderKey = ProviderKey> {
   /** Default configuration for the provider */
@@ -33,7 +33,19 @@ export interface OAuthProviderImplementation<TKey extends ProviderKey = Provider
 }
 
 /**
+ * OAuth token response interface
+ */
+interface _OAuthTokenResponse {
+  access_token: string
+  refresh_token?: string
+  id_token?: string
+  expires_in?: number
+  token_type?: string
+}
+
+/**
  * Base OAuth event handler that provides common OAuth flow functionality
+ * Handles the complete OAuth 2.0 authorization code flow
  */
 export function defineOAuthEventHandler<
   TConfig extends OAuthProviderConfig,
@@ -48,22 +60,40 @@ export function defineOAuthEventHandler<
   }: OAuthConfig<TConfig>,
 ) {
   return eventHandler(async (event: H3Event) => {
-    // Merge configuration with runtime config and defaults
-    const runtimeConfig = useRuntimeConfig(event)
-    const providerRuntimeConfig = runtimeConfig.nuxtAegis?.[implementation.runtimeConfigKey] as Partial<TConfig> || {}
-    const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
-
-    const query = getQuery<{ code?: string, state?: string }>(event)
-    const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
-
-    // Step 1: Redirect to authorization server if no code
-    if (!query.code) {
-      const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, query.state)
-      return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
-    }
-
     try {
-      // Step 2: Exchange authorization code for tokens
+      // Merge configuration with runtime config and defaults
+      const runtimeConfig = useRuntimeConfig(event)
+      const providerRuntimeConfig = runtimeConfig.nuxtAegis?.[implementation.runtimeConfigKey] as Partial<TConfig> || {}
+      const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
+
+      // Validate required configuration
+      if (!mergedConfig.clientId || !mergedConfig.clientSecret) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: 'Internal Server Error',
+          message: `OAuth provider ${implementation.runtimeConfigKey} is not properly configured`,
+        })
+      }
+
+      const query = getQuery<{ code?: string, state?: string, error?: string }>(event)
+      const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
+
+      // Handle OAuth error responses
+      if (query.error) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'OAuth Error',
+          message: `OAuth provider returned error: ${query.error}`,
+        })
+      }
+
+      // EP-2: Step 1 - Redirect to authorization server if no code
+      if (!query.code) {
+        const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, query.state)
+        return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
+      }
+
+      // EP-6: Step 2 - Exchange authorization code for tokens
       const tokenBody = implementation.buildTokenBody(mergedConfig, query.code, redirectUri)
       const tokenResponse = await $fetch(implementation.tokenUrl, {
         method: 'POST',
@@ -77,7 +107,15 @@ export function defineOAuthEventHandler<
         access_token: string
         refresh_token?: string
         id_token?: string
-        expires_in: number
+        expires_in?: number
+      }
+
+      if (!access_token) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'OAuth Token Error',
+          message: 'Failed to obtain access token from provider',
+        })
       }
 
       // Step 3: Fetch user information
@@ -88,7 +126,7 @@ export function defineOAuthEventHandler<
       })
 
       const user = implementation.extractUser(userResponse)
-      const tokens = { refresh_token, id_token, expires_in }
+      const tokens = { access_token, refresh_token, id_token, expires_in }
 
       // Step 4: Handle custom claims
       let resolvedCustomClaims: Record<string, unknown> | undefined
@@ -104,24 +142,33 @@ export function defineOAuthEventHandler<
         }
       }
 
-      // Step 5: Generate and set authentication token if no custom onSuccess
-      if (resolvedCustomClaims && !onSuccess) {
+      // EP-7: Step 5 - Generate and set authentication token
+      if (!onSuccess) {
         const authToken = await generateAuthToken(event, user, resolvedCustomClaims)
         const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
         setTokenCookie(event, authToken, sessionConfig)
+
+        // EP-8: Redirect to success URL
         return sendRedirect(event, '/')
       }
 
       // Step 6: Call custom onSuccess handler
       if (onSuccess) {
-        return onSuccess(event, { user, tokens })
+        return await onSuccess(event, { user, tokens })
       }
+
       return sendRedirect(event, '/')
     }
     catch (error) {
-      if (onError) {
-        return onError(event, error as H3Error)
+      if (import.meta.dev) {
+        console.error('[Nuxt Aegis] OAuth authentication error:', error)
       }
+
+      // EP-9: Handle authentication failure
+      if (onError) {
+        return await onError(event, error as H3Error)
+      }
+
       throw createError({
         statusCode: 500,
         statusMessage: 'OAuth Authentication Failed',

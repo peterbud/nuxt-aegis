@@ -22,7 +22,7 @@ export default defineNuxtConfig({
     },
     // Configure routes that should automatically get the bearer token
     protectedRoutes: [
-      '/api/*',
+      '/api/**',
     ],
   },
 })

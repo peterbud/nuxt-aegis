@@ -1,26 +1,37 @@
-import type { ComputedRef, Ref } from 'vue'
+import type { ComputedRef } from 'vue'
 import { useFetch, useRuntimeConfig, navigateTo, useState, computed } from '#imports'
 import type { TokenPayload } from '../../types'
 
+/**
+ * Internal authentication state interface
+ */
 interface AuthState {
+  /** Current user data from JWT token */
   user: TokenPayload | null
+  /** Loading state indicator */
   isLoading: boolean
+  /** Error message if authentication fails */
   error: string | null
 }
 
+/**
+ * Return type for the useAuth composable
+ */
 interface UseAuthReturn {
   /** Reactive property indicating whether a user is logged in */
   isLoggedIn: ComputedRef<boolean>
   /** Reactive property indicating the authentication state is being initialized */
-  isLoading: Ref<boolean>
+  isLoading: ComputedRef<boolean>
   /** Reactive property containing the current user's data */
-  user: Ref<TokenPayload | null>
+  user: ComputedRef<TokenPayload | null>
   /** Error state for authentication operations */
-  error: Ref<string | null>
+  error: ComputedRef<string | null>
   /** Method to initiate the authentication flow */
   login: (provider?: string, redirectTo?: string) => Promise<void>
   /** Method to end the user session */
   logout: (redirectTo?: string) => Promise<void>
+  /** Method to refresh the authentication state */
+  refresh: () => Promise<void>
 }
 
 /**
@@ -57,34 +68,83 @@ export function useAuth(): UseAuthReturn {
   /**
    * Initialize authentication state by fetching current user
    */
-  async function initializeAuthState() {
+  async function initializeAuthState(): Promise<void> {
     if (initialized.value) return
     initialized.value = true
 
     authState.value.isLoading = true
     authState.value.error = null
 
-    console.log('Initializing auth state...')
-    // Fetch current user from the API
-    const { data: userData, error } = await useFetch<TokenPayload>(
-      '/api/user/me',
-      {
-        onResponseError: ({ response }) => {
-          if (response.status === 401 || response.status === 403) {
-            authState.value.user = null
-          }
-          else {
-            authState.value.error = 'Failed to initialize authentication'
-            console.error('Auth initialization error:', error)
-          }
+    if (import.meta.dev) {
+      console.log('[Nuxt Aegis] Initializing auth state...')
+    }
+
+    try {
+      // Fetch current user from the API
+      const { data: userData, error } = await useFetch<TokenPayload>(
+        '/api/user/me',
+        {
+          onResponseError: ({ response }) => {
+            if (response.status === 401 || response.status === 403) {
+              authState.value.user = null
+            }
+            else {
+              authState.value.error = 'Failed to initialize authentication'
+              if (import.meta.dev) {
+                console.error('[Nuxt Aegis] Auth initialization error:', error)
+              }
+            }
+          },
         },
-      },
-    )
+      )
 
-    authState.value.isLoading = false
+      if (userData) {
+        authState.value.user = userData.value || null
+      }
+    }
+    catch (error) {
+      authState.value.error = 'Failed to initialize authentication'
+      if (import.meta.dev) {
+        console.error('[Nuxt Aegis] Auth initialization failed:', error)
+      }
+    }
+    finally {
+      authState.value.isLoading = false
+    }
+  }
 
-    if (userData) {
-      authState.value.user = userData.value || null
+  /**
+   * Refresh the authentication state by fetching current user
+   */
+  async function refresh(): Promise<void> {
+    authState.value.isLoading = true
+    authState.value.error = null
+
+    try {
+      const { data: userData } = await useFetch<TokenPayload>(
+        '/api/user/me',
+        {
+          onResponseError: ({ response }) => {
+            if (response.status === 401 || response.status === 403) {
+              authState.value.user = null
+            }
+            else {
+              authState.value.error = 'Failed to refresh authentication'
+            }
+          },
+        },
+      )
+
+      authState.value.user = userData?.value || null
+    }
+    catch (error) {
+      authState.value.error = 'Failed to refresh authentication'
+      if (import.meta.dev) {
+        console.error('[Nuxt Aegis] Auth refresh failed:', error)
+      }
+    }
+    finally {
+      authState.value.isLoading = false
     }
   }
 
@@ -95,12 +155,19 @@ export function useAuth(): UseAuthReturn {
     try {
       authState.value.error = null
 
+      // Validate provider parameter
+      if (!provider || typeof provider !== 'string') {
+        throw new Error('Provider must be a non-empty string')
+      }
+
       // Build login URL with optional redirect
       await navigateTo(`${authPath}/${provider}`, { external: true })
     }
     catch (error) {
       authState.value.error = 'Failed to initiate login'
-      console.error('Login error:', error)
+      if (import.meta.dev) {
+        console.error('[Nuxt Aegis] Login error:', error)
+      }
       throw error
     }
   }
@@ -126,7 +193,9 @@ export function useAuth(): UseAuthReturn {
       // Clear state even if API call fails
       authState.value.user = null
       authState.value.error = 'Logout completed with errors'
-      console.error('Logout error:', error)
+      if (import.meta.dev) {
+        console.error('[Nuxt Aegis] Logout error:', error)
+      }
 
       // Still redirect on error
       const logoutRedirect = redirectTo || '/'
@@ -141,5 +210,6 @@ export function useAuth(): UseAuthReturn {
     error: computed(() => authState.value.error),
     login,
     logout,
+    refresh,
   }
 }

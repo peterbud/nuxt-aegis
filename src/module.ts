@@ -54,9 +54,14 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
 
+    // CF-4: Validate configuration
+    if (!options.token?.secret && !process.env.NUXT_AEGIS_TOKEN_SECRET) {
+      console.warn('[Nuxt Aegis] Warning: No token secret configured. Authentication will not work properly.')
+    }
+
     addPlugin(resolver.resolve('./runtime/plugin'))
 
-    // Client imports
+    // CL-1: Client imports - useAuth composable
     addImports([
       {
         name: 'useAuth',
@@ -68,21 +73,36 @@ export default defineNuxtModule<ModuleOptions>({
     addServerImportsDir(resolver.resolve('./runtime/server/providers'))
     addServerImportsDir(resolver.resolve('./runtime/server/utils'))
 
-    // server handlers
+    // EP-15, EP-16, EP-17, EP-18: User info endpoint
     addServerHandler({
       route: `/api/user/me`,
       handler: resolver.resolve('./runtime/server/routes/me.get'),
       method: 'get',
     })
 
+    // EP-11, EP-12, EP-13: Logout endpoint
     addServerHandler({
       route: `/api/user/logout`,
       handler: resolver.resolve('./runtime/server/routes/logout.post'),
       method: 'post',
     })
 
-    // middleware
-    addServerHandler ({
+    // Add legacy logout route for backward compatibility
+    addServerHandler({
+      route: `/auth/logout`,
+      handler: resolver.resolve('./runtime/server/routes/logout.post'),
+      method: 'post',
+    })
+
+    // EP-19, EP-20, EP-21: Token refresh endpoint
+    addServerHandler({
+      route: `/auth/refresh`,
+      handler: resolver.resolve('./runtime/server/routes/refresh.post'),
+      method: 'post',
+    })
+
+    // MW-1: Authentication middleware
+    addServerHandler({
       handler: resolver.resolve('./runtime/server/middleware/auth'),
       middleware: true,
     })
