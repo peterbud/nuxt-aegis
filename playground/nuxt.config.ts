@@ -1,11 +1,28 @@
+import { env } from 'node:process'
+
 export default defineNuxtConfig({
   modules: [
     '../src/module',
   ],
+  ssr: false,
   devtools: { enabled: true },
   future: {
     compatibilityVersion: 4,
   },
   compatibilityDate: '2025-10-04',
-  nuxtAegis: {},
+  nuxtAegis: {
+    providers: {
+      google: {
+        clientId: env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
+        clientSecret: env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
+      },
+    },
+    token: {
+      secret: env.NUXT_AEGIS_TOKEN_SECRET || '',
+    },
+    // Configure routes that should automatically get the bearer token
+    protectedRoutes: [
+      '/api/*',
+    ],
+  },
 })
