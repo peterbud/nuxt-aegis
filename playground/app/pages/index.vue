@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuth, useAPI } from '#imports'
+import { useAuth, useNuxtApp } from '#imports'
 
 const apiResponse = ref<object | null>(null)
 const error = ref<string | null>(null)
@@ -25,8 +25,8 @@ const testProtectedRoute = async () => {
   try {
     // This will automatically include the bearer token
     // because /api/user/** is in protectedRoutes
-    const { data } = await useAPI('/api/user/profile')
-    apiResponse.value = data.value || null
+    const data = await useNuxtApp().$api('/api/user/profile')
+    apiResponse.value = data || null
   }
   catch (err: unknown) {
     error.value = (err as Error).message || 'Failed to fetch protected route'

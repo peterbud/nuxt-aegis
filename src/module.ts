@@ -67,10 +67,6 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'useAuth',
         from: resolver.resolve('./runtime/app/composables/useAuth'),
       },
-      {
-        name: 'useAPI',
-        from: resolver.resolve('./runtime/app/composables/useAPI'),
-      },
     ])
 
     extendPages((pages) => {
