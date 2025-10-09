@@ -1,9 +1,9 @@
 import { eventHandler, getQuery, sendRedirect, createError } from 'h3'
 import type { H3Event, H3Error } from 'h3'
-import type { OAuthConfig, OAuthProviderConfig, CustomClaimsCallback } from '../../types'
+import type { OAuthConfig, OAuthProviderConfig, CustomClaimsCallback, NuxtAegisRuntimeConfig } from '../../types'
 import { defu } from 'defu'
 import { useRuntimeConfig } from '#imports'
-import { getOAuthRedirectUri, generateAuthToken, setTokenCookie } from '../utils'
+import { getOAuthRedirectUri, generateAuthTokens, setRefreshTokenCookie } from '../utils'
 import { withQuery } from 'ufo'
 
 // Extract provider keys from the runtime config type
@@ -62,8 +62,8 @@ export function defineOAuthEventHandler<
   return eventHandler(async (event: H3Event) => {
     try {
       // Merge configuration with runtime config and defaults
-      const runtimeConfig = useRuntimeConfig(event)
-      const providerRuntimeConfig = runtimeConfig.nuxtAegis?.[implementation.runtimeConfigKey] as Partial<TConfig> || {}
+      const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
+      const providerRuntimeConfig = runtimeConfig[implementation.runtimeConfigKey] as Partial<TConfig> || {}
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 
       // Validate required configuration
@@ -144,12 +144,19 @@ export function defineOAuthEventHandler<
 
       // EP-7: Step 5 - Generate and set authentication token
       if (!onSuccess) {
-        const authToken = await generateAuthToken(event, user, resolvedCustomClaims)
-        const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
-        setTokenCookie(event, authToken, sessionConfig)
+        const { accessToken, refreshToken } = await generateAuthTokens(event, user, resolvedCustomClaims)
+        const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie
 
-        // EP-8: Redirect to success URL
-        return sendRedirect(event, '/')
+        // EP-8: Set refresh token as a secure, HttpOnly cookie
+        if (refreshToken) {
+          setRefreshTokenCookie(event, refreshToken, cookieConfig)
+        }
+
+        // EP-9: Redirect to client-side callback with access token in hash
+        const redirectUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
+        redirectUrl.hash = `access_token=${encodeURIComponent(accessToken)}`
+
+        return sendRedirect(event, redirectUrl.href)
       }
 
       // Step 6: Call custom onSuccess handler

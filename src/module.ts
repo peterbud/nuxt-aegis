@@ -5,6 +5,8 @@ import {
   addServerHandler,
   addServerImportsDir,
   createResolver,
+  extendPages,
+  logger,
 } from '@nuxt/kit'
 import type { ModuleOptions } from './runtime/types'
 import { defu } from 'defu'
@@ -17,14 +19,6 @@ export default defineNuxtModule<ModuleOptions>({
   // Default configuration options of the Nuxt module
   defaults: {
     devtools: true,
-    session: {
-      cookieName: 'nuxt-aegis-session',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      secure: true,
-      sameSite: 'lax',
-      httpOnly: true,
-      path: '/',
-    },
     token: {
       secret: '', // Must be provided by user or generated
       expiresIn: '1h', // Access token expiry
@@ -36,30 +30,36 @@ export default defineNuxtModule<ModuleOptions>({
       enabled: true,
       threshold: 300, // 5 minutes before expiry
       automaticRefresh: true,
+      cookie: {
+        cookieName: 'nuxt-aegis-refresh',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        secure: true,
+        sameSite: 'lax',
+        httpOnly: true,
+        path: '/',
+      },
     },
     redirect: {
-      login: '/login',
+      login: '/',
       logout: '/',
-      callback: '/auth/callback',
-      home: '/',
     },
-    globalMiddleware: false,
-    protectedRoutes: [],
-    publicRoutes: [],
-    authPath: '/auth',
-    enableCSRFProtection: true,
-    enableStateValidation: true,
-    logLevel: 'warn',
+    routeProtection: {
+      protectedRoutes: [],
+      publicRoutes: [],
+    },
+    endpoints: {
+      authPath: '/auth',
+    },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
 
     // CF-4: Validate configuration
     if (!options.token?.secret && !process.env.NUXT_AEGIS_TOKEN_SECRET) {
-      console.warn('[Nuxt Aegis] Warning: No token secret configured. Authentication will not work properly.')
+      logger.warn('[Nuxt Aegis] Warning: No token secret configured. Authentication will not work properly.')
     }
 
-    addPlugin(resolver.resolve('./runtime/plugin'))
+    addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))
 
     // CL-1: Client imports - useAuth composable
     addImports([
@@ -67,7 +67,19 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'useAuth',
         from: resolver.resolve('./runtime/app/composables/useAuth'),
       },
+      {
+        name: 'useAPI',
+        from: resolver.resolve('./runtime/app/composables/useAPI'),
+      },
     ])
+
+    extendPages((pages) => {
+      pages.push({
+        name: 'Callback',
+        path: '/auth/callback',
+        file: resolver.resolve('./runtime/app/pages/AuthCallback.vue'),
+      })
+    })
 
     // Server imports
     addServerImportsDir(resolver.resolve('./runtime/server/providers'))
@@ -115,13 +127,11 @@ export default defineNuxtModule<ModuleOptions>({
 
     runtimeConfig.nuxtAegis = {
       ...runtimeConfig.nuxtAegis,
-      session: defu(runtimeConfig.nuxtAegis.session, options.session),
       token: defu(runtimeConfig.nuxtAegis.token, options.token),
       tokenRefresh: defu(runtimeConfig.nuxtAegis.tokenRefresh, options.tokenRefresh),
-      globalMiddleware: options.globalMiddleware,
-      protectedRoutes: options.protectedRoutes,
-      publicRoutes: options.publicRoutes,
-      authPath: options.authPath,
+      routeProtection: options.routeProtection,
+      endpoints: options.endpoints,
+      authPath: options.endpoints?.authPath,
     }
 
     runtimeConfig.nuxtAegis.google = defu(runtimeConfig.nuxtAegis.google, {

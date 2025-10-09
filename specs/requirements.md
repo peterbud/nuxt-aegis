@@ -76,15 +76,17 @@ This document specifies the functional and non-functional requirements for a Nux
 
 ### 4.4 Token Expiration
 
-**JT-14:** WHERE token expiration is configured, the module SHALL allow developers to set custom expiration times.
+**JT-14:** WHERE token expiration is configured, the module SHALL allow developers to set custom expiration times for access and refresh tokens.
 
-**JT-15:** IF no expiration time is configured, THEN the module SHALL use a default expiration of 1 hour.
+**JT-15:** IF no expiration time is configured for an access token, THEN the module SHALL use a default expiration of 15 minutes.
+
+**JT-16:** IF no expiration time is configured for a refresh token, THEN the module SHALL use a default expiration of 7 days.
 
 ## 5. Middleware Requirements
 
 ### 5.1 Automatic JWT Validation
 
-**MW-1:** WHEN a request is made to a protected route, the module SHALL provide middleware that automatically validates the JWT.
+**MW-1:** WHEN a request is made to a protected route, the module SHALL provide middleware that automatically validates the JWT from the `Authorization: Bearer` header.
 
 **MW-2:** WHERE JWT validation is performed, the module SHALL verify the token signature.
 
@@ -134,7 +136,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CL-5:** WHEN no user is authenticated, the `user` property SHALL be `null`.
 
-**CL-6:** WHEN a user is authenticated, the `user` property SHALL contain all JWT claims from the application token.
+**CL-6:** WHEN a user is authenticated, the `user` property SHALL contain all JWT claims from the application access token.
 
 ### 6.2 Authentication Methods
 
@@ -144,7 +146,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CL-9:** WHEN the `login()` method is called, the module SHALL redirect the user to the authentication provider.
 
-**CL-10:** WHEN the `logout()` method is called, the module SHALL clear the authentication state and remove authentication tokens.
+**CL-10:** WHEN the `logout()` method is called, the module SHALL clear the authentication state from memory and remove the access token from `sessionStorage`.
 
 ### 6.3 State Synchronization
 
@@ -161,6 +163,10 @@ This document specifies the functional and non-functional requirements for a Nux
 **CL-15:** WHEN the user data changes (e.g., after login, logout, or token refresh), the `user` property SHALL reactively update across all components using the composable.
 
 **CL-16:** WHERE the user is not authenticated, the `user` property SHALL remain `null` and be reactive to authentication state changes.
+
+### 6.5 Automatic Token Attachment
+
+**CL-17:** The module SHALL provide a mechanism to automatically attach the access token as an `Authorization: Bearer` header to internal API requests.
 
 ## 7. API Endpoint Requirements
 
@@ -180,41 +186,55 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-6:** WHEN a provider-specific callback endpoint receives an authorization code, the module SHALL exchange it for provider tokens using that provider's token exchange mechanism.
 
-**EP-7:** WHEN provider tokens are obtained, the module SHALL generate an application JWT and set it as an HTTP-only cookie.
+**EP-7:** WHEN provider tokens are obtained, the module SHALL generate an application access token and a refresh token.
 
-**EP-8:** WHEN authentication is successful, the callback endpoint SHALL redirect the user to a configurable success URL.
+**EP-8:** WHEN a refresh token is generated, the module SHALL set it as a secure, `HttpOnly` cookie.
 
-**EP-9:** IF authentication fails at a callback endpoint, THEN the module SHALL redirect to a configurable error URL with error information.
+**EP-9:** WHEN an access token is generated, the callback endpoint SHALL redirect the user to a common client-side callback route (e.g., `/auth/callback`), passing the access token as a URL hash fragment for security.
 
-**EP-10:** WHERE a provider is configured, the module SHALL create a corresponding callback endpoint using the pattern `/auth/[provider-name]/callback`.
+**EP-10:** IF authentication fails at a callback endpoint, THEN the module SHALL redirect to a configurable error URL with error information.
 
-### 7.3 Logout Endpoint
+**EP-11:** WHERE a provider is configured, the module SHALL create a corresponding callback endpoint using the pattern `/auth/[provider-name]/callback`.
 
-**EP-11:** The module SHALL provide a `/auth/logout` endpoint to end the user session.
+### 7.3 Common Client-Side Callback
 
-**EP-12:** WHEN a request is made to the logout endpoint, the module SHALL clear all authentication cookies.
+**EP-12:** The module SHALL provide a common client-side callback page (e.g., `/auth/callback`) to handle the final step of authentication for all providers.
 
-**EP-13:** WHEN a request is made to the logout endpoint, the module SHALL return a success response.
+**EP-13:** WHEN the client-side callback route receives an access token via URL hash fragment, the module SHALL parse and store the token in `sessionStorage`.
 
-**EP-14:** WHERE configured, the logout endpoint SHALL redirect to a configurable post-logout URL.
+**EP-14:** WHEN the client-side callback route successfully processes the access token, the module SHALL redirect the user to a configurable success URL or the originally requested protected route.
 
-### 7.4 User Info Endpoint
+**EP-15:** WHEN the client-side callback route receives error information, the module SHALL display appropriate error messages and redirect to a configurable error URL.
 
-**EP-15:** The module SHALL provide a `/api/user/me` endpoint to retrieve the current user's information.
+**EP-16:** WHERE the client-side callback route is implemented, the module SHALL clear the access token from the URL hash after processing to prevent token exposure in browser history.
 
-**EP-16:** WHEN a request is made to the `/api/user/me` endpoint with a valid JWT, the module SHALL return the decoded user data from the token.
+### 7.4 Logout Endpoint
 
-**EP-17:** WHEN a request is made to the `/api/user/me` endpoint without a valid JWT, the module SHALL return a 401 Unauthorized response.
+**EP-17:** The module SHALL provide a `/auth/logout` endpoint to end the user session.
 
-**EP-18:** WHERE the user is authenticated, the `/api/user/me` endpoint SHALL return user data in JSON format including all JWT claims.
+**EP-18:** WHEN a request is made to the logout endpoint, the module SHALL clear the refresh token cookie.
 
-### 7.5 Token Refresh Endpoint
+**EP-19:** WHEN a request is made to the logout endpoint, the module SHALL return a success response.
 
-**EP-19:** WHERE refresh tokens are supported, the module SHALL provide a `/auth/refresh` endpoint to obtain new access tokens.
+**EP-20:** WHERE configured, the logout endpoint SHALL redirect to a configurable post-logout URL.
 
-**EP-20:** WHEN a request is made to the refresh endpoint with a valid refresh token, the module SHALL generate a new application JWT.
+### 7.5 User Info Endpoint
 
-**EP-21:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
+**EP-21:** The module SHALL provide a `/api/user/me` endpoint to retrieve the current user's information.
+
+**EP-22:** WHEN a request is made to the `/api/user/me` endpoint with a valid access token in the `Authorization` header, the module SHALL return the decoded user data from the token.
+
+**EP-23:** WHEN a request is made to the `/api/user/me` endpoint without a valid access token, the module SHALL return a 401 Unauthorized response.
+
+**EP-24:** WHERE the user is authenticated, the `/api/user/me` endpoint SHALL return user data in JSON format including all JWT claims.
+
+### 7.6 Token Refresh Endpoint
+
+**EP-25:** The module SHALL provide a `/auth/refresh` endpoint to obtain a new access token.
+
+**EP-26:** WHEN a request is made to the refresh endpoint with a valid refresh token cookie, the module SHALL generate a new access token and return it in the response body.
+
+**EP-27:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
 
 ## 8. Configuration Requirements
 
@@ -238,11 +258,13 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **SC-2:** WHERE tokens are transmitted, the module SHALL require HTTPS in production environments.
 
-**SC-3:** WHEN setting JWT cookies, the module SHALL set the `HttpOnly` flag.
+**SC-3:** WHEN setting refresh token cookies, the module SHALL set the `HttpOnly` flag.
 
-**SC-4:** WHEN setting JWT cookies, the module SHALL set the `Secure` flag in production environments.
+**SC-4:** WHEN setting refresh token cookies, the module SHALL set the `Secure` flag in production environments.
 
-**SC-5:** WHEN setting JWT cookies, the module SHALL set the `SameSite` attribute to `Lax` or `Strict`.
+**SC-5:** WHEN setting refresh token cookies, the module SHALL set the `SameSite` attribute to `Lax` or `Strict`.
+
+**SC-6:** The module SHALL implement a Content Security Policy (CSP) to mitigate the risk of XSS attacks.
 
 ## 10. Error Handling Requirements
 

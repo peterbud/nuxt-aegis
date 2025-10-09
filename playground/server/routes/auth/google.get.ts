@@ -1,4 +1,6 @@
 export default defineOAuthGoogleEventHandler({
+  // clientCallbackUrl: '/auth/callback', // default
+  // successRedirectUrl: '/', // default
   customClaims: {
     role: 'user',
     permissions: ['read', 'write'],

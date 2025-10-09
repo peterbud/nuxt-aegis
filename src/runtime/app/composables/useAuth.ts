@@ -1,5 +1,5 @@
 import type { ComputedRef } from 'vue'
-import { useFetch, useRuntimeConfig, navigateTo, useState, computed } from '#imports'
+import { useRuntimeConfig, navigateTo, useState, computed, useNuxtApp } from '#imports'
 import type { TokenPayload } from '../../types'
 
 /**
@@ -81,31 +81,17 @@ export function useAuth(): UseAuthReturn {
 
     try {
       // Fetch current user from the API
-      const { data: userData, error } = await useFetch<TokenPayload>(
+      const userData = await useNuxtApp().$api<TokenPayload>(
         '/api/user/me',
-        {
-          onResponseError: ({ response }) => {
-            if (response.status === 401 || response.status === 403) {
-              authState.value.user = null
-            }
-            else {
-              authState.value.error = 'Failed to initialize authentication'
-              if (import.meta.dev) {
-                console.error('[Nuxt Aegis] Auth initialization error:', error)
-              }
-            }
-          },
-        },
       )
 
-      if (userData) {
-        authState.value.user = userData.value || null
-      }
+      authState.value.user = userData || null
     }
-    catch (error) {
-      authState.value.error = 'Failed to initialize authentication'
+    catch (error: unknown) {
+      authState.value.user = null
+      authState.value.error = 'Failed to refresh authentication'
       if (import.meta.dev) {
-        console.error('[Nuxt Aegis] Auth initialization failed:', error)
+        console.error('[Nuxt Aegis] Auth refresh failed:', error)
       }
     }
     finally {
@@ -121,21 +107,11 @@ export function useAuth(): UseAuthReturn {
     authState.value.error = null
 
     try {
-      const { data: userData } = await useFetch<TokenPayload>(
+      const userData = await useNuxtApp().$api<TokenPayload>(
         '/api/user/me',
-        {
-          onResponseError: ({ response }) => {
-            if (response.status === 401 || response.status === 403) {
-              authState.value.user = null
-            }
-            else {
-              authState.value.error = 'Failed to refresh authentication'
-            }
-          },
-        },
       )
 
-      authState.value.user = userData?.value || null
+      authState.value.user = userData || null
     }
     catch (error) {
       authState.value.error = 'Failed to refresh authentication'
@@ -180,7 +156,9 @@ export function useAuth(): UseAuthReturn {
       authState.value.error = null
 
       // Call logout endpoint - this will delete the httpOnly cookie
-      await $fetch('/api/user/logout', { method: 'POST' })
+      await useNuxtApp().$api('/api/user/logout', { method: 'POST' })
+
+      sessionStorage.removeItem('nuxt.aegis.token')
 
       // Clear local auth state
       authState.value.user = null

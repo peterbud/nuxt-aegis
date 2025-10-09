@@ -1,7 +1,7 @@
 import { defineEventHandler } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { clearToken } from '../utils'
-import type { SessionConfig } from '../../types'
+import type { CookieConfig } from '../../types'
 
 /**
  * POST /api/user/logout
@@ -11,19 +11,17 @@ import type { SessionConfig } from '../../types'
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const sessionConfig = config.nuxtAegis?.session as SessionConfig
+  const cookieConfig = config.nuxtAegis?.cookie as CookieConfig
 
   try {
     // EP-12: Clear authentication cookies using utility function
-    clearToken(event, sessionConfig)
+    clearToken(event, cookieConfig)
 
     // EP-13: Return success response
     return { success: true, message: 'Logout successful' }
   }
   catch (error) {
-    if (import.meta.dev) {
-      console.error('[Nuxt Aegis] Logout error:', error)
-    }
+    console.error('[Nuxt Aegis] Logout error:', error)
 
     // Still return success even if cookie clearing fails
     return { success: true, message: 'Logout completed' }

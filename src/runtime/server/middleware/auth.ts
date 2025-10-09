@@ -1,7 +1,7 @@
-import { defineEventHandler, getCookie, createError, getRequestURL, getHeader } from 'h3'
+import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils'
-import type { TokenConfig, SessionConfig } from '../../types'
+import type { TokenConfig } from '../../types'
 
 /**
  * Authentication middleware for Nuxt Aegis
@@ -30,15 +30,10 @@ export default defineEventHandler(async (event) => {
   const requestURL = getRequestURL(event)
 
   // Get configuration with proper defaults
-  const sessionConfig = config.nuxtAegis?.session as SessionConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
-  const protectedRoutes = config.nuxtAegis?.protectedRoutes as string[] || []
-  const publicRoutes = config.nuxtAegis?.publicRoutes as string[] || []
-  const globalMiddleware = config.nuxtAegis?.globalMiddleware as boolean || false
+  const protectedRoutes = config.nuxtAegis?.routeProtection?.protectedRoutes as string[] || []
+  const publicRoutes = config.nuxtAegis?.routeProtection?.publicRoutes as string[] || []
   const authPath = config.nuxtAegis?.authPath as string || '/auth'
-
-  // Get the cookie name from runtime config
-  const cookieName = sessionConfig?.cookieName || 'nuxt-aegis-session'
 
   // Skip authentication for auth routes (login, callback, etc.)
   if (requestURL.pathname.startsWith(authPath)) {
@@ -67,23 +62,18 @@ export default defineEventHandler(async (event) => {
     return regex.test(requestURL.pathname)
   })
 
-  // MW-15: If global middleware is disabled and route is not explicitly protected, skip
-  if (!globalMiddleware && !isProtectedRoute) {
+  // MW-15: If route is not explicitly protected, skip
+  if (!isProtectedRoute) {
     return
   }
 
   // Try to extract token from multiple sources
   let token: string | undefined
 
-  // 1. Try to read from Authorization header (Bearer token)
+  // Try to read from Authorization header (Bearer token)
   const authHeader = getHeader(event, 'authorization')
   if (authHeader?.startsWith('Bearer ')) {
     token = authHeader.substring(7) // Remove 'Bearer ' prefix
-  }
-
-  // 2. Fall back to cookie if no Bearer token found
-  if (!token) {
-    token = getCookie(event, cookieName)
   }
 
   if (!token) {
@@ -122,9 +112,8 @@ export default defineEventHandler(async (event) => {
 
   // MW-4: Verify the token's issuer claim matches the configured issuer
   if (tokenConfig.issuer && payload.iss !== tokenConfig.issuer) {
-    if (import.meta.dev) {
-      console.debug('[Nuxt Aegis] Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
-    }
+    console.debug('[Nuxt Aegis] Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
+
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
@@ -139,9 +128,8 @@ export default defineEventHandler(async (event) => {
       : payload.aud === tokenConfig.audience
 
     if (!audienceMatch) {
-      if (import.meta.dev) {
-        console.debug('[Nuxt Aegis] Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
-      }
+      console.debug('[Nuxt Aegis] Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
+
       throw createError({
         statusCode: 401,
         statusMessage: 'Unauthorized',

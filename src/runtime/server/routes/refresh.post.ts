@@ -1,7 +1,7 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { verifyToken, generateToken, setTokenCookie } from '../utils'
-import type { TokenConfig, SessionConfig, TokenPayload } from '../../types'
+import type { TokenConfig, CookieConfig, TokenPayload } from '../../types'
 
 /**
  * POST /auth/refresh
@@ -11,7 +11,7 @@ import type { TokenConfig, SessionConfig, TokenPayload } from '../../types'
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const sessionConfig = config.nuxtAegis?.session as SessionConfig
+  const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
 
   if (!tokenConfig || !tokenConfig.secret) {
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get current token from cookie
-  const cookieName = sessionConfig?.cookieName || 'nuxt-aegis-session'
+  const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-session'
   const currentToken = getCookie(event, cookieName)
 
   if (!currentToken) {
@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
     const newToken = await generateToken(newPayload, tokenConfig)
 
     // Set the new token as cookie
-    setTokenCookie(event, newToken, sessionConfig)
+    // setTokenCookie(event, newToken, cookieConfig)
 
     return {
       success: true,
@@ -88,9 +88,7 @@ export default defineEventHandler(async (event) => {
     }
   }
   catch (error) {
-    if (import.meta.dev) {
-      console.error('[Nuxt Aegis] Token refresh error:', error)
-    }
+    console.error('[Nuxt Aegis] Token refresh error:', error)
 
     // EP-21: Return 401 for any refresh errors
     throw createError({

@@ -33,12 +33,10 @@ export interface TokenPayload {
  * Runtime config for Nuxt Aegis
  */
 export interface NuxtAegisRuntimeConfig {
-  session?: SessionConfig
   token?: TokenConfig
   tokenRefresh?: TokenRefreshConfig
-  globalMiddleware?: boolean
-  protectedRoutes?: string[]
-  publicRoutes?: string[]
+  routeProtection?: RouteProtectionConfig
+  endpoints?: EndpointConfig
   authPath?: string
   google?: GoogleProviderConfig
   microsoft?: MicrosoftProviderConfig
@@ -129,14 +127,14 @@ export interface TokenConfig {
 }
 
 /**
- * Session cookie configuration
+ * Refresh cookie configuration
  */
-export interface SessionConfig {
-  /** Name of the session cookie (default: 'nuxt-aegis-session') */
+export interface CookieConfig {
+  /** Name of the refresh cookie (default: 'nuxt-aegis-refresh') */
   cookieName?: string
-  /** Session cookie max age in seconds (default: 604800 - 7 days) */
+  /** Refresh cookie max age in seconds (default: 604800 - 7 days) */
   maxAge?: number
-  /** Enable secure flag for cookies (default: true) */
+  /** Enable secure flag for cookies (default: true in production) */
   secure?: boolean
   /** SameSite cookie attribute (default: 'lax') */
   sameSite?: 'strict' | 'lax' | 'none'
@@ -158,20 +156,62 @@ export interface TokenRefreshConfig {
   threshold?: number
   /** Automatically refresh tokens in the background (default: true) */
   automaticRefresh?: boolean
+  /** Refresh token cookie configuration */
+  cookie?: CookieConfig
 }
 
 /**
  * Redirect URL configuration
  */
 export interface RedirectConfig {
-  /** Redirect URL for unauthenticated users (default: '/login') */
+  /** Redirect URL for unauthenticated users (default: '/') */
   login?: string
   /** Redirect URL after logout (default: '/') */
   logout?: string
-  /** OAuth callback URL path (default: '/auth/callback') */
-  callback?: string
-  /** Home page URL after successful authentication (default: '/') */
-  home?: string
+  /** Redirect URL after successful authentication (default: '/') */
+  success?: string
+  /** Redirect URL when authentication fails (default: '/auth/error') */
+  error?: string
+}
+
+/**
+ * Claims validation configuration
+ */
+export interface ClaimsValidationConfig {
+  /** Required claims that must be present in the JWT */
+  requiredClaims?: string[]
+  /** Custom claim validation rules */
+  customRules?: Record<string, (value: unknown) => boolean>
+}
+
+/**
+ * Route protection configuration
+ */
+export interface RouteProtectionConfig {
+  /** Array of route patterns that require authentication (glob patterns supported) */
+  protectedRoutes?: string[]
+  /** Array of route patterns excluded from global authentication (glob patterns supported) */
+  publicRoutes?: string[]
+  /** TODO: Strategy when route matches both protected and public patterns ('public' | 'protected', default: 'public') */
+  // conflictStrategy?: 'public' | 'protected'
+}
+
+/**
+ * API endpoint path configuration
+ */
+export interface EndpointConfig {
+  /** Base path for authentication API routes (default: '/auth') */
+  authPath?: string
+  /** Path for login endpoints (default: '[authPath]/[provider]') */
+  loginPath?: string
+  /** Path for callback endpoints (default: '[authPath]/callback') */
+  callbackPath?: string
+  /** Path for logout endpoint (default: '[authPath]/logout') */
+  logoutPath?: string
+  /** Path for token refresh endpoint (default: '[authPath]/refresh') */
+  refreshPath?: string
+  /** Path for user info endpoint (default: '/api/user/me') */
+  userInfoPath?: string
 }
 
 /**
@@ -196,9 +236,6 @@ export interface ModuleOptions {
     custom?: CustomProviderConfig[]
   }
 
-  /** Session cookie configuration */
-  session?: SessionConfig
-
   /** Token configuration */
   token?: TokenConfig
 
@@ -208,26 +245,14 @@ export interface ModuleOptions {
   /** Redirect URL configuration */
   redirect?: RedirectConfig
 
-  /** Enable global authentication middleware for all routes (default: false) */
-  globalMiddleware?: boolean
+  /** Route protection configuration */
+  routeProtection?: RouteProtectionConfig
 
-  /** Array of route patterns that require authentication (glob patterns supported) */
-  protectedRoutes?: string[]
+  /** Claims validation configuration */
+  claimsValidation?: ClaimsValidationConfig
 
-  /** Array of route patterns excluded from global authentication (glob patterns supported) */
-  publicRoutes?: string[]
-
-  /** Path for authentication API routes (default: '/auth') */
-  authPath?: string
-
-  /** Enable CSRF protection for authentication flows (default: true) */
-  enableCSRFProtection?: boolean
-
-  /** Enable OAuth state parameter validation (default: true) */
-  enableStateValidation?: boolean
-
-  /** Logging level for authentication operations (default: 'warn') */
-  logLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug'
+  /** API endpoint path configuration */
+  endpoints?: EndpointConfig
 }
 
 export type OnError = (event: H3Event, error: H3Error) => Promise<void> | void

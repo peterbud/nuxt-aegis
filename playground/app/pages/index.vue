@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { useAuth } from '#imports'
+import { useAuth, useAPI } from '#imports'
 
 const apiResponse = ref<object | null>(null)
 const error = ref<string | null>(null)
 const { isLoggedIn, user, login, logout } = useAuth()
 
 const loginWithGoogle = async () => {
-  // navigateTo('/auth/google', { external: true })
   login('google') // Remove await - this just redirects
-  // Don't log here - user won't be available until after redirect completes
 }
 
 const handleLogout = async () => {
@@ -27,8 +25,8 @@ const testProtectedRoute = async () => {
   try {
     // This will automatically include the bearer token
     // because /api/user/** is in protectedRoutes
-    const data = await $fetch('/api/user/profile')
-    apiResponse.value = data
+    const { data } = await useAPI('/api/user/profile')
+    apiResponse.value = data.value || null
   }
   catch (err: unknown) {
     error.value = (err as Error).message || 'Failed to fetch protected route'

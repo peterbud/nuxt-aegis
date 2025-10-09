@@ -6,9 +6,6 @@ export default defineNuxtConfig({
   ],
   ssr: false,
   devtools: { enabled: true },
-  future: {
-    compatibilityVersion: 4,
-  },
   compatibilityDate: '2025-10-04',
   nuxtAegis: {
     providers: {
@@ -20,9 +17,11 @@ export default defineNuxtConfig({
     token: {
       secret: env.NUXT_AEGIS_TOKEN_SECRET || '',
     },
-    // Configure routes that should automatically get the bearer token
-    protectedRoutes: [
-      '/api/**',
-    ],
+    routeProtection: {
+      // Configure routes that should automatically get the bearer token
+      protectedRoutes: [
+        '/api/**',
+      ],
+    },
   },
 })

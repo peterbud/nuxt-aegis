@@ -15,6 +15,17 @@ export default createConfigForNuxt({
     ],
   },
 })
+  .override(
+    'nuxt/typescript/rules',
+    {
+      rules: {
+        'vue/multi-word-component-names': ['error', {
+          // Allows 'index', 'default', and 'error' which are common Nuxt page names
+          ignores: ['index', 'default', 'error'],
+        }],
+      },
+    },
+  )
   .append(
     // your custom flat config here...
   )

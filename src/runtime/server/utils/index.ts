@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { getRequestURL, setCookie, deleteCookie } from 'h3'
 import { SignJWT, jwtVerify } from 'jose'
-import type { TokenConfig, SessionConfig, TokenPayload } from '../../types'
+import type { CookieConfig, TokenConfig, TokenPayload } from '../../types'
 import { useRuntimeConfig } from '#imports'
 
 /**
@@ -146,43 +146,37 @@ export async function verifyToken(
 /**
  * Clear the authentication token cookie
  * @param event - H3Event object
- * @param sessionConfig - Optional session configuration
+ * @param cookieConfig - Optional cookie configuration
  */
-export function clearToken(event: H3Event, sessionConfig?: SessionConfig): void {
-  const cookieName = sessionConfig?.cookieName || 'nuxt-aegis-session'
-  deleteCookie(event, cookieName, {
-    httpOnly: sessionConfig?.httpOnly ?? true, // SC-3: Set HttpOnly flag
-    secure: sessionConfig?.secure ?? (process.env.NODE_ENV === 'production'), // SC-4: Set Secure flag in production
-    sameSite: sessionConfig?.sameSite || 'lax', // SC-5: Set SameSite attribute
-    path: sessionConfig?.path || '/',
-    domain: sessionConfig?.domain,
-  })
+export function clearToken(event: H3Event, cookieConfig?: CookieConfig): void {
+  const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-refresh'
+  deleteCookie(event, cookieName)
 }
 
 /**
  * Set the authentication token as an HTTP-only cookie
  * @param event - H3Event object
  * @param token - JWT token to set as cookie
- * @param sessionConfig - Optional session configuration
+ * @param cookieConfig - Optional cookie configuration
  */
-export function setTokenCookie(
+export function setRefreshTokenCookie(
   event: H3Event,
   token: string,
-  sessionConfig?: SessionConfig,
+  cookieConfig?: CookieConfig,
 ): void {
   if (!token) {
     throw new Error('Token is required')
   }
 
-  const cookieName = sessionConfig?.cookieName || 'nuxt-aegis-session'
-  const maxAge = sessionConfig?.maxAge || 604800 // 7 days default
+  const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-refresh'
+  const maxAge = cookieConfig?.maxAge || 604800 // 7 days default
 
   setCookie(event, cookieName, token, {
-    httpOnly: sessionConfig?.httpOnly ?? true, // SC-3: Set HttpOnly flag
-    secure: sessionConfig?.secure ?? (process.env.NODE_ENV === 'production'), // SC-4: Set Secure flag in production
-    sameSite: sessionConfig?.sameSite || 'lax', // SC-5: Set SameSite attribute
-    path: sessionConfig?.path || '/',
-    domain: sessionConfig?.domain,
+    httpOnly: cookieConfig?.httpOnly ?? true, // SC-3: Set HttpOnly flag
+    secure: cookieConfig?.secure ?? (process.env.NODE_ENV === 'production'), // SC-4: Set Secure flag in production
+    sameSite: cookieConfig?.sameSite || 'lax', // SC-5: Set SameSite attribute
+    path: cookieConfig?.path || '/',
+    domain: cookieConfig?.domain,
     maxAge,
   })
 }
@@ -208,7 +202,7 @@ export function setTokenCookie(
  * })
  * ```
  */
-export async function generateAuthToken(
+export async function generateAuthTokens(
   event: H3Event,
   user: {
     sub?: string
@@ -218,7 +212,7 @@ export async function generateAuthToken(
     [key: string]: unknown
   },
   customClaims?: Record<string, unknown>,
-): Promise<string> {
+): Promise<{ accessToken: string, refreshToken?: string }> {
   const config = useRuntimeConfig(event)
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
 
@@ -234,6 +228,12 @@ export async function generateAuthToken(
     picture: user.picture,
   }
 
+  // TODO: Placeholder for future refresh token implementation
+  const refreshToken = 'blabla'
+
   // Generate token with custom claims
-  return await generateToken(payload, tokenConfig, customClaims)
+  return {
+    accessToken: await generateToken(payload, tokenConfig, customClaims),
+    refreshToken,
+  }
 }
