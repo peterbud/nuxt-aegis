@@ -1,6 +1,6 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { verifyToken, generateToken, setTokenCookie } from '../utils'
+import { verifyToken, generateToken } from '../utils'
 import type { TokenConfig, CookieConfig, TokenPayload } from '../../types'
 
 /**
@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
       ),
     }
 
-    const newToken = await generateToken(newPayload, tokenConfig)
+    const _newToken = await generateToken(newPayload, tokenConfig)
 
     // Set the new token as cookie
     // setTokenCookie(event, newToken, cookieConfig)
