@@ -4,7 +4,7 @@ import { clearToken } from '../utils'
 import type { CookieConfig } from '../../types'
 
 /**
- * POST /api/user/logout
+ * POST /auth/logout
  * Ends the user session by clearing authentication cookies
  * EP-12: Clear all authentication cookies
  * EP-13: Return success response

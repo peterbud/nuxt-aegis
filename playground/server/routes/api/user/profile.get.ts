@@ -37,27 +37,3 @@ export default defineEventHandler((event) => {
     expiresAt: user.exp,
   }
 })
-
-/**
- * Usage examples:
- *
- * 1. Browser (cookie-based):
- * ```typescript
- * const profile = await $fetch('/api/user/profile')
- * ```
- *
- * 2. Mobile App (Bearer token):
- * ```typescript
- * const response = await fetch('https://api.example.com/api/user/profile', {
- *   headers: {
- *     'Authorization': `Bearer ${token}`
- *   }
- * })
- * ```
- *
- * 3. CLI Tool (Bearer token):
- * ```bash
- * curl -H "Authorization: Bearer eyJhbGci..." \
- *   https://api.example.com/api/user/profile
- * ```
- */

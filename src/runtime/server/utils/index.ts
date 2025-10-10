@@ -1,8 +1,9 @@
 import type { H3Event } from 'h3'
 import { getRequestURL, setCookie, deleteCookie } from 'h3'
-import { SignJWT, jwtVerify } from 'jose'
-import type { CookieConfig, TokenConfig, TokenPayload } from '../../types'
-import { useRuntimeConfig } from '#imports'
+import { decodeJwt, jwtVerify, SignJWT } from 'jose'
+import type { CookieConfig, RefreshTokenData, TokenConfig, TokenPayload, TokenRefreshConfig } from '../../types'
+import { useRuntimeConfig, useStorage } from '#imports'
+import { createHash, randomBytes } from 'node:crypto'
 
 /**
  * Get OAuth redirect URI from the current request
@@ -12,6 +13,15 @@ import { useRuntimeConfig } from '#imports'
 export function getOAuthRedirectUri(event: H3Event): string {
   const requestURL = getRequestURL(event)
   return `${requestURL.protocol}//${requestURL.host}${requestURL.pathname}`
+}
+
+/**
+ * Hash a refresh token using SHA-256
+ * @param token - The refresh token to hash
+ * @returns The hashed token as a hex string
+ */
+export function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
 }
 
 /**
@@ -125,19 +135,32 @@ export async function updateTokenWithClaims(
 export async function verifyToken(
   token: string,
   secret: string,
+  checkExpiration: boolean = true,
 ): Promise<TokenPayload | null> {
-  try {
-    if (!token || !secret) {
-      return null
-    }
-
-    const secretKey = new TextEncoder().encode(secret)
-    const { payload } = await jwtVerify(token, secretKey)
-    return payload as TokenPayload
+  if (!token || !secret) {
+    return null
   }
-  catch (error) {
+
+  try {
+    const secretKey = new TextEncoder().encode(secret)
+    if (checkExpiration) {
+      const { payload } = await jwtVerify(token, secretKey)
+      return payload as TokenPayload
+    }
+    else {
+      // Decode without verifying expiration
+
+      // First decode to get the payload
+      const payload = decodeJwt(token) as TokenPayload
+
+      const beforeExpiry = new Date((payload.exp || Date.now()) - 1000)
+      await jwtVerify(token, secretKey, { currentDate: beforeExpiry })
+      return payload as TokenPayload
+    }
+  }
+  catch {
     if (import.meta.dev) {
-      console.error('[Nuxt Aegis] Token verification failed:', error)
+      console.error('[Nuxt Aegis] Token verification failed')
     }
     return null
   }
@@ -182,6 +205,31 @@ export function setRefreshTokenCookie(
 }
 
 /**
+ * Generate a refresh token and store it in the server-side storage
+ * @param sub - Subject identifier for the user
+ * @param tokenRefreshConfig - Refresh token configuration including expiration settings
+ * @returns Generated refresh token
+ */
+export async function generateAndStoreRefreshToken(
+  sub: string,
+  tokenRefreshConfig: TokenRefreshConfig,
+  previousTokenHash?: string,
+): Promise<string> {
+  const refreshToken = randomBytes(32).toString('base64url')
+
+  const expiresIn = tokenRefreshConfig.cookie?.maxAge || 604800
+
+  await useStorage('refreshTokenStore').setItem<RefreshTokenData>(hashRefreshToken(refreshToken), {
+    sub,
+    expiresAt: Date.now() + (expiresIn * 1000),
+    isRevoked: false,
+    previousTokenHash,
+  })
+
+  return refreshToken
+}
+
+/**
  * Generate an authentication token from user data with optional custom claims
  * This is the recommended way to generate tokens after successful OAuth authentication
  *
@@ -215,6 +263,7 @@ export async function generateAuthTokens(
 ): Promise<{ accessToken: string, refreshToken?: string }> {
   const config = useRuntimeConfig(event)
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
+  const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw new Error('Token configuration is missing. Please configure nuxtAegis.token in your nuxt.config.ts')
@@ -228,8 +277,8 @@ export async function generateAuthTokens(
     picture: user.picture,
   }
 
-  // TODO: Placeholder for future refresh token implementation
-  const refreshToken = 'blabla'
+  // Generate and store refresh token
+  const refreshToken = await generateAndStoreRefreshToken(payload.sub, tokenRefreshConfig)
 
   // Generate token with custom claims
   return {

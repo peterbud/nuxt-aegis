@@ -30,6 +30,25 @@ export interface TokenPayload {
 }
 
 /**
+ * Refresh token stored data interface
+ * Represents the data stored alongside a refresh token
+ * on the server side for validation and management
+ */
+export interface RefreshTokenData {
+  /** the subject, links the token back to the specific user account.  */
+  sub: string
+  /** Timestamp when the refresh token expires */
+  expiresAt: number
+  /**
+   * Allows for immediate revocation if the user logs out, changes a password,
+   * or a security event occurs
+   */
+  isRevoked: boolean
+  /** Timestamp when the refresh token was issued */
+  previousTokenHash?: string
+}
+
+/**
  * Runtime config for Nuxt Aegis
  */
 export interface NuxtAegisRuntimeConfig {
@@ -152,8 +171,6 @@ export interface CookieConfig {
 export interface TokenRefreshConfig {
   /** Enable automatic token refresh (default: true) */
   enabled?: boolean
-  /** Time threshold in seconds before token expiry to trigger refresh (default: 300 - 5 minutes) */
-  threshold?: number
   /** Automatically refresh tokens in the background (default: true) */
   automaticRefresh?: boolean
   /** Refresh token cookie configuration */
@@ -288,5 +305,13 @@ export interface OAuthConfig<TConfig, TResult = { user: any, tokens: any }> {
 declare module '@nuxt/schema' {
   interface RuntimeConfig {
     nuxtAegis?: NuxtAegisRuntimeConfig
+  }
+
+  interface PublicRuntimeConfig {
+    nuxtAegis?: {
+      authPath?: string
+      redirect?: RedirectConfig
+      tokenRefresh?: TokenRefreshConfig
+    }
   }
 }

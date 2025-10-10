@@ -28,7 +28,6 @@ export default defineNuxtModule<ModuleOptions>({
     },
     tokenRefresh: {
       enabled: true,
-      threshold: 300, // 5 minutes before expiry
       automaticRefresh: true,
       cookie: {
         cookieName: 'nuxt-aegis-refresh',
@@ -89,13 +88,7 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     // EP-11, EP-12, EP-13: Logout endpoint
-    addServerHandler({
-      route: `/api/user/logout`,
-      handler: resolver.resolve('./runtime/server/routes/logout.post'),
-      method: 'post',
-    })
 
-    // Add legacy logout route for backward compatibility
     addServerHandler({
       route: `/auth/logout`,
       handler: resolver.resolve('./runtime/server/routes/logout.post'),
@@ -134,5 +127,30 @@ export default defineNuxtModule<ModuleOptions>({
       clientId: options.providers?.google?.clientId || '',
       clientSecret: options.providers?.google?.clientSecret || '',
     })
+
+    // Public runtime config (exposed to client)
+    if (!runtimeConfig.public.nuxtAegis) {
+      runtimeConfig.public.nuxtAegis = {}
+    }
+    runtimeConfig.public.nuxtAegis.authPath = options.endpoints?.authPath || '/auth'
+    runtimeConfig.public.nuxtAegis.redirect = defu(runtimeConfig.public.nuxtAegis.redirect, options.redirect)
+    runtimeConfig.public.nuxtAegis.tokenRefresh = defu(runtimeConfig.public.nuxtAegis.tokenRefresh, options.tokenRefresh)
+
+    // extend nuxt config with nitro storage for refresh tokens
+    // Ensure the nitro configuration object exists
+    if (!nuxt.options.nitro) {
+      nuxt.options.nitro = {}
+    }
+
+    // Ensure the storage configuration object exists within nitro
+    if (!nuxt.options.nitro.storage) {
+      nuxt.options.nitro.storage = {}
+    }
+
+    // Add your desired storage configuration
+    nuxt.options.nitro.storage.refreshTokenStore = {
+      driver: 'fs',
+      base: './.data/refresh-tokens',
+    }
   },
 })

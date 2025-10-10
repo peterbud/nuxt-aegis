@@ -236,6 +236,14 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-27:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
 
+**EP-28:** WHERE `automaticRefresh` is enabled, the module SHALL automatically refresh access tokens.
+
+**EP-29:** WHEN automatic refresh is triggered, the module SHALL ensure only one refresh request is in-flight at a time to prevent endpoint overwhelming.
+
+**EP-30:** WHERE an API request receives a 401 Unauthorized response, the module SHALL attempt to refresh the token once and retry the original request before failing.
+
+**EP-31:** The module SHALL provide a manual `refresh()` method in the `useAuth()` composable for developer-initiated token refresh.
+
 ## 8. Configuration Requirements
 
 **CF-1:** WHEN configuring the module, developers SHALL be able to specify authentication provider settings in the Nuxt configuration file.

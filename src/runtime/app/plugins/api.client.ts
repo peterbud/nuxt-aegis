@@ -9,6 +9,41 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   if (nuxtApp.payload.serverRendered)
     return {}
 
+  let isRefreshing = false
+  let refreshPromise: Promise<string | null> | null = null
+  const autoRefreshEnabled = nuxtApp.$config?.public.nuxtAegis?.tokenRefresh?.automaticRefresh ?? true
+
+  async function attemptTokenRefresh(): Promise<string | null> {
+    if (isRefreshing) return refreshPromise
+
+    console.log('[Nuxt Aegis] Attempting token refresh...')
+    isRefreshing = true
+    refreshPromise = $fetch('/auth/refresh', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${sessionStorage.getItem('nuxt.aegis.token')}`,
+      },
+    }).then(async (response) => {
+      if (response && 'accessToken' in response && response.accessToken) {
+        await sessionStorage.setItem('nuxt.aegis.token', response.accessToken)
+
+        // Refresh auth state after successful token refresh
+        const { useAuth } = await import('../composables/useAuth')
+        await nuxtApp.runWithContext(async () => {
+          await useAuth().refresh()
+        })
+
+        return response.accessToken
+      }
+      return null
+    }).finally(() => {
+      isRefreshing = false
+      refreshPromise = null
+    })
+
+    return refreshPromise
+  }
+
   // EP-13: Use sessionStorage
   const api = $fetch.create({
     baseURL: 'http://localhost:3000',
@@ -20,14 +55,28 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         options.headers.set('Authorization', `Bearer ${token}`)
       }
     },
-    async onResponseError({ response }) {
-      if (response.status === 401) {
+    async onResponseError({ options, response }) {
+      if (response.status === 401 && autoRefreshEnabled) {
+        // Attempt token refresh
+        const newToken = await attemptTokenRefresh()
+
+        if (newToken) {
+          options.headers.set('Authorization', `Bearer ${newToken}`)
+          // Retry the request by re-throwing with retry
+          // ofetch will handle the retry automatically
+          return
+        }
+
+        // Refresh failed, clear token and redirect to login
+        sessionStorage.removeItem('nuxt.aegis.token')
         await nuxtApp.runWithContext(() => navigateTo('/'))
       }
     },
+    retry: autoRefreshEnabled ? 1 : 0,
+    retryStatusCodes: [401],
   })
 
-  // Expose to useNuxtApp().$api
+  // Expose as useNuxtApp().$api
   return {
     provide: {
       api,

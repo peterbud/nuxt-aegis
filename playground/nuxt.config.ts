@@ -17,6 +17,10 @@ export default defineNuxtConfig({
     token: {
       secret: env.NUXT_AEGIS_TOKEN_SECRET || '',
     },
+    tokenRefresh: {
+      enabled: true,
+      automaticRefresh: true,
+    },
     routeProtection: {
       // Configure routes that should automatically get the bearer token
       protectedRoutes: [

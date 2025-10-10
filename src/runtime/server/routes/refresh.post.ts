@@ -1,7 +1,7 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
-import { verifyToken, generateToken } from '../utils'
-import type { TokenConfig, CookieConfig, TokenPayload } from '../../types'
+import { getHeader, useRuntimeConfig, useStorage } from '#imports'
+import { generateToken, generateAndStoreRefreshToken, hashRefreshToken, verifyToken, setRefreshTokenCookie } from '../utils'
+import type { TokenConfig, CookieConfig, TokenPayload, RefreshTokenData, TokenRefreshConfig } from '../../types'
 
 /**
  * POST /auth/refresh
@@ -10,9 +10,11 @@ import type { TokenConfig, CookieConfig, TokenPayload } from '../../types'
  * EP-21: Return 401 when refresh token is invalid or expired
  */
 export default defineEventHandler(async (event) => {
+  console.log('[Nuxt Aegis] /auth/refresh endpoint called')
   const config = useRuntimeConfig()
   const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
+  const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw createError({
@@ -22,22 +24,40 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get current token from cookie
-  const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-session'
-  const currentToken = getCookie(event, cookieName)
+  // Get refresh token from cookie
+  const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-refresh'
+  const refreshToken = getCookie(event, cookieName)
 
-  if (!currentToken) {
+  if (!refreshToken) {
     // EP-21: Return 401 when no token provided
+    return
+    // throw createError({
+    //   statusCode: 401,
+    //   statusMessage: 'Unauthorized',
+    //   message: 'No authentication token found',
+    // })
+  }
+
+  // Try to read from Authorization header (Bearer token)
+  // which might be stale
+  let accessToken: string | undefined
+  const authHeader = getHeader(event, 'authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    // Remove 'Bearer ' prefix
+    accessToken = authHeader.substring(7)
+  }
+
+  if (!accessToken) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
-      message: 'No authentication token found',
+      message: 'No access token provided',
     })
   }
 
   try {
     // Verify the current token (even if expired, we can still extract payload for refresh)
-    const payload = await verifyToken(currentToken, tokenConfig.secret)
+    const payload = await verifyToken(accessToken, tokenConfig.secret, false)
 
     if (!payload) {
       // EP-21: Return 401 when token is invalid
@@ -48,19 +68,21 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if token is close to expiry or expired (refresh threshold)
-    const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh
-    const refreshThreshold = tokenRefreshConfig?.threshold || 300 // 5 minutes default
-    const now = Math.floor(Date.now() / 1000)
-    const expiresAt = payload.exp || 0
+    // retrieve the persisted data for refresh token
+    const hashedRefreshToken = await hashRefreshToken(refreshToken)
+    const storedRefreshToken = await useStorage('refreshTokenStore').getItem<RefreshTokenData>(hashedRefreshToken)
 
-    // Only refresh if token is within threshold or expired
-    if (expiresAt - now > refreshThreshold) {
-      return {
-        success: false,
-        message: 'Token refresh not needed yet',
-        expiresIn: expiresAt - now,
-      }
+    const isRevoked = storedRefreshToken?.isRevoked || false
+    const isExpired = storedRefreshToken?.expiresAt ? (Date.now() > storedRefreshToken.expiresAt) : true
+    const isDifferentSubject = storedRefreshToken?.sub !== payload.sub
+
+    if (!storedRefreshToken || isRevoked || isExpired || isDifferentSubject) {
+      // EP-21: Return 401 when token is invalid
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid or revoked refresh token',
+      })
     }
 
     // EP-20: Generate new JWT with same claims
@@ -77,14 +99,18 @@ export default defineEventHandler(async (event) => {
       ),
     }
 
-    const _newToken = await generateToken(newPayload, tokenConfig)
+    const newToken = await generateToken(newPayload, tokenConfig)
+    const newRefreshToken = await generateAndStoreRefreshToken(payload.sub, tokenRefreshConfig, hashedRefreshToken)
+    setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
 
-    // Set the new token as cookie
-    // setTokenCookie(event, newToken, cookieConfig)
+    // revoke the old refresh token
+    storedRefreshToken.isRevoked = true
+    await useStorage('refreshTokenStore').setItem<RefreshTokenData>(hashedRefreshToken, storedRefreshToken)
 
     return {
       success: true,
       message: 'Token refreshed successfully',
+      accessToken: newToken,
     }
   }
   catch (error) {

@@ -80,6 +80,12 @@ export function useAuth(): UseAuthReturn {
     }
 
     try {
+      // check for existing token in sessionStorage
+      const existingToken = sessionStorage.getItem('nuxt.aegis.token')
+      if (!existingToken) {
+        return
+      }
+
       // Fetch current user from the API
       const userData = await useNuxtApp().$api<TokenPayload>(
         '/api/user/me',
@@ -107,6 +113,13 @@ export function useAuth(): UseAuthReturn {
     authState.value.error = null
 
     try {
+      // check for existing token in sessionStorage
+      const existingToken = sessionStorage.getItem('nuxt.aegis.token')
+      if (!existingToken) {
+        authState.value.user = null
+        return
+      }
+
       const userData = await useNuxtApp().$api<TokenPayload>(
         '/api/user/me',
       )
@@ -156,16 +169,10 @@ export function useAuth(): UseAuthReturn {
       authState.value.error = null
 
       // Call logout endpoint - this will delete the httpOnly cookie
-      await useNuxtApp().$api('/api/user/logout', { method: 'POST' })
-
-      sessionStorage.removeItem('nuxt.aegis.token')
+      await useNuxtApp().$api('/auth/logout', { method: 'POST' })
 
       // Clear local auth state
       authState.value.user = null
-
-      // Redirect to specified URL or default
-      const logoutRedirect = redirectTo || '/'
-      await navigateTo(logoutRedirect)
     }
     catch (error) {
       // Clear state even if API call fails
@@ -176,6 +183,13 @@ export function useAuth(): UseAuthReturn {
       }
 
       // Still redirect on error
+      const logoutRedirect = redirectTo || '/'
+      await navigateTo(logoutRedirect)
+    }
+    finally {
+      sessionStorage.removeItem('nuxt.aegis.token')
+
+      // Redirect to specified URL or default
       const logoutRedirect = redirectTo || '/'
       await navigateTo(logoutRedirect)
     }

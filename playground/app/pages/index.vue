@@ -27,6 +27,10 @@ const testProtectedRoute = async () => {
     // because /api/user/** is in protectedRoutes
     const data = await useNuxtApp().$api('/api/user/profile')
     apiResponse.value = data || null
+    // convert expiresAt to readable date
+    if (apiResponse.value && (apiResponse.value).expiresAt) {
+      (apiResponse.value).expiresAt = new Date((apiResponse.value).expiresAt * 1000).toLocaleString()
+    }
   }
   catch (err: unknown) {
     error.value = (err as Error).message || 'Failed to fetch protected route'
