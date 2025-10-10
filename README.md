@@ -5,47 +5,192 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Nuxt module for authentication using OAuth providers, with JWT token generation and session management.
+A comprehensive authentication and authorization module for Nuxt 3/4 applications that provides OAuth-based authentication with JWT token management, automatic token refresh, and flexible route protection.
 
 - [✨ &nbsp;Release Notes](/CHANGELOG.md)
+- [📋 &nbsp;Requirements Specification](/specs/requirements.md)
 <!-- - [🏀 Online playground](https://stackblitz.com/github/your-org/nuxt-aegis?file=playground%2Fapp.vue) -->
-<!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
 ## Features
 
-<!-- Highlight some of the features your module provide here -->
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
+- � **OAuth 2.0 & OpenID Connect** - Support for Google, Microsoft Entra ID, GitHub, and Auth0 providers
+- 🎫 **JWT Token Management** - Automatic generation and validation of JSON Web Tokens (RFC 7519)
+- 🔄 **Automatic Token Refresh** - Built-in token refresh with configurable expiration times
+- 🛡️ **Route Protection** - Flexible middleware for protecting server and client routes with declarative configuration
+- 🎨 **Custom Claims** - Add application-specific claims to JWT tokens
+- 🍪 **Secure Cookie Management** - HTTP-only, secure cookies for refresh tokens
+- ⚡ **SSR Ready** - TODO: Full server-side rendering support with state hydration
+- 🔌 **Extensible Providers** - Easy to add custom OAuth providers
+- 🥽 **Type Safe** - Written in TypeScript with full type definitions
+- ⚒️ **Composable API** - Simple `useAuth()` composable for client-side authentication state
+
+## Table of Contents
+
+- [Quick Setup](#quick-setup)
+- [Configuration](#configuration)
+- [Authentication Providers](#authentication-providers)
+- [Usage](#usage)
+  - [Client-Side Authentication](#client-side-authentication)
+  - [Server-Side Route Protection](#server-side-route-protection)
+  - [Custom Claims](#custom-claims)
+  - [Token Refresh](#token-refresh)
+- [API Endpoints](#api-endpoints)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Development](#development)
+- [Advanced Topics](#advanced-topics)
 
 ## Quick Setup
 
-Install the module to your Nuxt application with one command:
+1. Install the module to your Nuxt application:
 
 ```bash
 npx nuxi module add nuxt-aegis
 ```
 
-That's it! You can now use Nuxt Aegis in your Nuxt app ✨
-
-# Token Generation with Custom Claims
-
-This guide explains how to generate JWT tokens with custom claims after successful OAuth authentication.
-
-## Overview
-
-After a user successfully authenticates via an OAuth provider (e.g., Google, Microsoft, Github), you'll want to:
-1. Generate a JWT token with standard claims (sub, email, name, etc.)
-2. Add custom claims specific to your application (role, permissions, etc.)
-3. Store the token securely in an HTTP-only cookie
-
-## Standard Approach
-
-### Using `generateAuthToken` Helper
-
-The recommended way is to use the `generateAuthToken` helper function in your OAuth handler's `onSuccess` callback:
+2. Configure the module in your `nuxt.config.ts`:
 
 ```typescript
+export default defineNuxtConfig({
+  modules: ['nuxt-aegis'],
+  
+  nuxtAegis: {
+    token: {
+      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!, // Required
+      expiresIn: '1h',
+      algorithm: 'HS256',
+      issuer: 'https://myapp.com',
+      audience: 'https://myapp.com/api',
+    },
+    providers: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
+  },
+})
+```
+
+3. Set up your environment variables:
+
+```bash
+NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-here
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+That's it! You can now use Nuxt Aegis in your Nuxt app ✨
+
+## Configuration
+
+### Complete Configuration Example
+
+```typescript
+export default defineNuxtConfig({
+  modules: ['nuxt-aegis'],
+  
+  nuxtAegis: {
+    // JWT Token Configuration
+    token: {
+      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!, // Required
+      expiresIn: '1h',              // Access token expiration (default: 15 minutes)
+      algorithm: 'HS256',           // Signing algorithm (HS256 or RS256)
+      issuer: 'https://myapp.com',  // Token issuer
+      audience: 'https://myapp.com/api', // Token audience
+    },
+    
+    // Token Refresh Configuration
+    tokenRefresh: {
+      enabled: true,
+      automaticRefresh: true,       // Auto-refresh expired tokens
+      cookie: {
+        cookieName: 'nuxt-aegis-refresh',
+        maxAge: 60 * 60 * 24 * 7,   // 7 days
+        secure: true,
+        sameSite: 'lax',
+        httpOnly: true,
+        path: '/',
+      },
+    },
+    
+    // Redirect URLs after successful login/logout
+    redirect: {
+      login: '/',
+      logout: '/',
+    },
+    
+    // Route Protection
+    routeProtection: {
+      protectedRoutes: ['/dashboard/**', '/admin/**'],
+      publicRoutes: ['/login', '/about'],
+    },
+    
+    // API Endpoint Configuration
+    endpoints: {
+      authPath: '/auth',
+    },
+    
+    // OAuth Providers
+    providers: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+      // Add more providers as needed
+    },
+  },
+})
+```
+
+### Configuration Options
+
+#### Token Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `secret` | `string` | - | **Required**. Secret key for signing JWTs |
+| `expiresIn` | `string \| number` | `'1h'` | Access token expiration time |
+| `algorithm` | `'HS256' \| 'RS256'` | `'HS256'` | JWT signing algorithm |
+| `issuer` | `string` | `'nuxt-aegis'` | Token issuer claim |
+| `audience` | `string` | `''` | Token audience claim |
+
+#### Token Refresh Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable token refresh functionality |
+| `automaticRefresh` | `boolean` | `true` | Auto-refresh tokens before expiration |
+| `cookie.cookieName` | `string` | `'nuxt-aegis-refresh'` | Refresh token cookie name |
+| `cookie.maxAge` | `number` | `604800` | Cookie max age in seconds (7 days) |
+| `cookie.httpOnly` | `boolean` | `true` | HTTP-only flag for security |
+| `cookie.secure` | `boolean` | `true` | Secure flag (HTTPS only) |
+| `cookie.sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` | SameSite cookie attribute |
+
+## Authentication Providers
+
+Nuxt Aegis supports multiple OAuth providers out of the box.
+
+### Google OAuth
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    providers: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
+  },
+})
+```
+
+**Server-side handler**:
+
+```typescript
+// server/routes/auth/google.get.ts
 import { generateAuthToken, setTokenCookie } from '#nuxt-aegis/server/utils'
 
 export default defineOAuthGoogleEventHandler({
@@ -53,40 +198,155 @@ export default defineOAuthGoogleEventHandler({
     scopes: ['openid', 'profile', 'email'],
   },
   async onSuccess(event, { user, tokens }) {
-    // Generate token with custom claims
+    // Add custom claims
     const customClaims = {
       role: 'user',
-      permissions: ['read', 'write'],
-      department: 'engineering',
-      isActive: true,
+      permissions: ['read'],
     }
 
     const token = await generateAuthToken(event, user, customClaims)
-
-    // Set the token as a secure HTTP-only cookie
     const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
     setTokenCookie(event, token, sessionConfig)
   },
 })
 ```
 
-## Custom Claims
+### Custom Provider
 
-### Static Custom Claims
-
-You can provide static custom claims as a plain object:
+You can implement custom OAuth providers by extending the base provider:
 
 ```typescript
-const token = await generateAuthToken(event, user, {
-  role: 'admin',
-  department: 'engineering',
-  accountType: 'premium',
+// server/utils/customProvider.ts
+import { OAuthBaseProvider } from '#nuxt-aegis/server/providers'
+
+export class CustomOAuthProvider extends OAuthBaseProvider {
+  constructor(config) {
+    super({
+      name: 'custom',
+      authorizationURL: 'https://provider.com/oauth/authorize',
+      tokenURL: 'https://provider.com/oauth/token',
+      userInfoURL: 'https://provider.com/oauth/userinfo',
+      ...config,
+    })
+  }
+}
+```
+
+## Usage
+
+### Client-Side Authentication
+
+Use the `useAuth()` composable in your Vue components:
+
+```vue
+<script setup lang="ts">
+const { isLoggedIn, isLoading, user, login, logout, refresh } = useAuth()
+</script>
+
+<template>
+  <div>
+    <div v-if="isLoading">
+      Loading...
+    </div>
+    <div v-else-if="isLoggedIn">
+      <p>Welcome, {{ user?.name }}!</p>
+      <img :src="user?.picture" alt="Profile" />
+      <button @click="logout">Logout</button>
+    </div>
+    <div v-else>
+      <button @click="login('google')">Login with Google</button>
+    </div>
+  </div>
+</template>
+```
+
+#### useAuth() API
+
+The `useAuth()` composable provides:
+
+**Properties:**
+- `isLoggedIn: Ref<boolean>` - Whether user is authenticated
+- `isLoading: Ref<boolean>` - Whether auth state is loading
+- `user: Ref<User | null>` - Current user data from JWT claims
+
+**Methods:**
+- `login(provider: string): Promise<void>` - Initiate OAuth login
+- `logout(): Promise<void>` - End user session
+- `refresh(): Promise<void>` - Manually refresh access token
+
+### Server-Side Route Protection
+
+Protect your API routes using the built-in middleware:
+
+```typescript
+// server/api/protected/data.get.ts
+export default defineEventHandler(async (event) => {
+  // User data is automatically injected
+  // by the modules' servers side auth middleware
+  const user = event.context.user
+  
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      message: 'Unauthorized'
+    })
+  }
+  
+  // Access user claims
+  console.log(user.email, user.role, user.permissions)
+  
+  return {
+    message: 'Protected data',
+    user,
+  }
 })
 ```
 
-### Dynamic Custom Claims
+#### Route Protection Configuration
 
-Generate custom claims based on user data:
+Configure which routes require authentication:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    routeProtection: {
+      // These routes require authentication
+      protectedRoutes: [
+        '/api/user/**',
+        '/api/admin/**',
+        '/dashboard/**',
+      ],
+      // These routes are public (bypass auth)
+      publicRoutes: [
+        '/api/public/**',
+        '/login',
+        '/about',
+      ],
+    },
+  },
+})
+```
+
+**Note:** If a route matches both protected and public patterns, it's treated as public.
+
+### Custom Claims
+
+Add application-specific data to your JWT tokens:
+
+#### Static Custom Claims
+
+```typescript
+const customClaims = {
+  role: 'admin',
+  department: 'engineering',
+  accountType: 'premium',
+}
+
+const token = await generateAuthToken(event, user, customClaims)
+```
+
+#### Dynamic Custom Claims
 
 ```typescript
 const customClaims = {
@@ -99,9 +359,7 @@ const customClaims = {
 const token = await generateAuthToken(event, user, customClaims)
 ```
 
-### Database Lookups
-
-Fetch additional user data from your database:
+#### Database Lookups
 
 ```typescript
 async onSuccess(event, { user, tokens }) {
@@ -120,291 +378,491 @@ async onSuccess(event, { user, tokens }) {
 }
 ```
 
-## Supported Claim Types
+#### Supported Claim Types
 
-The following types are supported for custom claims:
+- ✅ `string` - Text values
+- ✅ `number` - Numeric values
+- ✅ `boolean` - True/false values
+- ✅ `Array<string | number | boolean>` - Arrays of primitives
+- ✅ `null` - Null values
+- ❌ Objects, functions, undefined (not allowed)
 
-- `string` - Text values
-- `number` - Numeric values
-- `boolean` - True/false values
-- `Array<string | number | boolean>` - Arrays of primitives
-- `null` - Null values
-
-**Example:**
-
-```typescript
-const customClaims = {
-  role: 'admin',                            // string
-  age: 30,                                  // number
-  isActive: true,                           // boolean
-  permissions: ['read', 'write', 'delete'], // array
-  tags: [1, 2, 3],                          // array of numbers
-  metadata: null,                           // null
-}
-```
-
-## Reserved Claims
+#### Reserved Claims
 
 The following JWT claims are **reserved** and cannot be overridden:
 
-- `iss` - Issuer (configured in `nuxt.config.ts`)
-- `sub` - Subject (user identifier)
-- `exp` - Expiration time (configured in `nuxt.config.ts`)
-- `iat` - Issued at (automatically set)
-- `nbf` - Not before (if set)
-- `jti` - JWT ID (if set)
-- `aud` - Audience (configured in `nuxt.config.ts`)
+`iss`, `sub`, `exp`, `iat`, `nbf`, `jti`, `aud`
 
 If you attempt to override these claims, they will be filtered out and a warning will be logged.
 
-## Standard Claims in Generated Token
+### Token Refresh
 
-The `generateAuthToken` function automatically includes these standard claims:
+Nuxt Aegis provides automatic token refresh to maintain user sessions.
 
-- `sub` - User's subject identifier (from `user.sub` or `user.email` or `user.id`)
-- `email` - User's email address
-- `name` - User's full name
-- `picture` - User's profile picture URL
-- `iss` - Issuer (if configured)
-- `aud` - Audience (if configured)
-- `iat` - Issued at timestamp
-- `exp` - Expiration timestamp
+#### Automatic Refresh
 
-## Configuration
-
-Configure your token settings in `nuxt.config.ts`:
+When enabled, tokens are automatically refreshed when expired:
 
 ```typescript
+// nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
-  
   nuxtAegis: {
-    token: {
-      secret: process.env.JWT_SECRET!,
-      expiresIn: '1h',  // or 3600 for seconds
-      algorithm: 'HS256',
-      issuer: 'https://myapp.com',
-      audience: 'https://myapp.com/api',
-    },
-    session: {
-      cookieName: 'auth-token',
-      maxAge: 604800, // 7 days
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
+    tokenRefresh: {
+      enabled: true,
+      automaticRefresh: true, // Enable automatic refresh
     },
   },
 })
 ```
 
-## Complete Example
+The module automatically:
+1. Handles access token expiration
+2. Refreshes tokens when they have expired (if refresh token is still valid)
+3. Retries failed API requests after token refresh
+4. Prevents multiple simultaneous refresh requests
 
-Here's a complete example showing all the pieces together:
+#### Manual Refresh
+
+You can manually refresh tokens using the composable:
+
+```vue
+<script setup lang="ts">
+const { refresh } = useAuth()
+
+async function refreshToken() {
+  try {
+    await refresh()
+    console.log('Token refreshed successfully')
+  } catch (error) {
+    console.error('Token refresh failed', error)
+  }
+}
+</script>
+```
+
+## API Endpoints
+
+Nuxt Aegis automatically creates the following endpoints:
+
+### Authentication Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/{provider}` | GET | Initiate OAuth login with provider |
+| `/auth/callback` | GET | Client-side callback page |
+| `/auth/logout` | POST | End user session |
+| `/auth/refresh` | POST | Refresh access token |
+| `/api/user/me` | GET | Get current user info |
+
+### Provider-Specific Endpoints
+
+For each configured provider (e.g., Google), the following endpoints are created:
+
+- **Login**: `/auth/google` - Redirects to Google OAuth
+
+### Using Endpoints
+
+#### Login
 
 ```typescript
-import { generateAuthToken, setTokenCookie } from '#nuxt-aegis/server/utils'
+// Redirect user to login
+navigateTo('/auth/google')
 
-export default defineOAuthGoogleEventHandler({
-  config: {
-    scopes: ['openid', 'profile', 'email'],
-  },
+// Or use the composable
+const { login } = useAuth()
+await login('google')
+```
+
+#### Logout
+
+```typescript
+// Client-side
+const { logout } = useAuth()
+await logout()
+
+// Or make a direct API call
+await $fetch('/auth/logout', { method: 'POST' })
+```
+
+#### Get Current User
+
+```typescript
+// Server-side
+const user = await $fetch('/api/user/me', {
+  headers: {
+    Authorization: `Bearer ${accessToken}`
+  }
+})
+
+// or use client side `useAuth()`composable
+const { user } = useAuth()
+
+```
+
+#### Refresh Token
+
+```typescript
+const { token } = await $fetch('/auth/refresh', {
+  method: 'POST'
+})
+```
+
+## Architecture
+
+### Project Structure
+
+```
+src/
+├── module.ts                          # Module entry point
+├── runtime/
+    ├── app/                           # Client-side code
+    │   ├── composables/
+    │   │   └── useAuth.ts             # Auth composable
+    │   ├── pages/
+    │   │   └── AuthCallback.vue       # OAuth callback page
+    │   └── plugins/
+    │       └── api.client.ts          # Auth state plugin
+    ├── server/                        # Server-side code
+    │   ├── middleware/
+    │   │   └── auth.ts                # Route protection middleware
+    │   ├── providers/
+    │   │   ├── oauthBase.ts           # Base OAuth provider
+    │   │   └── google.ts              # Google OAuth provider
+    │   ├── routes/
+    │   │   ├── logout.post.ts         # Logout endpoint
+    │   │   ├── me.get.ts              # User info endpoint
+    │   │   └── refresh.post.ts        # Token refresh endpoint
+    │   └── utils/
+    │       └── index.ts               # Token utilities
+    └── types/
+        └── index.ts                   # TypeScript definitions
+```
+
+### Authentication Flow
+
+```
+1. User clicks "Login with Google"
+   ↓
+2. Client redirects to /auth/google
+   ↓
+3. Server redirects to Google OAuth
+   ↓
+4. User authenticates with Google
+   ↓
+5. Google redirects to /auth/google
+   ↓
+6. Server exchanges code for tokens
+   ↓
+7. Server generates JWT with custom claims
+   ↓
+8. Server sets refresh token as HTTP-only cookie
+   ↓
+9. Server redirects to /auth/callback with access token in URL hash
+   ↓
+10. Client stores access token in sessionStorage
+    ↓
+11. Client redirects to protected route or home page
+```
+
+### Token Management
+
+- **Access Token**: Stored in `sessionStorage`, short-lived (default: 1 hour)
+- **Refresh Token**: Stored in HTTP-only cookie, long-lived (default: 7 days)
+- **Auto-Refresh**: Access tokens are automatically refreshed before expiration
+- **Security**: Refresh tokens are never accessible to JavaScript
+
+## Security
+
+Nuxt Aegis implements security best practices:
+
+### Token Security
+
+✅ **HTTP-Only Cookies** - Refresh tokens stored in HTTP-only cookies (not accessible via JavaScript)  
+✅ **Secure Cookies** - Cookies only sent over HTTPS in production  
+✅ **SameSite Protection** - CSRF protection via SameSite cookie attribute  
+✅ **Short-lived Access Tokens** - Access tokens expire quickly (default: 1 hour)  
+✅ **Token Rotation** - New refresh tokens issued on each refresh
+
+### Transport Security
+
+✅ **HTTPS Required** - Enforced in production environments
+✅ **No Token Exposure** - Access tokens cleared from URL after processing
+✅ **No Logging of Secrets** - Secrets never logged or exposed in errors
+
+### Validation
+
+✅ **Signature Verification** - All JWTs verified before use
+✅ **Expiration Checking** - Expired tokens rejected automatically
+✅ **Issuer Validation** - Token issuer validated against configuration
+✅ **Audience Validation** - Token audience validated when configured
+
+### Best Practices
+
+1. **Use Strong Secrets** - Use cryptographically secure random strings (min 32 characters)
+2. **Environment Variables** - Never commit secrets to version control
+3. **HTTPS Only** - Always use HTTPS in production
+4. **Token Expiration** - Balance security with user experience
+5. **Claim Validation** - Validate claims on the server side
+6. **Minimal Claims** - Keep tokens small (avoid large custom claims)
+7. **No Sensitive Data** - Don't store sensitive data in JWTs (they're base64 encoded, not encrypted)
+
+## Development
+
+### Local Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/peterbud/nuxt-aegis.git
+cd nuxt-aegis
+
+# Install dependencies
+pnpm install
+
+# Generate type stubs
+pnpm run dev:prepare
+
+# Start development server with playground
+pnpm run dev
+
+# Build the playground
+pnpm run dev:build
+```
+
+### Testing
+
+```bash
+# Run tests
+pnpm run test
+
+# Run tests in watch mode
+pnpm run test:watch
+
+# Type checking
+pnpm run test:types
+```
+
+### Linting
+
+```bash
+# Run ESLint
+pnpm run lint
+
+# Fix linting issues
+pnpm run lint:fix
+```
+
+### Building
+
+```bash
+# Build the module
+pnpm run build
+
+# Prepare for publishing
+pnpm run prepack
+```
+
+### Releasing
+
+```bash
+# Create a new release
+pnpm run release
+```
+
+This will:
+1. Run linting
+2. Run tests
+3. Build the module
+4. Generate changelog
+5. Publish to npm
+6. Push git tags
+
+## Advanced Topics
+
+### Custom Provider Implementation
+
+Create a custom OAuth provider by extending the base class:
+
+```typescript
+// server/utils/customProvider.ts
+import { OAuthBaseProvider } from '#nuxt-aegis/server/providers'
+
+export class CustomOAuthProvider extends OAuthBaseProvider {
+  constructor(config) {
+    super({
+      name: 'custom',
+      authorizationURL: 'https://provider.com/oauth/authorize',
+      tokenURL: 'https://provider.com/oauth/token',
+      userInfoURL: 'https://provider.com/oauth/userinfo',
+      scopes: ['openid', 'profile', 'email'],
+      ...config,
+    })
+  }
+
+  // Override methods if needed
+  async getUserInfo(accessToken: string) {
+    // Custom user info retrieval
+    const response = await fetch(this.userInfoURL, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    return response.json()
+  }
+}
+
+// Define the event handler
+export const defineOAuthCustomEventHandler = (options) => {
+  return defineEventHandler(async (event) => {
+    const provider = new CustomOAuthProvider(options.config)
+    return provider.handleOAuthFlow(event, options)
+  })
+}
+```
+
+### Claim Validation
+
+Validate custom claims in protected routes:
+
+```typescript
+// server/middleware/adminOnly.ts
+export default defineEventHandler((event) => {
+  const user = event.context.user
   
-  async onSuccess(event, { user, tokens }) {
-    try {
-      // 1. Fetch additional user data from your database
-      const userProfile = await getUserFromDatabase(user.email)
-      
-      // 2. Determine user role and permissions
-      const role = determineUserRole(user, userProfile)
-      const permissions = getPermissionsForRole(role)
-      
-      // 3. Build custom claims
-      const customClaims = {
-        role,
-        permissions,
-        organizationId: userProfile?.organizationId,
-        emailVerified: user.email_verified || false,
-        accountType: userProfile?.accountType || 'free',
-        features: userProfile?.enabledFeatures || [],
-      }
-      
-      // 4. Generate JWT with custom claims
-      const token = await generateAuthToken(event, user, customClaims)
-      
-      // 5. Set token as secure HTTP-only cookie
-      const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
-      setTokenCookie(event, token, sessionConfig)
-      
-      // 6. Update login timestamp in database
-      await updateLastLogin(user.email)
-      
-      console.log(`User ${user.email} logged in successfully`)
-      
-    } catch (error) {
-      console.error('Error during authentication:', error)
-      throw error
-    }
-  },
-  
-  onError(event, error) {
-    console.error('OAuth error:', error)
-    // Handle error appropriately
+  if (!user || user.role !== 'admin') {
+    throw createError({
+      statusCode: 403,
+      message: 'Admin access required'
+    })
+  }
+})
+```
+
+### Custom Redirect URLs
+
+Configure different redirect URLs for success and error scenarios:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    redirect: {
+      login: '/dashboard',      // After successful login
+      logout: '/goodbye',       // After logout
+      error: '/auth-error',     // On authentication error
+    },
   },
 })
 ```
 
-## Best Practices
+### TODO: SSR Considerations
 
-1. **Keep tokens small** - Don't add too many claims, as JWTs are sent with every request
-2. **Don't store sensitive data** - JWTs can be decoded by anyone (they're just base64 encoded)
-3. **Use appropriate expiration times** - Balance security with user experience
-4. **Validate claims on the server** - Always verify claims when processing requests
-5. **Use secure cookies** - Set `httpOnly`, `secure`, and appropriate `sameSite` values
-6. **Log authentication events** - Track logins for security and debugging
-7. **Handle errors gracefully** - Provide meaningful error messages
+The module fully supports SSR with automatic state hydration:
+
+```vue
+<script setup lang="ts">
+// This works seamlessly with SSR
+const { isLoggedIn, user } = useAuth()
+</script>
+
+<template>
+  <div>
+    <!-- User data is hydrated from server -->
+    <p v-if="isLoggedIn">Welcome back, {{ user?.name }}!</p>
+  </div>
+</template>
+```
 
 ## Troubleshooting
 
 ### Token generation fails
 
-Make sure you've configured the token secret in your `nuxt.config.ts`:
+**Problem**: JWT token generation fails  
+**Solution**: Ensure you've configured the token secret:
 
 ```typescript
-nuxtAegis: {
-  token: {
-    secret: process.env.JWT_SECRET!,
-  },
-}
+// nuxt.config.ts or .env
+NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-here
 ```
 
 ### Custom claims not appearing in token
 
-Check that:
-1. The claim values are of supported types (string, number, boolean, array, null)
-2. You're not trying to override reserved claims
+**Problem**: Custom claims are missing from the JWT  
+
+**Check:**
+1. Claim values are of supported types (string, number, boolean, array, null)
+2. You're not trying to override reserved claims (`iss`, `sub`, `exp`, etc.)
 3. You're passing the customClaims object to `generateAuthToken`
+
+```typescript
+// ✅ Correct
+const token = await generateAuthToken(event, user, {
+  role: 'admin',
+  permissions: ['read', 'write'],
+})
+
+// ❌ Wrong (objects not supported)
+const token = await generateAuthToken(event, user, {
+  metadata: { foo: 'bar' }, // Objects not allowed
+})
+```
 
 ### Cookie not being set
 
-Verify your session configuration and ensure you're calling `setTokenCookie` after generating the token.
+**Problem**: Refresh token cookie not set  
 
-# Quick Reference: Token Generation with Custom Claims
-
-## Import
+**Solution**: Verify session configuration and ensure you're calling `setTokenCookie`:
 
 ```typescript
-import { generateAuthToken, setTokenCookie } from '#nuxt-aegis/server/utils'
+const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
+setTokenCookie(event, token, sessionConfig)
 ```
 
-## Basic Pattern
+### 401 Unauthorized on protected routes
 
-```typescript
-export default defineOAuthGoogleEventHandler({
-  async onSuccess(event, { user, tokens }) {
-    const token = await generateAuthToken(event, user, {
-      // Add your custom claims here
-      role: 'user',
-      permissions: ['read'],
-    })
-    
-    setTokenCookie(event, token)
-  },
-})
-```
+**Problem**: Authenticated users getting 401 errors  
 
-## Common Patterns
+**Check:**
+1. Access token is being sent in Authorization header
+2. Token hasn't expired
+3. Route is correctly configured in `protectedRoutes`
+4. Token secret matches between generation and validation
 
-### Static Claims
-```typescript
-const token = await generateAuthToken(event, user, {
-  role: 'admin',
-  department: 'IT',
-})
-```
+## Contributing
 
-### Conditional Claims
-```typescript
-const claims = {
-  role: user.email.endsWith('@admin.com') ? 'admin' : 'user',
-  isPremium: checkPremiumStatus(user),
-}
-const token = await generateAuthToken(event, user, claims)
-```
+Contributions are welcome! Please read the following guidelines:
 
-### Database Lookup
-```typescript
-const profile = await db.users.findOne({ email: user.email })
-const token = await generateAuthToken(event, user, {
-  role: profile.role,
-  orgId: profile.organizationId,
-})
-```
+### Development Workflow
 
-## Standard Claims (Automatic)
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and linting (`pnpm test && pnpm lint`)
+5. Commit your changes using conventional commits
+6. Push to your branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-- `sub` - User ID
-- `email` - User email
-- `name` - User name
-- `picture` - Avatar URL
-- `iss` - Issuer (from config)
-- `aud` - Audience (from config)
-- `iat` - Issued at
-- `exp` - Expires at
 
-## Reserved Claims (Cannot Override)
+## License
 
-`iss`, `sub`, `exp`, `iat`, `nbf`, `jti`, `aud`
+[MIT License](./LICENSE)
 
-## Allowed Types
+Copyright (c) 2025 Peter Budai
 
-✅ string, number, boolean, array, null
-❌ objects, functions, undefined
+## Acknowledgments
 
-## Configuration (nuxt.config.ts)
+- Built with [Nuxt Module Builder](https://github.com/nuxt/module-builder)
+- JWT handling powered by [jose](https://github.com/panva/jose)
+- Heavily inspired by the [nuxt-auth-utils](https://github.com/atinux/nuxt-auth-utils) and  Nuxt community
 
-```typescript
-nuxtAegis: {
-  token: {
-    secret: process.env.JWT_SECRET!,
-    expiresIn: '1h',
-    algorithm: 'HS256',
-    issuer: 'https://myapp.com',
-    audience: 'https://myapp.com/api',
-  },
-}
-```
+## Support
 
-## Contribution
+- 📖 [Documentation](https://github.com/peterbud/nuxt-aegis)
+- 📋 [Requirements Specification](/specs/requirements.md)
+- 🐛 [Issue Tracker](https://github.com/peterbud/nuxt-aegis/issues)
 
-<details>
-  <summary>Local development</summary>
-  
-  ```bash
-  # Install dependencies
-  npm install
-  
-  # Generate type stubs
-  npm run dev:prepare
-  
-  # Develop with the playground
-  npm run dev
-  
-  # Build the playground
-  npm run dev:build
-  
-  # Run ESLint
-  npm run lint
-  
-  # Run Vitest
-  npm run test
-  npm run test:watch
-  
-  # Release new version
-  npm run release
-  ```
+---
 
-</details>
-
+Made with ❤️ for the Nuxt community
 
 <!-- Badges -->
 [npm-version-src]: https://img.shields.io/npm/v/nuxt-aegis/latest.svg?style=flat&colorA=020420&colorB=00DC82
