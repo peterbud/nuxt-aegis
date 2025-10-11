@@ -1,6 +1,6 @@
 import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { verifyToken } from '../utils'
+import { verifyToken } from '../utils/jwt'
 import type { TokenConfig } from '../../types'
 
 /**

@@ -1,6 +1,5 @@
 import { defineEventHandler } from 'h3'
-import { useRuntimeConfig } from '#imports'
-import { clearToken } from '../utils'
+import { useRuntimeConfig, clearToken } from '#imports'
 import type { CookieConfig } from '../../types'
 
 /**

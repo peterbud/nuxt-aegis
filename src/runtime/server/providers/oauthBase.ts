@@ -1,9 +1,8 @@
-import { eventHandler, getQuery, sendRedirect, createError } from 'h3'
+import { eventHandler, getRequestURL, getQuery, sendRedirect, createError } from 'h3'
 import type { H3Event, H3Error } from 'h3'
 import type { OAuthConfig, OAuthProviderConfig, CustomClaimsCallback, NuxtAegisRuntimeConfig } from '../../types'
 import { defu } from 'defu'
-import { useRuntimeConfig } from '#imports'
-import { getOAuthRedirectUri, generateAuthTokens, setRefreshTokenCookie } from '../utils'
+import { useRuntimeConfig, generateAuthTokens, setRefreshTokenCookie } from '#imports'
 import { withQuery } from 'ufo'
 
 // Extract provider keys from the runtime config type
@@ -41,6 +40,16 @@ interface _OAuthTokenResponse {
   id_token?: string
   expires_in?: number
   token_type?: string
+}
+
+/**
+ * Get OAuth redirect URI from the current request
+ * @param event - H3Event object
+ * @returns Full redirect URI including protocol, host and pathname
+ */
+function getOAuthRedirectUri(event: H3Event): string {
+  const requestURL = getRequestURL(event)
+  return `${requestURL.protocol}//${requestURL.host}${requestURL.pathname}`
 }
 
 /**

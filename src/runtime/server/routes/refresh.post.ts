@@ -1,6 +1,14 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
-import { getHeader, useRuntimeConfig, useStorage } from '#imports'
-import { generateToken, generateAndStoreRefreshToken, hashRefreshToken, verifyToken, setRefreshTokenCookie } from '../utils'
+import {
+  generateToken,
+  generateAndStoreRefreshToken,
+  hashRefreshToken,
+  verifyToken,
+  setRefreshTokenCookie,
+  getHeader,
+  useRuntimeConfig,
+  useStorage,
+} from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, RefreshTokenData, TokenRefreshConfig } from '../../types'
 
 /**
