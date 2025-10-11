@@ -34,7 +34,7 @@ export interface OAuthProviderImplementation<TKey extends ProviderKey = Provider
 /**
  * OAuth token response interface
  */
-interface _OAuthTokenResponse {
+interface OAuthTokenResponse {
   access_token: string
   refresh_token?: string
   id_token?: string
@@ -63,7 +63,6 @@ export function defineOAuthEventHandler<
   implementation: OAuthProviderImplementation<TKey>,
   {
     config,
-    onSuccess,
     onError,
     customClaims,
   }: OAuthConfig<TConfig>,
@@ -104,7 +103,7 @@ export function defineOAuthEventHandler<
 
       // EP-6: Step 2 - Exchange authorization code for tokens
       const tokenBody = implementation.buildTokenBody(mergedConfig, query.code, redirectUri)
-      const tokenResponse = await $fetch(implementation.tokenUrl, {
+      const tokenResponse = await $fetch<OAuthTokenResponse>(implementation.tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -151,29 +150,20 @@ export function defineOAuthEventHandler<
         }
       }
 
-      // EP-7: Step 5 - Generate and set authentication token
-      if (!onSuccess) {
-        const { accessToken, refreshToken } = await generateAuthTokens(event, user, resolvedCustomClaims)
-        const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie
+      // EP-7: Step 5 - Generate and set authentication tokens
+      const { accessToken, refreshToken } = await generateAuthTokens(event, user, resolvedCustomClaims)
+      const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie
 
-        // EP-8: Set refresh token as a secure, HttpOnly cookie
-        if (refreshToken) {
-          setRefreshTokenCookie(event, refreshToken, cookieConfig)
-        }
-
-        // EP-9: Redirect to client-side callback with access token in hash
-        const redirectUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
-        redirectUrl.hash = `access_token=${encodeURIComponent(accessToken)}`
-
-        return sendRedirect(event, redirectUrl.href)
+      // EP-8: Set refresh token as a secure, HttpOnly cookie
+      if (refreshToken) {
+        setRefreshTokenCookie(event, refreshToken, cookieConfig)
       }
 
-      // Step 6: Call custom onSuccess handler
-      if (onSuccess) {
-        return await onSuccess(event, { user, tokens })
-      }
+      // EP-9: Redirect to client-side callback with access token in hash
+      const redirectUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
+      redirectUrl.hash = `access_token=${encodeURIComponent(accessToken)}`
 
-      return sendRedirect(event, '/')
+      return sendRedirect(event, redirectUrl.href)
     }
     catch (error) {
       if (import.meta.dev) {

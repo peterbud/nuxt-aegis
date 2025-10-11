@@ -37,20 +37,17 @@ const googleImplementation: OAuthProviderImplementation = {
  * Create a Google OAuth event handler
  * @param options - Configuration object
  * @param options.config - Google OAuth provider configuration
- * @param options.onSuccess - Success callback function
  * @param options.onError - Error callback function
  * @param options.customClaims - Custom claims to add to JWT
  * @returns Event handler for Google OAuth authentication
  */
 export function defineOAuthGoogleEventHandler({
   config,
-  onSuccess,
   onError,
   customClaims,
 }: OAuthConfig<GoogleProviderConfig>) {
   return defineOAuthEventHandler(googleImplementation, {
     config,
-    onSuccess,
     onError,
     customClaims,
   })

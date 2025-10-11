@@ -292,13 +292,8 @@ export type CustomClaimsCallback<TUser = any, TTokens = any> = (
   tokens: TTokens
 ) => Record<string, string | number | boolean | Array<string | number | boolean> | null> | Promise<Record<string, string | number | boolean | Array<string | number | boolean> | null>>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface OAuthConfig<TConfig, TResult = { user: any, tokens: any }> {
+export interface OAuthConfig<TConfig> {
   config?: Partial<TConfig>
-  onSuccess?: (
-    event: H3Event,
-    result: TResult
-  ) => Promise<void> | void
   onError?: OnError
   /**
    * Custom claims to add to the generated JWT

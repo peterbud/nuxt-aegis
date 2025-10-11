@@ -191,22 +191,14 @@ export default defineNuxtConfig({
 
 ```typescript
 // server/routes/auth/google.get.ts
-import { generateAuthToken, setTokenCookie } from '#nuxt-aegis/server/utils'
-
 export default defineOAuthGoogleEventHandler({
   config: {
     scopes: ['openid', 'profile', 'email'],
   },
-  async onSuccess(event, { user, tokens }) {
-    // Add custom claims
-    const customClaims = {
-      role: 'user',
-      permissions: ['read'],
-    }
-
-    const token = await generateAuthToken(event, user, customClaims)
-    const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
-    setTokenCookie(event, token, sessionConfig)
+  // Add custom claims to the JWT
+  customClaims: {
+    role: 'user',
+    permissions: ['read'],
   },
 })
 ```
@@ -361,50 +353,78 @@ Both functions:
 
 ### Custom Claims
 
-Add application-specific data to your JWT tokens:
+Add application-specific data to your JWT tokens. Custom claims can be static objects or dynamic callback functions that receive user and token data from the OAuth provider:
 
 #### Static Custom Claims
 
 ```typescript
-const customClaims = {
-  role: 'admin',
-  department: 'engineering',
-  accountType: 'premium',
-}
-
-const token = await generateAuthToken(event, user, customClaims)
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  customClaims: {
+    role: 'admin',
+    department: 'engineering',
+    accountType: 'premium',
+  },
+})
 ```
 
 #### Dynamic Custom Claims
 
 ```typescript
-const customClaims = {
-  role: user.email?.endsWith('@admin.com') ? 'admin' : 'user',
-  permissions: getUserPermissions(user.email),
-  emailVerified: user.email_verified || false,
-  loginCount: await getLoginCount(user.sub),
-}
-
-const token = await generateAuthToken(event, user, customClaims)
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  customClaims: async (user, tokens) => {
+    return {
+      role: user.email?.endsWith('@admin.com') ? 'admin' : 'user',
+      permissions: getUserPermissions(user.email),
+      emailVerified: user.email_verified || false,
+      loginCount: await getLoginCount(user.sub),
+    }
+  },
+})
 ```
 
 #### Database Lookups
 
 ```typescript
-async onSuccess(event, { user, tokens }) {
-  // Fetch user profile from database
-  const userProfile = await db.getUserProfile(user.email)
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  customClaims: async (user, tokens) => {
+    // Fetch user profile from database
+    const userProfile = await db.getUserProfile(user.email)
 
-  const customClaims = {
-    role: userProfile.role,
-    permissions: userProfile.permissions,
-    organizationId: userProfile.organizationId,
-    subscription: userProfile.subscription,
-  }
+    return {
+      role: userProfile.role,
+      permissions: userProfile.permissions,
+      organizationId: userProfile.organizationId,
+      subscription: userProfile.subscription,
+    }
+  },
+})
+```
 
-  const token = await generateAuthToken(event, user, customClaims)
-  setTokenCookie(event, token)
-}
+#### Using Custom Claims with Provider Tokens
+
+When using a callback function, you can access both the user information and the OAuth provider tokens:
+
+```typescript
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  customClaims: async (user, tokens) => {
+    // user: User information from the provider
+    // tokens: { access_token, refresh_token, id_token, expires_in }
+    
+    // You can use the provider's access_token to fetch additional data
+    const extraData = await $fetch('https://provider.com/api/extra', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` }
+    })
+
+    return {
+      role: user.role,
+      providerId: tokens.id_token,
+    }
+  },
+})
 ```
 
 #### Supported Claim Types
@@ -820,18 +840,32 @@ NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-here
 **Check:**
 1. Claim values are of supported types (string, number, boolean, array, null)
 2. You're not trying to override reserved claims (`iss`, `sub`, `exp`, etc.)
-3. You're passing the customClaims object to `generateAuthToken`
+3. You're passing the customClaims to the event handler correctly
 
 ```typescript
-// ✅ Correct
-const token = await generateAuthToken(event, user, {
-  role: 'admin',
-  permissions: ['read', 'write'],
+// ✅ Correct - Static claims
+export default defineOAuthGoogleEventHandler({
+  customClaims: {
+    role: 'admin',
+    permissions: ['read', 'write'],
+  },
 })
 
-// ❌ Wrong (objects not supported)
-const token = await generateAuthToken(event, user, {
-  metadata: { foo: 'bar' }, // Objects not allowed
+// ✅ Correct - Dynamic claims
+export default defineOAuthGoogleEventHandler({
+  customClaims: async (user, tokens) => {
+    return {
+      role: 'admin',
+      permissions: ['read', 'write'],
+    }
+  },
+})
+
+// ❌ Wrong - Objects not supported
+export default defineOAuthGoogleEventHandler({
+  customClaims: {
+    metadata: { foo: 'bar' }, // Objects not allowed
+  },
 })
 ```
 
@@ -839,12 +873,25 @@ const token = await generateAuthToken(event, user, {
 
 **Problem**: Refresh token cookie not set  
 
-**Solution**: Verify session configuration and ensure you're calling `setTokenCookie`:
+**Solution**: Verify token refresh configuration in your `nuxt.config.ts`:
 
 ```typescript
-const sessionConfig = useRuntimeConfig(event).nuxtAegis?.session
-setTokenCookie(event, token, sessionConfig)
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      enabled: true,
+      cookie: {
+        cookieName: 'nuxt-aegis-refresh',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        secure: true,
+        httpOnly: true,
+      },
+    },
+  },
+})
 ```
+
+The refresh token cookie is automatically set by the OAuth flow. If it's not being set, check your browser's developer tools to see if there are any cookie-related errors.
 
 ### 401 Unauthorized on protected routes
 
