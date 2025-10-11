@@ -1,12 +1,13 @@
 import {
-  defineNuxtModule,
   addImports,
   addPlugin,
   addServerHandler,
   addServerImportsDir,
   createResolver,
+  defineNuxtModule,
   extendPages,
   logger,
+  updateRuntimeConfig,
 } from '@nuxt/kit'
 import type { ModuleOptions } from './runtime/types'
 import { defu } from 'defu'
@@ -53,38 +54,18 @@ export default defineNuxtModule<ModuleOptions>({
   },
   setup(options, nuxt) {
     // Runtime Config
+    updateRuntimeConfig({
+      public: {
+        nuxtAegis: {
+          authPath: options.endpoints?.authPath || '/auth',
+          redirect: options.redirect,
+          tokenRefresh: options.tokenRefresh,
+        },
+      },
+      nuxtAegis: options,
+    })
+
     const runtimeConfig = nuxt.options.runtimeConfig
-    if (!runtimeConfig.nuxtAegis) {
-      runtimeConfig.nuxtAegis = {}
-    }
-
-    runtimeConfig.nuxtAegis = {
-      ...runtimeConfig.nuxtAegis,
-      token: defu(runtimeConfig.nuxtAegis.token, options.token),
-      tokenRefresh: defu(runtimeConfig.nuxtAegis.tokenRefresh, options.tokenRefresh),
-      routeProtection: options.routeProtection,
-      endpoints: options.endpoints,
-      authPath: options.endpoints?.authPath,
-    }
-
-    runtimeConfig.nuxtAegis.google = defu(runtimeConfig.nuxtAegis.google, {
-      clientId: options.providers?.google?.clientId || '',
-      clientSecret: options.providers?.google?.clientSecret || '',
-    })
-
-    runtimeConfig.nuxtAegis.github = defu(runtimeConfig.nuxtAegis.github, {
-      clientId: options.providers?.github?.clientId || '',
-      clientSecret: options.providers?.github?.clientSecret || '',
-    })
-
-    // Public runtime config (exposed to client)
-    if (!runtimeConfig.public.nuxtAegis) {
-      // @ts-expect-error nuxtAegis might be missing
-      runtimeConfig.public.nuxtAegis = {}
-    }
-    runtimeConfig.public.nuxtAegis.authPath = options.endpoints?.authPath || '/auth'
-    runtimeConfig.public.nuxtAegis.redirect = defu(runtimeConfig.public.nuxtAegis.redirect, options.redirect)
-    runtimeConfig.public.nuxtAegis.tokenRefresh = defu(runtimeConfig.public.nuxtAegis.tokenRefresh, options.tokenRefresh)
 
     const resolver = createResolver(import.meta.url)
 

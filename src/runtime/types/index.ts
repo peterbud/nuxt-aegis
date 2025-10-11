@@ -63,9 +63,11 @@ export interface NuxtAegisRuntimeConfig {
   routeProtection?: RouteProtectionConfig
   endpoints?: EndpointConfig
   authPath?: string
-  google?: GoogleProviderConfig
-  microsoft?: MicrosoftProviderConfig
-  github?: GithubProviderConfig
+  providers?: {
+    google?: GoogleProviderConfig
+    microsoft?: MicrosoftProviderConfig
+    github?: GithubProviderConfig
+  }
 }
 
 /**

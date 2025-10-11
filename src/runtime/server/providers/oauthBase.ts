@@ -71,7 +71,7 @@ export function defineOAuthEventHandler<
     try {
       // Merge configuration with runtime config and defaults
       const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
-      const providerRuntimeConfig = runtimeConfig[implementation.runtimeConfigKey] as Partial<TConfig> || {}
+      const providerRuntimeConfig = runtimeConfig.providers?.[implementation.runtimeConfigKey] as Partial<TConfig> || {}
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 
       // Validate required configuration
