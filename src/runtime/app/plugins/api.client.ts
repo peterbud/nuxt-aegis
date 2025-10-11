@@ -1,4 +1,5 @@
 import { defineNuxtPlugin, navigateTo } from '#app'
+import type { RefreshResponse } from '../../types'
 
 /**
  * Nuxt Aegis plugin
@@ -11,14 +12,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   let isRefreshing = false
   let refreshPromise: Promise<string | null> | null = null
-  const autoRefreshEnabled = nuxtApp.$config?.public.nuxtAegis?.tokenRefresh?.automaticRefresh ?? true
+  const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
+  const authPath = nuxtApp.$config.public.nuxtAegis.authPath
 
   async function attemptTokenRefresh(): Promise<string | null> {
     if (isRefreshing) return refreshPromise
 
     console.log('[Nuxt Aegis] Attempting token refresh...')
     isRefreshing = true
-    refreshPromise = $fetch('/auth/refresh', {
+    refreshPromise = $fetch<RefreshResponse>(`${authPath}/refresh`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${sessionStorage.getItem('nuxt.aegis.token')}`,

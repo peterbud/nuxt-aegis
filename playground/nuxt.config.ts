@@ -1,5 +1,3 @@
-import { env } from 'node:process'
-
 export default defineNuxtConfig({
   modules: [
     '../src/module',
@@ -10,12 +8,13 @@ export default defineNuxtConfig({
   nuxtAegis: {
     providers: {
       google: {
-        clientId: env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
-        clientSecret: env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
+        clientId: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
+        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
       },
     },
     token: {
-      secret: env.NUXT_AEGIS_TOKEN_SECRET || '',
+      secret: process.env.NUXT_AEGIS_TOKEN_SECRET || '',
+      expiresIn: '15m',
     },
     tokenRefresh: {
       enabled: true,

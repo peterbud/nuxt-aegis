@@ -48,6 +48,12 @@ export interface RefreshTokenData {
   previousTokenHash?: string
 }
 
+export interface RefreshResponse {
+  success: boolean
+  message: string
+  accessToken?: string
+}
+
 /**
  * Runtime config for Nuxt Aegis
  */
@@ -308,10 +314,10 @@ declare module '@nuxt/schema' {
   }
 
   interface PublicRuntimeConfig {
-    nuxtAegis?: {
-      authPath?: string
-      redirect?: RedirectConfig
-      tokenRefresh?: TokenRefreshConfig
+    nuxtAegis: {
+      authPath: string
+      redirect: RedirectConfig
+      tokenRefresh: TokenRefreshConfig
     }
   }
 }

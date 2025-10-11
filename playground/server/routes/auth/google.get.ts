@@ -1,11 +1,10 @@
 export default defineOAuthGoogleEventHandler({
-  // clientCallbackUrl: '/auth/callback', // default
-  // successRedirectUrl: '/', // default
+  // successRedirectsUrl: '/', // default
   customClaims: {
     role: 'user',
     permissions: ['read', 'write'],
   },
-  // can be dynamic custome claims, like:
+  // can be dynamic custom claims, like:
   // customClaims: async (user, tokens) => {
   //   const userProfile = await db.getUserProfile(user.email)
   //   return {

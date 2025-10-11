@@ -7,7 +7,6 @@ export default {
       // If it's your callback page, prevent Vue Router from trying to scroll to the hash.
       // Returning null, undefined, or an empty object will prevent scrolling.
       // This stops the internal check that causes a warning that hash id is invalid.
-      console.log('Callback route detected, preventing scroll to hash')
       return false
     }
 

@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const protectedRoutes = config.nuxtAegis?.routeProtection?.protectedRoutes as string[] || []
   const publicRoutes = config.nuxtAegis?.routeProtection?.publicRoutes as string[] || []
-  const authPath = config.nuxtAegis?.authPath as string || '/auth'
+  const authPath = config.public.nuxtAegis.authPath
 
   // Skip authentication for auth routes (login, callback, etc.)
   if (requestURL.pathname.startsWith(authPath)) {

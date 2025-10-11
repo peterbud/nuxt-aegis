@@ -1,7 +1,7 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
 import { getHeader, useRuntimeConfig, useStorage } from '#imports'
 import { generateToken, generateAndStoreRefreshToken, hashRefreshToken, verifyToken, setRefreshTokenCookie } from '../utils'
-import type { TokenConfig, CookieConfig, TokenPayload, RefreshTokenData, TokenRefreshConfig } from '../../types'
+import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, RefreshTokenData, TokenRefreshConfig } from '../../types'
 
 /**
  * POST /auth/refresh
@@ -10,7 +10,6 @@ import type { TokenConfig, CookieConfig, TokenPayload, RefreshTokenData, TokenRe
  * EP-21: Return 401 when refresh token is invalid or expired
  */
 export default defineEventHandler(async (event) => {
-  console.log('[Nuxt Aegis] /auth/refresh endpoint called')
   const config = useRuntimeConfig()
   const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
@@ -31,11 +30,11 @@ export default defineEventHandler(async (event) => {
   if (!refreshToken) {
     // EP-21: Return 401 when no token provided
     return
-    // throw createError({
-    //   statusCode: 401,
-    //   statusMessage: 'Unauthorized',
-    //   message: 'No authentication token found',
-    // })
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized',
+      message: 'No authentication token found',
+    })
   }
 
   // Try to read from Authorization header (Bearer token)
@@ -111,7 +110,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'Token refreshed successfully',
       accessToken: newToken,
-    }
+    } as RefreshResponse
   }
   catch (error) {
     console.error('[Nuxt Aegis] Token refresh error:', error)

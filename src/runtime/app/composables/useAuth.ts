@@ -56,9 +56,8 @@ export function useAuth(): UseAuthReturn {
   const isLoggedIn = computed(() => authState.value?.user !== null)
 
   const config = useRuntimeConfig()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const publicConfig = config.public as any
-  const authPath = publicConfig.nuxtAegis?.authPath || '/auth'
+  const publicConfig = config.public
+  const authPath = publicConfig.nuxtAegis?.authPath
 
   // Initialize auth state if not already done
   if (!initialized.value && import.meta.client) {
@@ -169,7 +168,7 @@ export function useAuth(): UseAuthReturn {
       authState.value.error = null
 
       // Call logout endpoint - this will delete the httpOnly cookie
-      await useNuxtApp().$api('/auth/logout', { method: 'POST' })
+      await useNuxtApp().$api(`${authPath}/logout`, { method: 'POST' })
 
       // Clear local auth state
       authState.value.user = null
