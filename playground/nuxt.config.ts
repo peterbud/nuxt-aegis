@@ -11,6 +11,10 @@ export default defineNuxtConfig({
         clientId: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
         clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
       },
+      github: {
+        clientId: process.env.NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_ID || '',
+        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_SECRET || '',
+      },
     },
     token: {
       secret: process.env.NUXT_AEGIS_TOKEN_SECRET || '',

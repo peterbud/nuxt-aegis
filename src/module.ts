@@ -72,6 +72,11 @@ export default defineNuxtModule<ModuleOptions>({
       clientSecret: options.providers?.google?.clientSecret || '',
     })
 
+    runtimeConfig.nuxtAegis.github = defu(runtimeConfig.nuxtAegis.github, {
+      clientId: options.providers?.github?.clientId || '',
+      clientSecret: options.providers?.github?.clientSecret || '',
+    })
+
     // Public runtime config (exposed to client)
     if (!runtimeConfig.public.nuxtAegis) {
       // @ts-expect-error nuxtAegis might be missing

@@ -84,7 +84,6 @@ export function defineOAuthEventHandler<
       }
 
       const query = getQuery<{ code?: string, state?: string, error?: string }>(event)
-      const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
 
       // Handle OAuth error responses
       if (query.error) {
@@ -95,11 +94,14 @@ export function defineOAuthEventHandler<
         })
       }
 
+      const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
       // EP-2: Step 1 - Redirect to authorization server if no code
       if (!query.code) {
         const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, query.state)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
       }
+
+      // TODO: handle state verification
 
       // EP-6: Step 2 - Exchange authorization code for tokens
       const tokenBody = implementation.buildTokenBody(mergedConfig, query.code, redirectUri)
@@ -107,16 +109,12 @@ export function defineOAuthEventHandler<
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
         },
         body: new URLSearchParams(tokenBody),
       })
 
-      const { access_token, refresh_token, id_token, expires_in } = tokenResponse as {
-        access_token: string
-        refresh_token?: string
-        id_token?: string
-        expires_in?: number
-      }
+      const { access_token, refresh_token, id_token, expires_in } = tokenResponse
 
       if (!access_token) {
         throw createError({

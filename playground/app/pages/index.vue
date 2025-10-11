@@ -6,7 +6,11 @@ const error = ref<string | null>(null)
 const { isLoggedIn, user, login, logout } = useAuth()
 
 const loginWithGoogle = async () => {
-  login('google') // Remove await - this just redirects
+  login('google')
+}
+
+const loginWithGithub = async () => {
+  login('github')
 }
 
 const handleLogout = async () => {
@@ -45,10 +49,17 @@ const testProtectedRoute = async () => {
     <div style="margin: 20px 0;">
       <button
         v-if="!isLoggedIn"
-        style="padding: 10px 20px; font-size: 16px;"
+        style="padding: 10px 20px; font-size: 16px; margin-right: 10px;"
         @click="loginWithGoogle"
       >
         Login with Google
+      </button>
+      <button
+        v-if="!isLoggedIn"
+        style="padding: 10px 20px; font-size: 16px; background-color: #24292e; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        @click="loginWithGithub"
+      >
+        Login with GitHub
       </button>
       <button
         v-if="isLoggedIn"
