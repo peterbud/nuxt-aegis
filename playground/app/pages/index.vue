@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAuth, useNuxtApp } from '#imports'
 
-const apiResponse = ref<object | null>(null)
+const apiResponse = ref()
 const error = ref<string | null>(null)
 const { isLoggedIn, user, login, logout } = useAuth()
 
@@ -32,8 +32,8 @@ const testProtectedRoute = async () => {
     const data = await useNuxtApp().$api('/api/user/profile')
     apiResponse.value = data || null
     // convert expiresAt to readable date
-    if (apiResponse.value && (apiResponse.value).expiresAt) {
-      (apiResponse.value).expiresAt = new Date((apiResponse.value).expiresAt * 1000).toLocaleString()
+    if (apiResponse.value && apiResponse.value?.expiresAt) {
+      apiResponse.value.expiresAt = new Date(apiResponse.value.expiresAt * 1000).toLocaleString()
     }
   }
   catch (err: unknown) {
@@ -148,7 +148,7 @@ const testProtectedRoute = async () => {
     <div style="margin-top: 40px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
       <h3>How it works:</h3>
       <ul>
-        <li>The module automatically reads the token from the session cookie</li>
+        <li>The module automatically reads the token from the session storage</li>
         <li>When you make requests to protected routes (configured in nuxt.config.ts), the token is automatically added</li>
         <li>Protected routes in this demo: <code>/api/**</code></li>
         <li>The middleware handles token verification and user authentication on server side</li>
