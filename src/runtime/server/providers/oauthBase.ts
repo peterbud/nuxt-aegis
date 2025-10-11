@@ -6,7 +6,7 @@ import { useRuntimeConfig, generateAuthTokens, setRefreshTokenCookie } from '#im
 import { withQuery } from 'ufo'
 
 // Extract provider keys from the runtime config type
-type ProviderKey = 'google' | 'microsoft' | 'github'
+type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0'
 
 /**
  * OAuth provider implementation interface

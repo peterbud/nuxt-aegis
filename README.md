@@ -171,7 +171,7 @@ export default defineNuxtConfig({
 
 Nuxt Aegis supports multiple OAuth providers out of the box.
 
-### Google OAuth
+### Google
 
 ```typescript
 // nuxt.config.ts
@@ -201,6 +201,47 @@ export default defineOAuthGoogleEventHandler({
     permissions: ['read'],
   },
 })
+```
+
+### Auth0
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    providers: {
+      auth0: {
+        clientId: process.env.AUTH0_CLIENT_ID!,
+        clientSecret: process.env.AUTH0_CLIENT_SECRET!,
+        domain: process.env.AUTH0_DOMAIN!, // e.g., 'your-tenant.auth0.com'
+      },
+    },
+  },
+})
+```
+
+**Server-side handler**:
+
+```typescript
+// server/routes/auth/auth0.get.ts
+export default defineOAuthAuth0EventHandler({
+  config: {
+    scopes: ['openid', 'profile', 'email'],
+  },
+  // Add custom claims to the JWT
+  customClaims: {
+    role: 'user',
+    permissions: ['read'],
+  },
+})
+```
+
+**Environment variables**:
+
+```bash
+AUTH0_CLIENT_ID=your-auth0-client-id
+AUTH0_CLIENT_SECRET=your-auth0-client-secret
+AUTH0_DOMAIN=your-tenant.auth0.com
 ```
 
 ### Custom Provider

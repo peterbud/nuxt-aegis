@@ -67,6 +67,7 @@ export interface NuxtAegisRuntimeConfig {
     google?: GoogleProviderConfig
     microsoft?: MicrosoftProviderConfig
     github?: GithubProviderConfig
+    auth0?: Auth0ProviderConfig
   }
 }
 
@@ -125,6 +126,20 @@ export interface GithubProviderConfig extends Partial<OAuthProviderConfig> {
   /** GitHub OAuth client secret */
   clientSecret: string
   /** GitHub OAuth scopes (default: ['user:email']) */
+  scopes?: string[]
+}
+
+/**
+ * Auth0 OAuth provider configuration
+ */
+export interface Auth0ProviderConfig extends Partial<OAuthProviderConfig> {
+  /** Auth0 OAuth client ID */
+  clientId: string
+  /** Auth0 OAuth client secret */
+  clientSecret: string
+  /** Auth0 domain (e.g., 'your-tenant.auth0.com' or 'your-tenant.us.auth0.com') */
+  domain?: string
+  /** Auth0 OAuth scopes (default: ['openid', 'profile', 'email']) */
   scopes?: string[]
 }
 
@@ -257,6 +272,8 @@ export interface ModuleOptions {
     microsoft?: MicrosoftProviderConfig
     /** GitHub OAuth provider configuration */
     github?: GithubProviderConfig
+    /** Auth0 OAuth provider configuration */
+    auth0?: Auth0ProviderConfig
     /** Custom OAuth provider configurations */
     custom?: CustomProviderConfig[]
   }

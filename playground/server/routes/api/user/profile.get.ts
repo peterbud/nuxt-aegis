@@ -22,6 +22,7 @@ export default defineEventHandler((event) => {
     // Access custom claims if they exist
     role: user.role,
     permissions: user.permissions,
+    organizationId: user.organizationId,
     // Show authentication metadata
     authenticatedAt: user.iat,
     expiresAt: user.exp,

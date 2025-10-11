@@ -13,6 +13,10 @@ const loginWithGithub = async () => {
   login('github')
 }
 
+const loginWithAuth0 = async () => {
+  login('auth0')
+}
+
 const handleLogout = async () => {
   try {
     await logout('/')
@@ -56,10 +60,17 @@ const testProtectedRoute = async () => {
       </button>
       <button
         v-if="!isLoggedIn"
-        style="padding: 10px 20px; font-size: 16px; background-color: #24292e; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        style="padding: 10px 20px; font-size: 16px; margin-right: 10px; background-color: #24292e; color: white; border: none; border-radius: 4px; cursor: pointer;"
         @click="loginWithGithub"
       >
         Login with GitHub
+      </button>
+      <button
+        v-if="!isLoggedIn"
+        style="padding: 10px 20px; font-size: 16px; margin-right: 10px; background-color: #eb5424; color: white; border: none; border-radius: 4px; cursor: pointer;"
+        @click="loginWithAuth0"
+      >
+        Login with Auth0
       </button>
       <button
         v-if="isLoggedIn"
