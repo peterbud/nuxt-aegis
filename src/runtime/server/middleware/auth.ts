@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // Try to extract token from multiple sources
+  // Try to extract token
   let token: string | undefined
 
   // Try to read from Authorization header (Bearer token)

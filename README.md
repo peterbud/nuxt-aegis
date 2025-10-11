@@ -278,30 +278,6 @@ The `useAuth()` composable provides:
 
 Protect your API routes using the built-in middleware:
 
-```typescript
-// server/api/protected/data.get.ts
-export default defineEventHandler(async (event) => {
-  // User data is automatically injected
-  // by the modules' servers side auth middleware
-  const user = event.context.user
-  
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: 'Unauthorized'
-    })
-  }
-  
-  // Access user claims
-  console.log(user.email, user.role, user.permissions)
-  
-  return {
-    message: 'Protected data',
-    user,
-  }
-})
-```
-
 #### Route Protection Configuration
 
 Configure which routes require authentication:
@@ -329,6 +305,59 @@ export default defineNuxtConfig({
 ```
 
 **Note:** If a route matches both protected and public patterns, it's treated as public.
+
+#### Protected Routes
+
+When your routes are protected by the authentication middleware, you can avoid manual `null` checks for `event.context.user` by using the provided utility functions.
+
+##### Using `getAuthUser()`
+
+The simplest way to get the authenticated user in a protected route:
+
+```typescript
+export default defineEventHandler((event) => {
+  // getAuthUser() ensures user is authenticated and returns the typed user object
+  const user = getAuthUser(event)
+  
+  // TypeScript knows user is defined - no need for null checks
+  return {
+    userId: user.sub,
+    email: user.email,
+    name: user.name,
+  }
+})
+```
+
+##### Using `requireAuth()`
+
+If you need the full event with narrowed type:
+
+```typescript
+export default defineEventHandler((event) => {
+  // requireAuth() narrows the event type to guarantee user exists
+  const authenticatedEvent = requireAuth(event)
+  const { user } = authenticatedEvent.context
+  
+  // TypeScript knows user is defined
+  return {
+    userId: user.sub,
+    email: user.email,
+  }
+})
+```
+##### How it Works
+
+Both functions:
+1. Check if `event.context.user` exists
+2. Throw a `401 Unauthorized` error if not (this should never happen if middleware is configured correctly)
+3. Narrow the TypeScript type so you don't need manual null checks
+
+## Benefits
+
+- **Type Safety**: TypeScript knows `user` is defined after calling these functions
+- **Cleaner Code**: No need for manual `if (!user)` checks in every handler
+- **Runtime Safety**: Provides a safety net even if middleware configuration changes
+- **Better DX**: Auto-completion and type inference work perfectly
 
 ### Custom Claims
 

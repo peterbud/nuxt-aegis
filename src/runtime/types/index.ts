@@ -321,3 +321,13 @@ declare module '@nuxt/schema' {
     }
   }
 }
+
+declare module 'h3' {
+  interface H3EventContext {
+    /**
+     * Authenticated user data from JWT token
+     * Available when request is authenticated via the auth middleware
+     */
+    user?: TokenPayload
+  }
+}

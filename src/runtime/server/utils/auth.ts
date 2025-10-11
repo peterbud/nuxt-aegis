@@ -1,5 +1,6 @@
 import { useRuntimeConfig } from '#imports'
 import type { H3Event } from 'h3'
+import { createError } from 'h3'
 import type { TokenConfig, TokenPayload, TokenRefreshConfig } from '../../types'
 import { generateAndStoreRefreshToken } from './refreshToken'
 import { generateToken } from './jwt'
@@ -60,4 +61,67 @@ export async function generateAuthTokens(
     accessToken: await generateToken(payload, tokenConfig, customClaims),
     refreshToken,
   }
+}
+
+/**
+ * Type guard to assert that a route is protected and user is authenticated
+ * Use this at the start of protected route handlers to narrow the type of event.context.user
+ *
+ * This function should be used in routes that are protected by the auth middleware.
+ * It will throw a 401 error if the user is not authenticated (which should never happen
+ * if the middleware is configured correctly, but provides a runtime safety check).
+ *
+ * @param event - H3Event object
+ * @returns The event with user guaranteed to be present
+ * @throws 401 Unauthorized if user is not authenticated
+ *
+ * @example
+ * ```typescript
+ * export default defineEventHandler((event) => {
+ *   const authenticatedEvent = requireAuth(event)
+ *   const { user } = authenticatedEvent.context
+ *   // TypeScript now knows user is defined, no need to check
+ *   return { userId: user.sub, email: user.email }
+ * })
+ * ```
+ */
+export function requireAuth(event: H3Event): H3Event & { context: { user: TokenPayload } } {
+  if (!event.context.user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized',
+      message: 'Authentication required',
+    })
+  }
+
+  return event as H3Event & { context: { user: TokenPayload } }
+}
+
+/**
+ * Get the authenticated user from the event context
+ * This is a convenience function that combines requireAuth and context extraction
+ *
+ * @param event - H3Event object
+ * @returns The authenticated user payload
+ * @throws 401 Unauthorized if user is not authenticated
+ *
+ * @example
+ * ```typescript
+ * export default defineEventHandler((event) => {
+ *   const user = getAuthUser(event)
+ *   // TypeScript knows user is defined
+ *   return { userId: user.sub, email: user.email }
+ * })
+ * ```
+ */
+export function getAuthUser(event: H3Event): TokenPayload {
+  if (!event.context.user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized',
+      message: 'Authentication required',
+    })
+  }
+
+  return event.context.user
 }

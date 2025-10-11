@@ -1,24 +1,14 @@
 /**
  * Example: API endpoint that demonstrates Bearer token authentication
  *
- * This endpoint can be accessed with:
- * 1. Cookie-based auth (browser)
- * 2. Bearer token in Authorization header (API clients, mobile apps)
+ * This endpoint can be accessed with a Bearer token in Authorization header
+ * (API clients, mobile apps)
  *
  * The auth middleware automatically validates the token and injects user data
  */
 export default defineEventHandler((event) => {
-  // User data is automatically injected by the auth middleware
-  // regardless of whether authentication came from cookie or Bearer token
-  const user = event.context.user
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
-      message: 'Authentication required',
-    })
-  }
+  // getAuthUser() ensures user is authenticated and returns the typed user object
+  const user = getAuthUser(event)
 
   // Access standard JWT claims
   return {
