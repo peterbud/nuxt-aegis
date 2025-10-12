@@ -39,9 +39,6 @@ interface UseAuthReturn {
  *
  */
 export function useAuth(): UseAuthReturn {
-  // Flag to track if we've initialized
-  const initialized = useState(() => false)
-
   // Global auth state
   const authState = useState<AuthState>(
     'auth-state',
@@ -59,51 +56,6 @@ export function useAuth(): UseAuthReturn {
   const publicConfig = config.public
   const authPath = publicConfig.nuxtAegis?.authPath
 
-  // Initialize auth state if not already done
-  if (!initialized.value && import.meta.client) {
-    initializeAuthState()
-  }
-
-  /**
-   * Initialize authentication state by fetching current user
-   */
-  async function initializeAuthState(): Promise<void> {
-    if (initialized.value) return
-    initialized.value = true
-
-    authState.value.isLoading = true
-    authState.value.error = null
-
-    if (import.meta.dev) {
-      console.log('[Nuxt Aegis] Initializing auth state...')
-    }
-
-    try {
-      // check for existing token in sessionStorage
-      const existingToken = sessionStorage.getItem('nuxt.aegis.token')
-      if (!existingToken) {
-        return
-      }
-
-      // Fetch current user from the API
-      const userData = await useNuxtApp().$api<TokenPayload>(
-        '/api/user/me',
-      )
-
-      authState.value.user = userData || null
-    }
-    catch (error: unknown) {
-      authState.value.user = null
-      authState.value.error = 'Failed to refresh authentication'
-      if (import.meta.dev) {
-        console.error('[Nuxt Aegis] Auth refresh failed:', error)
-      }
-    }
-    finally {
-      authState.value.isLoading = false
-    }
-  }
-
   /**
    * Refresh the authentication state by fetching current user
    */
@@ -111,6 +63,7 @@ export function useAuth(): UseAuthReturn {
     authState.value.isLoading = true
     authState.value.error = null
 
+    console.log('[Nuxt Aegis] REFRESH')
     try {
       // check for existing token in sessionStorage
       const existingToken = sessionStorage.getItem('nuxt.aegis.token')

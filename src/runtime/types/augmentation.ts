@@ -29,3 +29,23 @@ declare module 'h3' {
     user?: TokenPayload
   }
 }
+
+declare module '#app' {
+  interface NuxtApp {
+    /**
+     * Custom $fetch instance with automatic bearer token injection
+     * Configured by the Nuxt Aegis plugin
+     */
+    $api: typeof $fetch
+  }
+}
+
+declare module 'vue' {
+  interface ComponentCustomProperties {
+    /**
+     * Custom $fetch instance with automatic bearer token injection
+     * Configured by the Nuxt Aegis plugin
+     */
+    $api: typeof $fetch
+  }
+}

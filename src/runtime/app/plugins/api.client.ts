@@ -1,5 +1,6 @@
 import { defineNuxtPlugin, navigateTo } from '#app'
 import type { RefreshResponse } from '../../types'
+import { useAuth } from '#imports'
 
 /**
  * Nuxt Aegis plugin
@@ -12,6 +13,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   let isRefreshing = false
   let refreshPromise: Promise<string | null> | null = null
+  let isInitialized = false
   const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
   const authPath = nuxtApp.$config.public.nuxtAegis.authPath
 
@@ -30,7 +32,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         await sessionStorage.setItem('nuxt.aegis.token', response.accessToken)
 
         // Refresh auth state after successful token refresh
-        const { useAuth } = await import('../composables/useAuth')
         await nuxtApp.runWithContext(async () => {
           await useAuth().refresh()
         })
@@ -79,9 +80,36 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   })
 
   // Expose as useNuxtApp().$api
-  return {
+  const result = {
     provide: {
       api,
     },
   }
+
+  // Initialize auth state on plugin startup if token exists
+  // This must happen AFTER $api is provided
+  const existingToken = sessionStorage.getItem('nuxt.aegis.token')
+  if (existingToken && !isInitialized) {
+    isInitialized = true
+
+    if (import.meta.dev) {
+      console.log('[Nuxt Aegis] Initializing auth state on startup...')
+    }
+
+    // Use nextTick to ensure the plugin is fully initialized
+    nuxtApp.hook('app:mounted', async () => {
+      await nuxtApp.runWithContext(async () => {
+        try {
+          await useAuth().refresh()
+        }
+        catch (error) {
+          if (import.meta.dev) {
+            console.error('[Nuxt Aegis] Failed to initialize auth state:', error)
+          }
+        }
+      })
+    })
+  }
+
+  return result
 })
