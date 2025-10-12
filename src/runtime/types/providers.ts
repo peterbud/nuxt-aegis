@@ -1,0 +1,100 @@
+import type { CustomClaimsCallback, OnError } from './index'
+
+/**
+ * OAuth provider configuration types
+ * Defines configuration interfaces for all supported OAuth providers
+ */
+
+/**
+ * Base OAuth provider configuration
+ */
+export interface OAuthProviderConfig {
+  /** OAuth client ID from the provider */
+  clientId: string
+  /** OAuth client secret from the provider */
+  clientSecret: string
+  /** OAuth scopes to request from the provider */
+  scopes?: string[]
+  /** Authorization endpoint URL (override provider default) */
+  authorizeUrl?: string
+  /** Token endpoint URL (override provider default) */
+  tokenUrl?: string
+  /** User info endpoint URL (override provider default) */
+  userInfoUrl?: string
+  /** Redirect URI for OAuth callback (defaults to authPath + '/providers/[provider]') */
+  redirectUri?: string
+}
+
+/**
+ * Google OAuth provider configuration
+ */
+export interface GoogleProviderConfig extends Partial<OAuthProviderConfig> {
+  /** Google OAuth client ID */
+  clientId: string
+  /** Google OAuth client secret */
+  clientSecret: string
+  /** Google OAuth scopes (default: ['openid', 'profile', 'email']) */
+  scopes?: string[]
+}
+
+/**
+ * Microsoft OAuth provider configuration
+ */
+export interface MicrosoftProviderConfig extends Partial<OAuthProviderConfig> {
+  /** Microsoft OAuth client ID */
+  clientId: string
+  /** Microsoft OAuth client secret */
+  clientSecret: string
+  /** Microsoft tenant ID or 'common', 'organizations', 'consumers' (default: 'common') */
+  tenant?: string
+  /** Microsoft OAuth scopes (default: ['openid', 'profile', 'email']) */
+  scopes?: string[]
+}
+
+/**
+ * GitHub OAuth provider configuration
+ */
+export interface GithubProviderConfig extends Partial<OAuthProviderConfig> {
+  /** GitHub OAuth client ID */
+  clientId: string
+  /** GitHub OAuth client secret */
+  clientSecret: string
+  /** GitHub OAuth scopes (default: ['user:email']) */
+  scopes?: string[]
+}
+
+/**
+ * Auth0 OAuth provider configuration
+ */
+export interface Auth0ProviderConfig extends Partial<OAuthProviderConfig> {
+  /** Auth0 OAuth client ID */
+  clientId: string
+  /** Auth0 OAuth client secret */
+  clientSecret: string
+  /** Auth0 domain (e.g., 'your-tenant.auth0.com' or 'your-tenant.us.auth0.com') */
+  domain?: string
+  /** Auth0 OAuth scopes (default: ['openid', 'profile', 'email']) */
+  scopes?: string[]
+}
+
+// TODO:
+/**
+ * Custom OAuth provider configuration
+ */
+export interface CustomProviderConfig extends OAuthProviderConfig {
+  /** Unique name identifier for the custom provider */
+  name: string
+}
+
+/**
+ * OAuth configuration wrapper
+ */
+export interface OAuthConfig<TConfig> {
+  config?: Partial<TConfig>
+  onError?: OnError
+  /**
+   * Custom claims to add to the generated JWT
+   * Can be a static object or a callback function that receives user and tokens
+   */
+  customClaims?: Record<string, string | number | boolean | Array<string | number | boolean> | null> | CustomClaimsCallback
+}
