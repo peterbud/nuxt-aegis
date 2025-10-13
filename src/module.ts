@@ -140,5 +140,13 @@ export default defineNuxtModule<ModuleOptions>({
       driver: 'fs',
       base: './.data/refresh-tokens',
     })
+
+    // Add a routerOption for the AuthCallback page
+    // to prevent Vue Router warnings about invalid hash
+    nuxt.hook('pages:routerOptions', (routerOptions) => {
+      routerOptions.files.push({
+        path: resolver.resolve('./runtime/app/router.options.ts'),
+      })
+    })
   },
 })
