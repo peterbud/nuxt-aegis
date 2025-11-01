@@ -8,6 +8,7 @@ import type {
 import type { TokenConfig, ClaimsValidationConfig } from './token'
 import type { TokenRefreshConfig } from './refresh'
 import type { RouteProtectionConfig } from './routes'
+import type { AuthCodeConfig } from './authCode'
 
 /**
  * Module and runtime configuration types
@@ -51,6 +52,7 @@ export interface EndpointConfig {
 export interface NuxtAegisRuntimeConfig {
   token?: TokenConfig
   tokenRefresh?: TokenRefreshConfig
+  authCode?: AuthCodeConfig
   routeProtection?: RouteProtectionConfig
   endpoints?: EndpointConfig
   authPath?: string
@@ -91,6 +93,13 @@ export interface ModuleOptions {
 
   /** Token refresh configuration */
   tokenRefresh?: TokenRefreshConfig
+
+  /**
+   * Authorization code configuration (CODE-based flow)
+   * CS-4, CF-9, PR-12: Configure authorization CODE expiration time
+   * Default: 60 seconds (recommended for security)
+   */
+  authCode?: AuthCodeConfig
 
   /** Redirect URL configuration */
   redirect?: RedirectConfig

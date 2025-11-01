@@ -28,17 +28,27 @@ This document specifies the functional and non-functional requirements for a Nux
 
 ### 3.2 Initial Login
 
-**PR-5:** WHEN a user initiates login, the module SHALL redirect the user to the configured authentication provider's login page.
+**PR-5:** WHEN a user initiates login, the module SHALL initiate an OAuth flow that redirects the browser to the configured authentication provider's login page.
 
 **PR-6:** WHEN the authentication provider returns an authorization code, the module SHALL exchange it for provider-specific tokens.
 
-**PR-7:** IF the token exchange fails, THEN the module SHALL return an error response to the client.
+**PR-7:** IF the token exchange fails, THEN the module SHALL return an error response to the client with appropriate error details.
 
 ### 3.3 Provider Token Exchange
 
 **PR-8:** WHEN provider tokens are received, the module SHALL validate the tokens according to the provider's specifications.
 
 **PR-9:** WHEN provider tokens are validated, the module SHALL extract user information from the tokens or userinfo endpoint.
+
+**PR-10:** WHEN user information is extracted, the module SHALL generate a short-lived authorization CODE.
+
+**PR-11:** WHEN an authorization CODE is generated, the module SHALL store it in a server-side in-memory key-value store with the associated user information and provider tokens.
+
+**PR-12:** WHERE an authorization CODE is stored, the module SHALL set an expiration time of 60 seconds.
+
+**PR-13:** WHEN the authorization CODE is stored, the module SHALL redirect the client to the callback endpoint (e.g., `/auth/callback`) with the CODE as a query parameter.
+
+**PR-14:** IF the CODE storage or generation fails, THEN the module SHALL redirect to a configurable error URL with error information.
 
 ## 4. JWT Generation Requirements
 
@@ -144,17 +154,19 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CL-8:** WHERE the authentication composable is used, the module SHALL provide a `logout()` method to end the user session.
 
-**CL-9:** WHEN the `login()` method is called, the module SHALL redirect the user to the authentication provider.
+**CL-9:** WHEN the `login()` method is called with a provider name, the module SHALL initiate a browser redirect to the provider's authentication endpoint (e.g., `/auth/google`).
 
-**CL-10:** WHEN the `logout()` method is called, the module SHALL clear the authentication state from memory and remove the access token from `sessionStorage`.
+**CL-10:** WHEN the authentication callback receives an authorization CODE from the provider endpoint, the module SHALL automatically call the `/auth/token` endpoint with the CODE to exchange it for application tokens.
+
+**CL-11:** WHEN the `logout()` method is called, the module SHALL clear the in-memory access token and authentication state.
 
 ### 6.3 State Synchronization
 
 **CL-11:** WHEN authentication state changes, the module SHALL reactively update the composable properties across all components using the composable.
 
-**CL-12:** WHERE SSR is used, the module SHALL hydrate the authentication state from the server to the client without additional requests.
+**CL-12:** WHEN the application initializes on the client, the module SHALL attempt to restore authentication state by requesting a new access token using the refresh token cookie.
 
-**CL-13:** IF the authentication state cannot be determined during SSR, THEN the module SHALL set `isLoading` to `true` until client-side initialization completes.
+**CL-13:** WHILE authentication state is being restored, the module SHALL set `isLoading` to `true` until the restore attempt completes.
 
 ### 6.4 User Profile Access
 
@@ -166,85 +178,125 @@ This document specifies the functional and non-functional requirements for a Nux
 
 ### 6.5 Automatic Token Attachment
 
-**CL-17:** The module SHALL provide a mechanism to automatically attach the access token as an `Authorization: Bearer` header to internal API requests.
+**CL-17:** The module SHALL provide a mechanism to automatically attach the in-memory access token as an `Authorization: Bearer` header to internal API requests.
 
-## 7. API Endpoint Requirements
+### 6.6 Token Storage
 
-### 7.1 Login Endpoints
+**CL-18:** WHEN an access token is obtained, the module SHALL store it in memory as a reactive reference variable.
 
-**EP-1:** The module SHALL provide provider-specific login endpoints to initiate the authentication flow for each configured provider (e.g., `/auth/google`, `/auth/microsoft`).
+**CL-19:** WHEN the browser window is closed or refreshed, the in-memory access token SHALL be cleared.
 
-**EP-2:** WHEN a GET request is made to a provider-specific login endpoint, the module SHALL redirect to that specific authentication provider's login page.
+**CL-20:** WHEN the application needs to restore authentication state after a refresh, the module SHALL use the refresh token cookie to obtain a new access token.
 
-**EP-3:** WHERE a provider is configured, the module SHALL create a corresponding login endpoint using the pattern `/auth/[provider-name]`.
+## 6.7 Authentication Callback Handling
 
-**EP-4:** IF a request is made to a login endpoint for a provider that is not configured, THEN the module SHALL return a 404 Not Found response.
+**CL-21:** The module SHALL provide a callback handler at `/auth/callback` to receive the authorization CODE from provider endpoints.
 
-### 7.2 Callback Endpoints
+**CL-22:** WHEN the callback endpoint receives a CODE as a query parameter, the module SHALL automatically exchange it for application tokens by calling the `/auth/token` endpoint.
 
-**EP-5:** The module SHALL provide provider-specific callback endpoints to handle OAuth callbacks from authentication providers (e.g., `/auth/google/callback`, `/auth/microsoft/callback`).
+**CL-23:** WHEN the token exchange is successful, the module SHALL store the access token in memory and update the authentication state.
 
-**EP-6:** WHEN a provider-specific callback endpoint receives an authorization code, the module SHALL exchange it for provider tokens using that provider's token exchange mechanism.
+**CL-24:** IF the token exchange fails, the module SHALL redirect to a configurable error URL or display an error message.
 
-**EP-7:** WHEN provider tokens are obtained, the module SHALL generate an application access token and a refresh token.
+## 7. Authorization CODE Storage Requirements
 
-**EP-8:** WHEN a refresh token is generated, the module SHALL set it as a secure, `HttpOnly` cookie.
+**CS-1:** The module SHALL provide a server-side in-memory key-value store for temporary authorization CODE storage.
 
-**EP-9:** WHEN an access token is generated, the callback endpoint SHALL redirect the user to a common client-side callback route (e.g., `/auth/callback`), passing the access token as a URL hash fragment for security.
+**CS-2:** WHEN an authorization CODE is stored, the module SHALL associate it with user information and provider tokens retrieved during authentication.
 
-**EP-10:** IF authentication fails at a callback endpoint, THEN the module SHALL redirect to a configurable error URL with error information.
+**CS-3:** WHEN storing an authorization CODE, the module SHALL generate a cryptographically secure random CODE value.
 
-**EP-11:** WHERE a provider is configured, the module SHALL create a corresponding callback endpoint using the pattern `/auth/[provider-name]/callback`.
+**CS-4:** WHERE an authorization CODE is stored, the module SHALL set an expiration time of 60 seconds.
 
-### 7.3 Common Client-Side Callback
+**CS-5:** WHEN an authorization CODE expires, the module SHALL automatically remove it from the key-value store.
 
-**EP-12:** The module SHALL provide a common client-side callback page (e.g., `/auth/callback`) to handle the final step of authentication for all providers.
+**CS-6:** WHEN an authorization CODE is successfully exchanged for tokens, the module SHALL immediately delete it from the store to ensure single use.
 
-**EP-13:** WHEN the client-side callback route receives an access token via URL hash fragment, the module SHALL parse and store the token in `sessionStorage`.
+**CS-7:** The module SHALL prevent authorization CODE reuse by validating that the CODE exists in the store before allowing token exchange.
 
-**EP-14:** WHEN the client-side callback route successfully processes the access token, the module SHALL redirect the user to a configurable success URL or the originally requested protected route.
+**CS-8:** WHERE the key-value store is implemented, the module SHALL support automatic cleanup of expired CODEs to prevent memory leaks.
 
-**EP-15:** WHEN the client-side callback route receives error information, the module SHALL display appropriate error messages and redirect to a configurable error URL.
+## 8. API Endpoint Requirements
 
-**EP-16:** WHERE the client-side callback route is implemented, the module SHALL clear the access token from the URL hash after processing to prevent token exposure in browser history.
+### 7.1 Provider Authentication Endpoints
 
-### 7.4 Logout Endpoint
+**EP-1:** The module SHALL provide a single authentication endpoint for each configured provider using the pattern `/auth/[provider-name]` (e.g., `/auth/google`, `/auth/github`, `/auth/microsoft`).
 
-**EP-17:** The module SHALL provide a `/auth/logout` endpoint to end the user session.
+**EP-2:** WHEN a GET request is made to a provider endpoint without an authorization code, the module SHALL redirect the browser to that authentication provider's authorization page to initiate the OAuth flow.
 
-**EP-18:** WHEN a request is made to the logout endpoint, the module SHALL clear the refresh token cookie.
+**EP-3:** WHEN a GET request is made to a provider endpoint with an authorization code (OAuth callback), the endpoint SHALL perform the following steps in sequence: exchange the code for provider tokens, retrieve user information, generate an authorization CODE, and store it in the server-side key-value store.
 
-**EP-19:** WHEN a request is made to the logout endpoint, the module SHALL return a success response.
+**EP-4:** WHEN exchanging the authorization code, the provider endpoint SHALL use the provider-specific token exchange mechanism to obtain provider access and refresh tokens.
 
-**EP-20:** WHERE configured, the logout endpoint SHALL redirect to a configurable post-logout URL.
+**EP-5:** WHEN provider tokens are obtained, the provider endpoint SHALL retrieve user information from the provider's userinfo endpoint or from the ID token claims.
 
-### 7.5 User Info Endpoint
+**EP-6:** WHEN user information is retrieved, the provider endpoint SHALL generate a short-lived authorization CODE and store it along with the user information and provider tokens in a server-side in-memory key-value store.
 
-**EP-21:** The module SHALL provide a `/api/user/me` endpoint to retrieve the current user's information.
+**EP-7:** WHEN the authorization CODE is stored, the provider endpoint SHALL redirect the client to the common callback endpoint (`/auth/callback`) with the CODE as a query parameter.
 
-**EP-22:** WHEN a request is made to the `/api/user/me` endpoint with a valid access token in the `Authorization` header, the module SHALL return the decoded user data from the token.
+**EP-8:** IF any step in the authentication process fails (token exchange, user info retrieval, or CODE generation), THEN the provider endpoint SHALL redirect to a configurable error URL with error information in query parameters.
 
-**EP-23:** WHEN a request is made to the `/api/user/me` endpoint without a valid access token, the module SHALL return a 401 Unauthorized response.
+**EP-9:** WHERE a provider is configured, the module SHALL automatically create the corresponding provider endpoint and register it as the OAuth callback URL.
 
-**EP-24:** WHERE the user is authenticated, the `/api/user/me` endpoint SHALL return user data in JSON format including all JWT claims.
+### 7.2 Token Exchange Endpoint
 
-### 7.6 Token Refresh Endpoint
+**EP-10:** The module SHALL provide a `/auth/token` endpoint to exchange an authorization CODE for application tokens.
 
-**EP-25:** The module SHALL provide a `/auth/refresh` endpoint to obtain a new access token.
+**EP-11:** WHEN a POST request is made to the token endpoint with a valid authorization CODE, the module SHALL retrieve the associated user information and provider tokens from the in-memory key-value store.
 
-**EP-26:** WHEN a request is made to the refresh endpoint with a valid refresh token cookie, the module SHALL generate a new access token and return it in the response body.
+**EP-12:** WHEN the authorization CODE is successfully validated and retrieved, the module SHALL delete it from the key-value store to ensure single use.
 
-**EP-27:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
+**EP-13:** WHEN user information is retrieved from the CODE, the module SHALL generate an application-specific JWT access token containing the user information.
 
-**EP-28:** WHERE `automaticRefresh` is enabled, the module SHALL automatically refresh access tokens.
+**EP-14:** WHEN an access token is generated, the module SHALL generate a refresh token (JWT) for token refresh functionality.
 
-**EP-29:** WHEN automatic refresh is triggered, the module SHALL ensure only one refresh request is in-flight at a time to prevent endpoint overwhelming.
+**EP-15:** WHEN application tokens are generated, the token endpoint SHALL return the access token in the JSON response body.
 
-**EP-30:** WHERE an API request receives a 401 Unauthorized response, the module SHALL attempt to refresh the token once and retry the original request before failing.
+**EP-16:** WHEN a refresh token is generated, the token endpoint SHALL set it as a secure, `HttpOnly` cookie.
 
-**EP-31:** The module SHALL provide a manual `refresh()` method in the `useAuth()` composable for developer-initiated token refresh.
+**EP-17:** IF the authorization CODE is invalid, expired, or not found in the key-value store, THEN the token endpoint SHALL return a 401 Unauthorized response.
 
-## 8. Configuration Requirements
+**EP-18:** IF the authorization CODE has already been used (deleted from store), THEN the token endpoint SHALL return a 401 Unauthorized response to prevent replay attacks.
+
+### 7.3 Logout Endpoint
+
+**EP-19:** The module SHALL provide a `/auth/logout` endpoint to end the user session.
+
+**EP-20:** WHEN a POST request is made to the logout endpoint, the module SHALL clear the refresh token cookie.
+
+**EP-21:** WHEN a request is made to the logout endpoint, the module SHALL return a success response in JSON format.
+
+**EP-22:** WHERE configured, the module SHALL support redirecting to a configurable post-logout URL after clearing the session.
+
+### 7.4 User Info Endpoint
+
+**EP-23:** The module SHALL provide a `/auth/me` endpoint to retrieve the current user's information.
+
+**EP-24:** WHEN a request is made to the `/auth/me` endpoint with a valid access token in the `Authorization: Bearer` header, the module SHALL return the decoded user data from the token.
+
+**EP-25:** WHEN a request is made to the `/auth/me` endpoint without a valid access token, the module SHALL return a 401 Unauthorized response.
+
+**EP-26:** WHERE the user is authenticated, the `/auth/me` endpoint SHALL return user data in JSON format including all JWT claims.
+
+### 7.5 Token Refresh Endpoint
+
+**EP-27:** The module SHALL provide a `/auth/refresh` endpoint to obtain a new access token.
+
+**EP-28:** WHEN a POST request is made to the refresh endpoint with a valid refresh token cookie, the module SHALL generate a new access token and return it in the JSON response body.
+
+**EP-29:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
+
+**EP-30:** WHEN a new access token is generated via refresh, the module SHALL optionally rotate the refresh token and set a new refresh token cookie.
+
+**EP-31:** WHERE `automaticRefresh` is configured, the module SHALL automatically attempt to refresh the access token when authentication state is initialized.
+
+**EP-32:** WHEN automatic refresh is triggered, the module SHALL ensure only one refresh request is in-flight at a time to prevent overwhelming the endpoint.
+
+**EP-33:** WHERE an API request receives a 401 Unauthorized response AND a refresh token cookie exists, the module SHALL attempt to refresh the token once and retry the original request before failing.
+
+**EP-34:** The module SHALL provide a manual `refresh()` method in the `useAuth()` composable for developer-initiated token refresh.
+
+## 9. Configuration Requirements
 
 **CF-1:** WHEN configuring the module, developers SHALL be able to specify authentication provider settings in the Nuxt configuration file.
 
@@ -260,7 +312,11 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CF-7:** WHERE redirect URLs are configurable, the module SHALL allow developers to specify success and error redirect URLs for authentication flows.
 
-## 9. Security Requirements
+**CF-8:** WHERE token storage is configured, the module SHALL store access tokens in memory by default and refresh tokens as HttpOnly cookies.
+
+**CF-9:** WHERE the authorization CODE expiration time is configurable, the module SHALL allow developers to set a custom expiration time with a recommended default of 60 seconds.
+
+## 10. Security Requirements
 
 **SC-1:** WHEN storing JWT signing secrets, the module SHALL NOT log or expose secrets in error messages.
 
@@ -272,9 +328,19 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **SC-5:** WHEN setting refresh token cookies, the module SHALL set the `SameSite` attribute to `Lax` or `Strict`.
 
-**SC-6:** The module SHALL implement a Content Security Policy (CSP) to mitigate the risk of XSS attacks.
+**SC-6:** The module SHALL be compatible with strict Content Security Policy (CSP) configurations.
 
-## 10. Error Handling Requirements
+**SC-7:** WHEN storing access tokens in memory, the module SHALL use reactive reference variables that are cleared on page refresh or window close.
+
+**SC-8:** WHERE refresh tokens are set as cookies, the module SHALL set appropriate cookie attributes including `HttpOnly`, `Secure` (in production), and `SameSite`.
+
+**SC-9:** WHEN generating authorization CODEs, the module SHALL use cryptographically secure random number generation to prevent code guessing attacks.
+
+**SC-10:** WHERE authorization CODEs are stored, the module SHALL ensure they are single-use only by deleting them immediately after successful token exchange.
+
+**SC-11:** WHEN authorization CODEs expire, the module SHALL automatically clean them up from the store to prevent unauthorized access.
+
+## 11. Error Handling Requirements
 
 **EH-1:** WHEN an authentication error occurs, the module SHALL provide descriptive error messages for debugging.
 
@@ -282,9 +348,15 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EH-3:** WHERE errors are returned to clients, the module SHALL NOT expose sensitive information about the authentication system.
 
-## 11. Performance Requirements
+**EH-4:** IF an authorization CODE is invalid, expired, or already used, the module SHALL return a clear 401 Unauthorized response without revealing the specific reason to prevent information leakage.
+
+## 12. Performance Requirements
 
 **PF-1:** WHEN validating JWTs, the middleware SHALL complete validation in less than 50ms under normal conditions.
 
 **PF-2:** WHERE token caching is implemented, the module SHALL cache provider public keys for signature validation.
+
+**PF-3:** WHERE authorization CODEs are stored in the key-value store, the module SHALL support efficient lookup operations with O(1) time complexity.
+
+**PF-4:** WHEN cleaning up expired authorization CODEs, the module SHALL perform cleanup operations without blocking active authentication requests.
 

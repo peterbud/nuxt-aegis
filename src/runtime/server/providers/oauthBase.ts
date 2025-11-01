@@ -1,9 +1,10 @@
 import { eventHandler, getRequestURL, getQuery, sendRedirect, createError } from 'h3'
 import type { H3Event, H3Error } from 'h3'
-import type { OAuthConfig, OAuthProviderConfig, CustomClaimsCallback, NuxtAegisRuntimeConfig } from '../../types'
+import type { OAuthConfig, OAuthProviderConfig, NuxtAegisRuntimeConfig } from '../../types'
 import { defu } from 'defu'
-import { useRuntimeConfig, generateAuthTokens, setRefreshTokenCookie } from '#imports'
+import { useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
+import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0'
@@ -54,7 +55,26 @@ function getOAuthRedirectUri(event: H3Event): string {
 
 /**
  * Base OAuth event handler that provides common OAuth flow functionality
- * Handles the complete OAuth 2.0 authorization code flow
+ *
+ * Handles the complete OAuth 2.0 authorization code flow with CODE-based token delivery:
+ *
+ * Initial Request (no code parameter):
+ * - PR-5: Redirect user to provider's authorization page
+ * - EP-2: Initiate OAuth flow
+ *
+ * Callback Request (with code parameter from provider):
+ * 1. PR-6, EP-4: Exchange authorization code for provider tokens
+ * 2. PR-8, PR-9, EP-5: Validate tokens and extract user information
+ * 3. PR-10, PR-11, CS-3: Generate cryptographically secure authorization CODE
+ * 4. CS-2, CS-4, CF-9: Store CODE with user data (60s expiration, configurable)
+ * 5. PR-13, EP-7: Redirect to /auth/callback with CODE as query parameter
+ *
+ * Error Handling:
+ * - PR-14, EP-8, EH-4: Generic error redirect to prevent information leakage
+ * - Security event logging for all failures
+ *
+ * Requirements: PR-5, PR-6, PR-8, PR-9, PR-10, PR-11, PR-13, PR-14,
+ *               EP-2, EP-4, EP-5, EP-7, EP-8, CS-2, CS-3, CS-4, CF-9, EH-4
  */
 export function defineOAuthEventHandler<
   TConfig extends OAuthProviderConfig,
@@ -64,7 +84,7 @@ export function defineOAuthEventHandler<
   {
     config,
     onError,
-    customClaims,
+    customClaims: _customClaims,
   }: OAuthConfig<TConfig>,
 ) {
   return eventHandler(async (event: H3Event) => {
@@ -134,50 +154,64 @@ export function defineOAuthEventHandler<
       const user = implementation.extractUser(userResponse)
       const tokens = { access_token, refresh_token, id_token, expires_in }
 
-      // Step 4: Handle custom claims
-      let resolvedCustomClaims: Record<string, unknown> | undefined
+      // PR-10, PR-11: Generate and store authorization CODE
+      try {
+        const authCode = generateAuthCode()
+        // CS-4, CF-9: Use configured authorization code expiration time
+        const authCodeExpiresIn = runtimeConfig.authCode?.expiresIn || 60
 
-      if (customClaims) {
-        if (typeof customClaims === 'function') {
-          // Execute callback function
-          resolvedCustomClaims = await (customClaims as CustomClaimsCallback)(user, tokens)
+        await storeAuthCode(authCode, user, tokens, authCodeExpiresIn)
+
+        // Security event logging - OAuth flow completed, redirecting with CODE
+        if (import.meta.dev) {
+          console.log('[Nuxt Aegis Security] OAuth authentication successful, redirecting with CODE', {
+            timestamp: new Date().toISOString(),
+            event: 'OAUTH_SUCCESS_REDIRECT',
+            codePrefix: `${authCode.substring(0, 8)}...`,
+          })
         }
-        else {
-          // Use static object
-          resolvedCustomClaims = customClaims
-        }
+
+        // PR-13: Redirect to client-side callback with authorization CODE
+        const callbackUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
+        callbackUrl.searchParams.set('code', authCode)
+
+        return sendRedirect(event, callbackUrl.href)
       }
+      catch (codeError) {
+        // EH-4: Handle CODE generation/storage failure
+        console.error('[Nuxt Aegis Security] Authorization code generation/storage failed', {
+          timestamp: new Date().toISOString(),
+          event: 'CODE_GENERATION_ERROR',
+          error: import.meta.dev ? codeError : 'Error details hidden in production',
+          severity: 'error',
+        })
 
-      // EP-7: Step 5 - Generate and set authentication tokens
-      const { accessToken, refreshToken } = await generateAuthTokens(event, user, resolvedCustomClaims)
-      const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie
-
-      // EP-8: Set refresh token as a secure, HttpOnly cookie
-      if (refreshToken) {
-        setRefreshTokenCookie(event, refreshToken, cookieConfig)
+        // Redirect with generic error - don't reveal CODE generation failure
+        const errorUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
+        errorUrl.searchParams.set('error', 'authentication_failed')
+        return sendRedirect(event, errorUrl.href)
       }
-
-      // EP-9: Redirect to client-side callback with access token in hash
-      const redirectUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
-      redirectUrl.hash = `access_token=${encodeURIComponent(accessToken)}`
-
-      return sendRedirect(event, redirectUrl.href)
     }
     catch (error) {
-      if (import.meta.dev) {
-        console.error('[Nuxt Aegis] OAuth authentication error:', error)
-      }
+      // Security event logging - OAuth authentication failure
+      console.error('[Nuxt Aegis Security] OAuth authentication error', {
+        timestamp: new Date().toISOString(),
+        event: 'OAUTH_AUTH_ERROR',
+        error: import.meta.dev ? error : 'Error details hidden in production',
+        severity: 'error',
+      })
 
-      // EP-9: Handle authentication failure
+      // PR-14: Handle authentication failure - redirect to callback with error
       if (onError) {
         return await onError(event, error as H3Error)
       }
 
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'OAuth Authentication Failed',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      })
+      // EH-4: Redirect to callback with generic error - don't reveal specific reason
+      const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
+      const errorUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
+      errorUrl.searchParams.set('error', 'authentication_failed')
+
+      return sendRedirect(event, errorUrl.href)
     }
   })
 }

@@ -39,6 +39,9 @@ export default defineNuxtModule<ModuleOptions>({
         path: '/',
       },
     },
+    authCode: {
+      expiresIn: 60, // CS-4, CF-9: Authorization code expiry in seconds (default 60s)
+    },
     redirect: {
       login: '/',
       logout: '/',
@@ -111,6 +114,15 @@ export default defineNuxtModule<ModuleOptions>({
       method: 'post',
     })
 
+    // EP-10, EP-11, EP-12, EP-13, EP-14, EP-15, EP-16, EP-17, EP-18: Token exchange endpoint
+    // Exchanges authorization CODE for JWT access token and refresh token
+    // CL-22: Called by AuthCallback.vue to complete CODE-based authentication flow
+    addServerHandler({
+      route: `${runtimeConfig.public.nuxtAegis.authPath}/token`,
+      handler: resolver.resolve('./runtime/server/routes/token.post'),
+      method: 'post',
+    })
+
     // EP-19, EP-20, EP-21: Token refresh endpoint
     addServerHandler({
       route: `${runtimeConfig.public.nuxtAegis.authPath}/refresh`,
@@ -135,10 +147,17 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.nitro.storage = {}
     }
 
-    // Add default storage configuration
+    // Add default storage configuration for refresh tokens
     nuxt.options.nitro.storage.refreshTokenStore = defu(nuxt.options.nitro.storage.refreshTokenStore, {
       driver: 'fs',
       base: './.data/refresh-tokens',
+    })
+
+    // CS-1, CS-4, PF-3: Add storage configuration for authorization codes
+    // Use memory driver for short-lived codes (60s default, better performance, O(1) lookup)
+    // PR-11: Server-side in-memory key-value store for temporary CODE storage
+    nuxt.options.nitro.storage.authCodeStore = defu(nuxt.options.nitro.storage.authCodeStore, {
+      driver: 'memory',
     })
 
     // Add a routerOption for the AuthCallback page

@@ -1,48 +1,90 @@
 <script setup lang="ts">
-import { navigateTo } from '#app'
+/**
+ * Authentication Callback Page
+ *
+ * Handles the OAuth callback and authorization CODE exchange flow.
+ *
+ * Flow:
+ * 1. CL-21: Parse authorization CODE from URL query parameter (?code=XXX)
+ * 2. CL-22: Exchange CODE for JWT tokens via POST /auth/token
+ * 3. CL-18, CL-23: Store access token in memory (reactive ref)
+ * 4. EP-15: Receive access token from JSON response
+ * 5. EP-16: Refresh token set as HttpOnly cookie by server
+ * 6. Update authentication state and redirect to success URL
+ *
+ * Error Handling:
+ * - CL-24: Handle error query parameter from provider
+ * - EH-4: Display generic error messages to prevent information leakage
+ * - All failures show "Authentication failed. Please try again."
+ *
+ * Requirements: CL-21, CL-22, CL-23, CL-24, EP-15, EP-16, EH-4
+ */
+import { navigateTo, useNuxtApp } from '#app'
 import { ref, onMounted } from 'vue'
 import { useAuth } from '#imports'
+import { setAccessToken } from '../utils/tokenStore'
 
 const processing = ref(true)
 const error = ref<string | null>(null)
 
 onMounted(async () => {
   try {
-    // Parse access token from URL hash fragment (EP-13)
-    const hash = window.location.hash.substring(1)
-    const params = new URLSearchParams(hash)
-    const accessToken = params.get('access_token')
-    const errorParam = params.get('error')
+    // CL-21: Parse authorization CODE from URL query parameter
+    const urlParams = new URLSearchParams(window.location.search)
+    const code = urlParams.get('code')
+    const errorParam = urlParams.get('error')
 
-    // Handle error from hash (EP-15)
+    // CL-24: Handle error from query params
     if (errorParam) {
-      error.value = errorParam
+      // EH-4: Display generic error message to user
+      error.value = 'Authentication failed. Please try again.'
       console.error('[Nuxt Aegis] Authentication error:', errorParam)
 
-      // Clear hash from URL (EP-16)
-      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      // Clear query params from URL
+      window.history.replaceState(null, '', window.location.pathname)
 
       processing.value = false
 
       // TODO: Redirect to configurable error URL
-      navigateTo('/')
-    }
-
-    if (!accessToken) {
-      error.value = 'No access token received'
-      console.error('[Nuxt Aegis] No access token in URL hash')
-      processing.value = false
+      setTimeout(() => navigateTo('/'), 3000)
       return
     }
 
-    // Store token in sessionStorage (EP-13)
-    await sessionStorage.setItem('nuxt.aegis.token', accessToken)
+    if (!code) {
+      // EH-4: Generic error message - don't reveal CODE is missing
+      error.value = 'Authentication failed. Please try again.'
+      console.error('[Nuxt Aegis] No authorization code in URL')
+      processing.value = false
+      setTimeout(() => navigateTo('/'), 3000)
+      return
+    }
 
-    // Clear the access token from URL hash to prevent exposure in browser history (EP-16)
+    // CL-22: Exchange CODE for tokens via /auth/token endpoint
+    const response = await useNuxtApp().$api<{ accessToken: string }>(
+      '/auth/token',
+      {
+        method: 'POST',
+        body: { code },
+      },
+    )
+
+    if (!response?.accessToken) {
+      // EH-4: Generic error message
+      error.value = 'Authentication failed. Please try again.'
+      console.error('[Nuxt Aegis] No access token in response')
+      processing.value = false
+      setTimeout(() => navigateTo('/'), 3000)
+      return
+    }
+
+    // CL-18, CL-23: Store access token in memory (NOT sessionStorage)
+    setAccessToken(response.accessToken)
+
+    // Clear the code from URL to prevent reuse
     window.history.replaceState(
       {},
       '',
-      window.location.pathname + window.location.search,
+      window.location.pathname,
     )
 
     // Update authentication state
@@ -50,14 +92,18 @@ onMounted(async () => {
 
     processing.value = false
 
-    // Redirect to success URL or originally requested route (EP-14)
+    // Redirect to success URL or originally requested route
     // TODO: Use configurable success URL
     navigateTo('/')
   }
   catch (err) {
+    // EH-4: Generic error message to prevent information leakage
     console.error('[Nuxt Aegis] Error processing callback:', err)
-    error.value = 'Failed to process authentication'
+    error.value = 'Authentication failed. Please try again.'
     processing.value = false
+
+    // Redirect after showing error
+    setTimeout(() => navigateTo('/'), 3000)
   }
 })
 </script>

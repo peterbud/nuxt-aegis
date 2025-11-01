@@ -1,10 +1,11 @@
 import { defineNuxtPlugin, navigateTo } from '#app'
 import type { RefreshResponse } from '../../types'
 import { useAuth } from '#imports'
+import { getAccessToken, setAccessToken, clearAccessToken } from '../utils/tokenStore'
 
 /**
  * Nuxt Aegis plugin
- * Intercepts API calls and attaches authorization bearer token
+ * CL-17: Intercepts API calls and attaches authorization bearer token from memory
  * See: https://nuxt.com/docs/4.x/guide/recipes/custom-usefetch
  */
 export default defineNuxtPlugin(async (nuxtApp) => {
@@ -25,11 +26,13 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     refreshPromise = $fetch<RefreshResponse>(`${authPath}/refresh`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${sessionStorage.getItem('nuxt.aegis.token')}`,
+        // CL-18: Get token from memory, not sessionStorage
+        Authorization: `Bearer ${getAccessToken()}`,
       },
     }).then(async (response) => {
       if (response && 'accessToken' in response && response.accessToken) {
-        await sessionStorage.setItem('nuxt.aegis.token', response.accessToken)
+        // CL-18: Store new token in memory, not sessionStorage
+        setAccessToken(response.accessToken)
 
         // Refresh auth state after successful token refresh
         await nuxtApp.runWithContext(async () => {
@@ -47,11 +50,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     return refreshPromise
   }
 
-  // EP-13: Use sessionStorage
+  // CL-17, CL-18: Attach in-memory access token to API requests
   const api = $fetch.create({
     baseURL: 'http://localhost:3000',
     onRequest({ options }) {
-      const token = sessionStorage.getItem('nuxt.aegis.token')
+      // CL-18: Get token from memory, not sessionStorage
+      const token = getAccessToken()
 
       if (token) {
         // note that this relies on ofetch >= 1.4.0 - you may need to refresh your lockfile
@@ -71,7 +75,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         }
 
         // Refresh failed, clear token and redirect to login
-        sessionStorage.removeItem('nuxt.aegis.token')
+        // CL-19: Clear token from memory, not sessionStorage
+        clearAccessToken()
         await nuxtApp.runWithContext(() => navigateTo('/'))
       }
     },
@@ -86,9 +91,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     },
   }
 
-  // Initialize auth state on plugin startup if token exists
+  // CL-12: Initialize auth state on plugin startup if token exists in memory
   // This must happen AFTER $api is provided
-  const existingToken = sessionStorage.getItem('nuxt.aegis.token')
+  const existingToken = getAccessToken()
   if (existingToken && !isInitialized) {
     isInitialized = true
 

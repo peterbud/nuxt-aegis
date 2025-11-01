@@ -1,6 +1,7 @@
 import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed, useNuxtApp } from '#imports'
 import type { TokenPayload } from '../../types'
+import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
 
 /**
  * Internal authentication state interface
@@ -37,6 +38,35 @@ interface UseAuthReturn {
 /**
  * Composable for managing authentication state and actions
  *
+ * This composable provides methods for OAuth authentication using a CODE-based flow:
+ *
+ * Authentication Flow:
+ * 1. CL-7, PR-5: login() redirects to OAuth provider authentication page
+ * 2. PR-10, PR-11: Provider redirects back with short-lived authorization CODE (60s)
+ * 3. CL-10, CL-22: AuthCallback page exchanges CODE for JWT tokens via /auth/token
+ * 4. CL-18, SC-7: Access token stored in memory (reactive ref, cleared on refresh)
+ * 5. EP-16, SC-3, SC-4, SC-5: Refresh token stored as HttpOnly, Secure cookie
+ *
+ * Token Storage:
+ * - CL-18: Access token in memory only (NOT sessionStorage)
+ * - CL-19, SC-7: Automatically cleared on page refresh/window close
+ * - CL-20: Refresh token cookie used to obtain new access token after refresh
+ *
+ * State Management:
+ * - CL-2: isLoggedIn reactive property (true when user authenticated)
+ * - CL-3: isLoading reactive property (true during state initialization)
+ * - CL-4, CL-5, CL-6: user reactive property (null when not authenticated)
+ * - CL-11: State synchronized reactively across all components
+ *
+ * Methods:
+ * - CL-7: login(provider) - Initiate OAuth flow
+ * - CL-8: logout() - End user session
+ * - CL-12, CL-13: refresh() - Restore authentication state
+ *
+ * Requirements: CL-2 through CL-13, CL-18, CL-19, CL-20, CL-22,
+ *               PR-5, PR-10, PR-11, EP-16, SC-3, SC-4, SC-5, SC-7
+ *
+ * @returns {UseAuthReturn} Authentication state and methods
  */
 export function useAuth(): UseAuthReturn {
   // Global auth state
@@ -65,8 +95,8 @@ export function useAuth(): UseAuthReturn {
 
     console.log('[Nuxt Aegis] REFRESH')
     try {
-      // check for existing token in sessionStorage
-      const existingToken = sessionStorage.getItem('nuxt.aegis.token')
+      // CL-18: Check for existing token in memory (NOT sessionStorage)
+      const existingToken = getAccessToken()
       if (!existingToken) {
         authState.value.user = null
         return
@@ -91,6 +121,17 @@ export function useAuth(): UseAuthReturn {
 
   /**
    * Method to initiate authentication flow
+   *
+   * Redirects the user to the OAuth provider's authentication page.
+   * After successful authentication, the provider will redirect back to /auth/callback
+   * with a short-lived authorization CODE (valid for 60 seconds).
+   * The callback page will exchange this CODE for JWT tokens.
+   *
+   * @param {string} provider - OAuth provider name (e.g., 'google', 'github', 'auth0')
+   * @param {string} _redirectTo - Reserved for future use; redirect path after authentication
+   * @throws {Error} If provider is invalid
+   *
+   * @see Requirements: PR-10, PR-11, CS-1, CL-21
    */
   async function login(provider = 'google', _redirectTo?: string): Promise<void> {
     try {
@@ -139,7 +180,8 @@ export function useAuth(): UseAuthReturn {
       await navigateTo(logoutRedirect)
     }
     finally {
-      sessionStorage.removeItem('nuxt.aegis.token')
+      // CL-19: Clear access token from memory (NOT sessionStorage)
+      clearAccessToken()
 
       // Redirect to specified URL or default
       const logoutRedirect = redirectTo || '/'

@@ -33,6 +33,14 @@ export type {
   TokenRefreshConfig,
 } from './refresh'
 
+// Auth Code types
+export type {
+  AuthCodeData,
+  TokenExchangeRequest,
+  TokenExchangeResponse,
+  AuthCodeConfig,
+} from './authCode'
+
 // Route types
 export type {
   RouteProtectionConfig,
