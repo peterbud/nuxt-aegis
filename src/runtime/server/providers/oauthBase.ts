@@ -154,13 +154,24 @@ export function defineOAuthEventHandler<
       const user = implementation.extractUser(userResponse)
       const tokens = { access_token, refresh_token, id_token, expires_in }
 
+      // Resolve custom claims if it's a callback function
+      let resolvedCustomClaims: Record<string, unknown> | undefined
+      if (_customClaims) {
+        if (typeof _customClaims === 'function') {
+          resolvedCustomClaims = await _customClaims(user, tokens)
+        }
+        else {
+          resolvedCustomClaims = _customClaims
+        }
+      }
+
       // PR-10, PR-11: Generate and store authorization CODE
       try {
         const authCode = generateAuthCode()
         // CS-4, CF-9: Use configured authorization code expiration time
         const authCodeExpiresIn = runtimeConfig.authCode?.expiresIn || 60
 
-        await storeAuthCode(authCode, user, tokens, authCodeExpiresIn)
+        await storeAuthCode(authCode, user, tokens, authCodeExpiresIn, resolvedCustomClaims)
 
         // Security event logging - OAuth flow completed, redirecting with CODE
         if (import.meta.dev) {

@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
     const { accessToken, refreshToken } = await generateAuthTokens(
       event,
       authCodeData.user,
-      undefined, // Custom claims can be added here if needed
+      authCodeData.customClaims,
     )
 
     // EP-16: Set refresh token as secure, HttpOnly cookie

@@ -38,6 +38,8 @@ export interface AuthCodeData {
     id_token?: string
     expires_in?: number
   }
+  /** Optional custom claims to add to the JWT token */
+  customClaims?: Record<string, unknown>
   /** Timestamp when the code expires (milliseconds since epoch) */
   expiresAt: number
   /** Timestamp when the code was created (milliseconds since epoch) */
@@ -88,6 +90,7 @@ export function generateAuthCode(): string {
  * @param providerTokens.id_token - Optional provider ID token
  * @param providerTokens.expires_in - Optional token expiration time
  * @param expiresIn - Expiration time in seconds (default: 60)
+ * @param customClaims - Optional custom claims to add to the JWT token
  *
  * @example
  * ```typescript
@@ -104,12 +107,14 @@ export async function storeAuthCode(
     expires_in?: number
   },
   expiresIn = 60, // CS-4: Default 60 seconds
+  customClaims?: Record<string, unknown>,
 ): Promise<void> {
   const now = Date.now()
 
   const authCodeData: AuthCodeData = {
     user,
     providerTokens,
+    customClaims,
     expiresAt: now + (expiresIn * 1000), // CS-4: Set expiration timestamp
     createdAt: now,
   }

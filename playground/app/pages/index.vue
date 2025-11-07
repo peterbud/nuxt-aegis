@@ -115,9 +115,27 @@ const testProtectedRoute = async () => {
             </p>
             <p
               v-if="user.sub"
-              style="margin: 0; font-size: 12px; color: #999;"
+              style="margin: 0; color: #999;"
             >
               ID: {{ user.sub }}
+            </p>
+            <p
+              v-if="user.role"
+              style="margin: 5px 0 0 0;"
+            >
+              Role: <strong>{{ user.role }}</strong>
+            </p>
+            <p
+              v-if="user.permissions && Array.isArray(user.permissions)"
+              style="margin: 5px 0 0 0;"
+            >
+              Permissions: <strong>{{ user.permissions.join(', ') }}</strong>
+            </p>
+            <p
+              v-if="user.organizationId"
+              style="margin: 5px 0 0 0;"
+            >
+              Organization: <strong>{{ user.organizationId }}</strong>
             </p>
           </div>
         </div>

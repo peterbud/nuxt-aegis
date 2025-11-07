@@ -37,7 +37,6 @@ export default defineEventHandler(async (event) => {
 
   if (!refreshToken) {
     // EP-21: Return 401 when no token provided
-    return
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
