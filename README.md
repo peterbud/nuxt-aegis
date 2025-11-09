@@ -75,9 +75,15 @@ export default defineNuxtConfig({
 3. Set up your environment variables:
 
 ```bash
-NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-here
+# Required: Secret for signing JWT tokens (32+ characters recommended)
+NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-minimum-32-characters
+
+# OAuth Provider Credentials
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Optional: Encryption key for refresh token storage (32+ characters)
+NUXT_AEGIS_ENCRYPTION_KEY=your-encryption-key-minimum-32-characters
 ```
 
 That's it! You can now use Nuxt Aegis in your Nuxt app ✨
@@ -94,7 +100,7 @@ export default defineNuxtConfig({
     // JWT Token Configuration
     token: {
       secret: process.env.NUXT_AEGIS_TOKEN_SECRET!, // Required
-      expiresIn: '1h',              // Access token expiration (default: 15 minutes)
+      expiresIn: '1h',              // Access token expiration (default: 1 hour)
       algorithm: 'HS256',           // Signing algorithm (HS256 or RS256)
       issuer: 'https://myapp.com',  // Token issuer
       audience: 'https://myapp.com/api', // Token audience
@@ -103,21 +109,40 @@ export default defineNuxtConfig({
     // Token Refresh Configuration
     tokenRefresh: {
       enabled: true,
-      automaticRefresh: true,       // Auto-refresh expired tokens
+      automaticRefresh: true,       // Auto-refresh on app startup
       cookie: {
         cookieName: 'nuxt-aegis-refresh',
-        maxAge: 60 * 60 * 24 * 7,   // 7 days
-        secure: true,
+        maxAge: 60 * 60 * 24 * 7,   // 7 days in seconds
+        secure: true,                // HTTPS only
         sameSite: 'lax',
-        httpOnly: true,
+        httpOnly: true,              // Not accessible to JavaScript
         path: '/',
       },
+      // Persistent storage configuration
+      storage: {
+        driver: 'fs',                // 'fs', 'redis', or 'memory'
+        prefix: 'refresh:',
+        base: './.data/refresh-tokens',
+      },
+      // Optional: Encryption at rest
+      encryption: {
+        enabled: false,              // Enable for sensitive data
+        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY, // 32+ characters
+        algorithm: 'aes-256-gcm',
+      },
+    },
+    
+    // Authorization CODE Configuration
+    authCode: {
+      expiresIn: 60,                 // CODE lifetime in seconds
     },
     
     // Redirect URLs after successful login/logout
     redirect: {
       login: '/',
       logout: '/',
+      success: '/',
+      error: '/auth/error',
     },
     
     // Route Protection
@@ -136,8 +161,19 @@ export default defineNuxtConfig({
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        scopes: ['openid', 'profile', 'email'],
       },
       // Add more providers as needed
+    },
+  },
+  
+  // Configure Nitro storage for persistent refresh tokens
+  nitro: {
+    storage: {
+      refreshTokenStore: {
+        driver: 'fs',
+        base: './.data/refresh-tokens',
+      },
     },
   },
 })
@@ -166,6 +202,18 @@ export default defineNuxtConfig({
 | `cookie.httpOnly` | `boolean` | `true` | HTTP-only flag for security |
 | `cookie.secure` | `boolean` | `true` | Secure flag (HTTPS only) |
 | `cookie.sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` | SameSite cookie attribute |
+| `encryption.enabled` | `boolean` | `false` | Enable encryption at rest for user data |
+| `encryption.key` | `string` | - | Encryption key (32+ characters) |
+| `encryption.algorithm` | `'aes-256-gcm'` | `'aes-256-gcm'` | Encryption algorithm |
+| `storage.driver` | `'fs' \| 'redis' \| 'memory'` | `'fs'` | Storage backend driver |
+| `storage.prefix` | `string` | `'refresh:'` | Storage key prefix |
+| `storage.base` | `string` | `'./.data/refresh-tokens'` | Base path for filesystem storage |
+
+#### Authorization CODE Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `expiresIn` | `number` | `60` | CODE expiration time in seconds |
 
 ## Authentication Providers
 
@@ -392,6 +440,62 @@ Both functions:
 - **Runtime Safety**: Provides a safety net even if middleware configuration changes
 - **Better DX**: Auto-completion and type inference work perfectly
 
+### Authorization CODE Flow
+
+Nuxt Aegis implements an additional security layer with short-lived authorization CODEs between the OAuth callback and token exchange. This prevents token exposure in browser redirects.
+
+#### How It Works
+
+```
+OAuth Provider → Server receives auth code
+                  ↓
+            Server exchanges for provider tokens
+                  ↓
+            Server retrieves user info
+                  ↓
+            Server generates authorization CODE (60s lifetime)
+                  ↓
+            Server stores CODE with user data in memory
+                  ↓
+            Server redirects to /auth/callback?code=CODE
+                  ↓
+            Client calls /auth/token with CODE
+                  ↓
+            Server validates CODE (single-use)
+                  ↓
+            Server generates JWT tokens
+                  ↓
+            Server returns access token to client
+```
+
+#### Configuration
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    authCode: {
+      expiresIn: 60, // CODE lifetime in seconds (default: 60)
+    },
+  },
+})
+```
+
+#### Security Features
+
+- ✅ **Short-lived**: 60-second expiration (configurable)
+- ✅ **Single-use**: CODE deleted immediately after exchange
+- ✅ **Cryptographically secure**: Generated using `crypto.randomBytes(32)`
+- ✅ **Memory storage**: In-memory key-value store (not persistent)
+- ✅ **Automatic cleanup**: Expired CODEs automatically removed
+- ✅ **No token exposure**: Access tokens never appear in URL redirects
+
+**Why use this approach?**
+1. **Prevents URL token exposure**: Tokens never appear in browser history
+2. **Reduced attack surface**: CODEs expire quickly and can't be reused
+3. **Better security**: Server-side validation before token generation
+4. **Single-use enforcement**: Prevents replay attacks
+
 ### Custom Claims
 
 Add application-specific data to your JWT tokens. Custom claims can be static objects or dynamic callback functions that receive user and token data from the OAuth provider:
@@ -461,6 +565,14 @@ export default defineOAuthGoogleEventHandler({
     })
 
     return {
+      role: determineRole(user),
+      extraInfo: extraData,
+    }
+  },
+})
+```
+
+**Important**: During token refresh, the same custom claims callback is invoked with the stored user object to maintain consistency. The provider tokens are not available during refresh since we're not re-authenticating with the provider.    return {
       role: user.role,
       providerId: tokens.id_token,
     }
@@ -487,7 +599,15 @@ If you attempt to override these claims, they will be filtered out and a warning
 
 ### Token Refresh
 
-Nuxt Aegis provides automatic token refresh to maintain user sessions.
+Nuxt Aegis provides automatic token refresh to maintain user sessions without re-authentication.
+
+#### How Token Refresh Works
+
+1. **Initial Authentication**: After OAuth login, refresh token is stored server-side with user data
+2. **Auto-Refresh on Startup**: When app initializes, attempts to get new access token using refresh token cookie
+3. **Expiration Handling**: When access token expires, client can request a new one
+4. **Token Generation**: Server retrieves stored user object and regenerates access token with same custom claims
+5. **Optional Rotation**: Server can rotate (replace) the refresh token for additional security
 
 #### Automatic Refresh
 
@@ -499,17 +619,92 @@ export default defineNuxtConfig({
   nuxtAegis: {
     tokenRefresh: {
       enabled: true,
-      automaticRefresh: true, // Enable automatic refresh
+      automaticRefresh: true, // Refresh on app startup
     },
   },
 })
 ```
 
 The module automatically:
-1. Handles access token expiration
-2. Refreshes tokens when they have expired (if refresh token is still valid)
-3. Retries failed API requests after token refresh
-4. Prevents multiple simultaneous refresh requests
+1. Attempts to refresh access token when app initializes (if refresh token cookie exists)
+2. Handles access token expiration gracefully
+3. Refreshes tokens when they have expired (if refresh token is still valid)
+4. Retries failed API requests after token refresh
+5. Prevents multiple simultaneous refresh requests
+
+#### Refresh Token Storage
+
+Refresh tokens are stored server-side in a **persistent storage layer** (survives server restarts):
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      storage: {
+        driver: 'fs', // Options: 'fs', 'redis', 'memory'
+        prefix: 'refresh:',
+        base: './.data/refresh-tokens',
+      },
+    },
+  },
+  
+  // Configure Nitro storage for persistence
+  nitro: {
+    storage: {
+      refreshTokenStore: {
+        driver: 'fs', // or 'redis', 'mongodb', etc.
+        base: './.data/refresh-tokens',
+      },
+    },
+  },
+})
+```
+
+**What's stored with each refresh token:**
+- **Hashed token value** (SHA-256 hash used as storage key)
+- **Complete user object** (all profile data from OAuth provider)
+- **Subject identifier** (sub)
+- **Expiration timestamp**
+- **Revocation status** (for logout/invalidation)
+- **Optional encrypted data** (if encryption enabled)
+
+#### Encryption at Rest
+
+Enable AES-256-GCM encryption for sensitive user data:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      encryption: {
+        enabled: true,
+        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY, // 32+ characters
+        algorithm: 'aes-256-gcm',
+      },
+    },
+  },
+})
+```
+
+**Environment variables:**
+```bash
+NUXT_AEGIS_ENCRYPTION_KEY=your-32-character-encryption-key-minimum
+```
+
+**Security features:**
+- **AES-256-GCM** authenticated encryption
+- **Random IV** (initialization vector) for each encryption
+- **Transparent operation** (automatic encrypt/decrypt)
+- **Storage protection** (protects against storage backend compromise)
+- **Authentication tags** (prevents tampering)
+
+**When to use encryption:**
+- When storing sensitive user data (emails, names, etc.)
+- When using shared storage backends (e.g., Redis)
+- When compliance requires encryption at rest
+- When storage backend is not fully trusted
 
 #### Manual Refresh
 
@@ -538,17 +733,19 @@ Nuxt Aegis automatically creates the following endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/auth/{provider}` | GET | Initiate OAuth login with provider |
-| `/auth/callback` | GET | Client-side callback page |
-| `/auth/logout` | POST | End user session |
-| `/auth/refresh` | POST | Refresh access token |
-| `/api/user/me` | GET | Get current user info |
+| `/auth/{provider}` | GET | Initiate OAuth login with provider (or handle OAuth callback) |
+| `/auth/callback` | GET | Client-side callback page for CODE exchange |
+| `/auth/token` | POST | Exchange authorization CODE for JWT tokens |
+| `/auth/logout` | POST | End user session and revoke refresh token |
+| `/auth/refresh` | POST | Refresh access token using refresh token cookie |
+| `/api/user/me` | GET | Get current user info from JWT |
 
 ### Provider-Specific Endpoints
 
-For each configured provider (e.g., Google), the following endpoints are created:
+For each configured provider (e.g., Google), the module creates a dual-purpose endpoint:
 
-- **Login**: `/auth/google` - Redirects to Google OAuth
+- **Initial Login**: `GET /auth/google` (no code param) - Redirects to Google OAuth
+- **OAuth Callback**: `GET /auth/google?code=...` - Handles OAuth callback and generates authorization CODE
 
 ### Using Endpoints
 
@@ -594,8 +791,34 @@ const { user } = useAuth()
 ```typescript
 const { token } = await $fetch('/auth/refresh', {
   method: 'POST'
+  // Refresh token cookie is sent automatically
 })
 ```
+
+**How it works:**
+1. Refresh token is sent automatically via HttpOnly cookie
+2. Server validates token from persistent storage
+3. Server retrieves stored user object
+4. Server generates new access token with custom claims
+5. Server optionally rotates refresh token
+6. Server returns new access token in response
+
+#### Token Exchange (CODE to JWT)
+
+```typescript
+// This is handled automatically by the client callback page
+const { token } = await $fetch('/auth/token', {
+  method: 'POST',
+  body: {
+    code: authorizationCode // From /auth/callback URL
+  }
+})
+```
+
+**Security features:**
+- Single-use CODE enforcement (deleted after exchange)
+- 60-second CODE expiration
+- Cryptographically secure CODE generation
 
 ## Architecture
 
@@ -630,36 +853,134 @@ src/
 
 ### Authentication Flow
 
+The module implements a secure OAuth 2.0 authorization code flow with an additional CODE exchange step:
+
 ```
 1. User clicks "Login with Google"
    ↓
-2. Client redirects to /auth/google
+2. Client redirects to /auth/google (without code parameter)
    ↓
-3. Server redirects to Google OAuth
+3. Server redirects to Google OAuth authorization page
    ↓
 4. User authenticates with Google
    ↓
-5. Google redirects to /auth/google
+5. Google redirects back to /auth/google with authorization code
    ↓
-6. Server exchanges code for tokens
+6. Server exchanges authorization code for provider tokens
    ↓
-7. Server generates JWT with custom claims
+7. Server retrieves user info from provider
    ↓
-8. Server sets refresh token as HTTP-only cookie
+8. Server generates short-lived authorization CODE (60 seconds)
    ↓
-9. Server redirects to /auth/callback with access token in URL hash
+9. Server stores CODE with user data in memory
    ↓
-10. Client stores access token in sessionStorage
+10. Server redirects to /auth/callback with CODE
     ↓
-11. Client redirects to protected route or home page
+11. Client automatically calls /auth/token with CODE
+    ↓
+12. Server validates CODE (single-use enforcement)
+    ↓
+13. Server generates JWT access token with custom claims
+    ↓
+14. Server generates refresh token and stores it securely
+    ↓
+15. Server sets refresh token as HttpOnly, Secure cookie
+    ↓
+16. Server returns access token in JSON response
+    ↓
+17. Client stores access token in memory
+    ↓
+18. Client redirects to protected route or home page
 ```
 
 ### Token Management
 
-- **Access Token**: Stored in `sessionStorage`, short-lived (default: 1 hour)
-- **Refresh Token**: Stored in HTTP-only cookie, long-lived (default: 7 days)
-- **Auto-Refresh**: Access tokens are automatically refreshed before expiration
-- **Security**: Refresh tokens are never accessible to JavaScript
+#### Access Tokens
+- **Storage**: In-memory (reactive reference variable), cleared on page refresh
+- **Lifetime**: Short-lived (default: 1 hour, configurable via `token.expiresIn`)
+- **Format**: JWT with standard claims (sub, iss, exp, iat) and custom claims
+- **Transport**: Sent via `Authorization: Bearer` header for API requests
+
+#### Refresh Tokens
+- **Storage**: Server-side persistent storage (Nitro storage layer)
+- **Cookie**: Sent to client as HttpOnly, Secure cookie (not accessible to JavaScript)
+- **Lifetime**: Long-lived (default: 7 days, configurable via `tokenRefresh.cookie.maxAge`)
+- **Security**: Hashed using SHA-256 before storage, optionally encrypted at rest
+
+#### Authorization CODEs
+- **Storage**: Server-side in-memory store
+- **Lifetime**: 60 seconds (configurable via `authCode.expiresIn`)
+- **Purpose**: Securely bridge OAuth callback to token exchange
+- **Security**: Single-use enforcement, cryptographically secure random generation
+
+#### Token Refresh Process
+1. Client detects expired access token or calls `refresh()` manually
+2. Browser automatically sends refresh token cookie with request to `/auth/refresh`
+3. Server validates refresh token (existence, expiration, revocation status)
+4. Server retrieves stored user object from persistent storage
+5. Server generates new access token with same custom claims logic
+6. Server optionally rotates refresh token (generates new one)
+7. Server returns new access token in JSON response
+8. Client stores new access token in memory and updates authentication state
+
+#### Storage Configuration
+
+The module uses Nitro's storage layer for refresh tokens, supporting multiple backends:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      storage: {
+        driver: 'fs', // 'fs', 'redis', or 'memory'
+        prefix: 'refresh:', // Storage key prefix
+        base: './.data/refresh-tokens', // Base path for filesystem
+      },
+    },
+  },
+  
+  // Configure Nitro storage for persistent refresh tokens
+  nitro: {
+    storage: {
+      refreshTokenStore: {
+        driver: 'fs', // Or 'redis', 'mongodb', etc.
+        base: './.data/refresh-tokens',
+      },
+    },
+  },
+})
+```
+
+#### Encryption at Rest
+
+For additional security, enable encryption for user data stored with refresh tokens:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      encryption: {
+        enabled: true,
+        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY, // 32+ character key
+        algorithm: 'aes-256-gcm', // AES-256-GCM encryption
+      },
+    },
+  },
+})
+```
+
+**Environment variables:**
+```bash
+NUXT_AEGIS_ENCRYPTION_KEY=your-32-character-encryption-key-here
+```
+
+**Features:**
+- AES-256-GCM authenticated encryption
+- Random IV (initialization vector) for each encryption
+- Transparent encryption/decryption in storage layer
+- Protects user data if storage backend is compromised
 
 ## Security
 
@@ -671,12 +992,25 @@ Nuxt Aegis implements security best practices:
 ✅ **Secure Cookies** - Cookies only sent over HTTPS in production  
 ✅ **SameSite Protection** - CSRF protection via SameSite cookie attribute  
 ✅ **Short-lived Access Tokens** - Access tokens expire quickly (default: 1 hour)  
-✅ **Token Rotation** - New refresh tokens issued on each refresh
+✅ **Token Rotation** - New refresh tokens issued on each refresh (optional)  
+✅ **Hashed Storage** - Refresh tokens hashed (SHA-256) before storage  
+✅ **Encryption at Rest** - Optional AES-256-GCM encryption for user data  
+✅ **Authorization CODE** - Short-lived (60s) single-use CODEs prevent token exposure in URLs
+
+### Storage Security
+
+✅ **Persistent Storage** - Refresh tokens survive server restarts (Nitro storage layer)  
+✅ **Hashed Keys** - Refresh tokens hashed before use as storage keys  
+✅ **Encryption Support** - Optional AES-256-GCM encryption at rest  
+✅ **Revocation** - Refresh tokens can be marked as revoked  
+✅ **Automatic Cleanup** - Expired tokens automatically removed  
+✅ **Multiple Backends** - Support for filesystem, Redis, memory, and more
 
 ### Transport Security
 
-✅ **HTTPS Required** - Enforced in production environments
-✅ **No Token Exposure** - Access tokens cleared from URL after processing
+✅ **HTTPS Required** - Enforced in production environments  
+✅ **No Token Exposure** - Access tokens never appear in URL redirects  
+✅ **CODE-based Exchange** - OAuth callback uses short-lived CODEs instead of direct token URLs  
 ✅ **No Logging of Secrets** - Secrets never logged or exposed in errors
 
 ### Validation
@@ -688,13 +1022,16 @@ Nuxt Aegis implements security best practices:
 
 ### Best Practices
 
-1. **Use Strong Secrets** - Use cryptographically secure random strings (min 32 characters)
+1. **Use Strong Secrets** - Use cryptographically secure random strings (min 32 characters) for both token signing and encryption
 2. **Environment Variables** - Never commit secrets to version control
 3. **HTTPS Only** - Always use HTTPS in production
-4. **Token Expiration** - Balance security with user experience
-5. **Claim Validation** - Validate claims on the server side
-6. **Minimal Claims** - Keep tokens small (avoid large custom claims)
-7. **No Sensitive Data** - Don't store sensitive data in JWTs (they're base64 encoded, not encrypted)
+4. **Enable Encryption** - Enable encryption at rest for sensitive user data in production
+5. **Persistent Storage** - Use Redis or database for refresh tokens in production (not in-memory)
+6. **Token Expiration** - Balance security with user experience (1h access, 7d refresh recommended)
+7. **Claim Validation** - Validate claims on the server side
+8. **Minimal Claims** - Keep tokens small (avoid large custom claims)
+9. **No Sensitive Data in JWTs** - Don't store highly sensitive data in JWTs (they're base64 encoded, not encrypted)
+10. **Monitor Storage** - Implement automatic cleanup of expired refresh tokens
 
 ## Development
 
@@ -933,6 +1270,73 @@ export default defineNuxtConfig({
 ```
 
 The refresh token cookie is automatically set by the OAuth flow. If it's not being set, check your browser's developer tools to see if there are any cookie-related errors.
+
+### Refresh token not persisting after server restart
+
+**Problem**: Users logged out after server restart  
+
+**Solution**: Ensure you're using persistent storage (not memory):
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      storage: {
+        driver: 'fs', // Not 'memory'
+        base: './.data/refresh-tokens',
+      },
+    },
+  },
+  nitro: {
+    storage: {
+      refreshTokenStore: {
+        driver: 'fs', // Or 'redis', 'mongodb', etc.
+        base: './.data/refresh-tokens',
+      },
+    },
+  },
+})
+```
+
+### Encryption/decryption errors
+
+**Problem**: "Failed to decrypt data" errors
+
+**Check:**
+1. Encryption key is set and matches across restarts
+2. Encryption key is at least 32 characters
+3. You haven't changed the encryption key (existing encrypted data can't be decrypted with new key)
+
+```bash
+# .env
+NUXT_AEGIS_ENCRYPTION_KEY=your-32-character-encryption-key-minimum
+```
+
+**Recovery**: If you changed the encryption key, you'll need to clear existing refresh tokens:
+```bash
+rm -rf ./.data/refresh-tokens/*
+```
+
+### Authorization CODE expired
+
+**Problem**: "Invalid or expired authorization code" error
+
+**Causes:**
+1. CODE expired (default 60 seconds)
+2. CODE already used (single-use enforcement)
+3. Server restarted (CODEs are stored in memory)
+
+**Solution:** The user needs to log in again. Consider increasing CODE expiration if users frequently experience slow redirects:
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    authCode: {
+      expiresIn: 120, // 2 minutes instead of 60 seconds
+    },
+  },
+})
+```
 
 ### 401 Unauthorized on protected routes
 
