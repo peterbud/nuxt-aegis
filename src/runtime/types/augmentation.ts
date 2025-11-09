@@ -1,6 +1,7 @@
 import type { NuxtAegisRuntimeConfig, RedirectConfig } from './config'
 import type { TokenRefreshConfig } from './refresh'
 import type { TokenPayload } from './token'
+import type { RouteProtectionConfig } from './routes'
 
 /**
  * Module augmentations for external libraries
@@ -17,6 +18,7 @@ declare module '@nuxt/schema' {
       callbackPath: string
       redirect: RedirectConfig
       tokenRefresh: TokenRefreshConfig
+      routeProtection: RouteProtectionConfig
     }
   }
 }

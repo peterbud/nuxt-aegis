@@ -34,6 +34,10 @@ export default defineNuxtConfig({
       protectedRoutes: [
         '/api/**',
       ],
+      publicRoutes: [
+        '/',
+        '/public/**',
+      ],
     },
   },
 })

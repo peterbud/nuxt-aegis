@@ -1,6 +1,7 @@
 import { defineNuxtPlugin, navigateTo } from '#app'
 import { useAuth } from '#imports'
 import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
+import { isRouteMatch } from '../utils/routeMatching'
 
 /**
  * Nuxt Aegis plugin
@@ -106,6 +107,19 @@ export default defineNuxtPlugin(async (nuxtApp) => {
             console.log('[Nuxt Aegis] On auth callback page, skipping refresh')
           }
           return
+        }
+
+        // Check if current route is public - skip refresh if it is
+        if (typeof window !== 'undefined') {
+          const publicRoutes = nuxtApp.$config.public.nuxtAegis?.routeProtection?.publicRoutes || []
+          const currentPath = window.location.pathname
+
+          if (isRouteMatch(currentPath, publicRoutes)) {
+            if (import.meta.dev) {
+              console.log('[Nuxt Aegis] On public route, skipping refresh on startup')
+            }
+            return
+          }
         }
 
         // Only attempt refresh if we don't already have an access token

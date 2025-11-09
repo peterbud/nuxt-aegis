@@ -73,6 +73,7 @@ export default defineNuxtModule<ModuleOptions>({
           callbackPath: options.endpoints?.callbackPath || '/auth/callback',
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
+          routeProtection: options.routeProtection,
         },
       },
       nuxtAegis: options,

@@ -3,28 +3,12 @@ import { useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
 import type { TokenConfig } from '../../types'
 import { consola } from 'consola'
+import { isRouteMatch } from '../../app/utils/routeMatching'
 
 /**
  * Authentication middleware for Nuxt Aegis
  * Validates JWT tokens and protects routes according to configuration
  */
-
-/**
- * Convert glob pattern to regex for route matching
- * @param pattern - Glob pattern (supports *, **, ?)
- * @returns RegExp for testing paths
- */
-function globToRegex(pattern: string): RegExp {
-  // Escape special regex characters except *, ?, **
-  const regexPattern = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special chars
-    .replace(/\*\*/g, '___DOUBLE_STAR___') // Temporarily replace **
-    .replace(/\*/g, '[^/]*') // * matches anything except /
-    .replace(/___DOUBLE_STAR___/g, '.*') // ** matches anything including /
-    .replace(/\?/g, '[^/]') // ? matches single character except /
-
-  return new RegExp(`^${regexPattern}$`)
-}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -47,10 +31,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if route should be protected or public
-  const isPublicRoute = publicRoutes.some((pattern) => {
-    const regex = globToRegex(pattern)
-    return regex.test(requestURL.pathname)
-  })
+  const isPublicRoute = isRouteMatch(requestURL.pathname, publicRoutes)
 
   // MW-14: If route is explicitly public, skip authentication
   if (isPublicRoute) {
@@ -58,10 +39,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if route should be protected
-  const isProtectedRoute = protectedRoutes.some((pattern) => {
-    const regex = globToRegex(pattern)
-    return regex.test(requestURL.pathname)
-  })
+  const isProtectedRoute = isRouteMatch(requestURL.pathname, protectedRoutes)
 
   // MW-15: If route is not explicitly protected, skip
   if (!isProtectedRoute) {
