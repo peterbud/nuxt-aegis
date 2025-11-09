@@ -2,6 +2,7 @@ import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:
 import type { H3Event } from 'h3'
 import type { RefreshTokenData, TokenRefreshConfig, EncryptionConfig } from '../../types'
 import { useStorage, useRuntimeConfig } from '#imports'
+import { consola } from 'consola'
 
 /**
  * Hash a refresh token using SHA-256
@@ -76,7 +77,7 @@ export function decryptData(encrypted: string, key: string): unknown {
     return JSON.parse(decrypted)
   }
   catch (error) {
-    console.error('[Nuxt Aegis] Decryption failed:', error)
+    consola.error('[Nuxt Aegis] Decryption failed:', error)
     throw new Error('Failed to decrypt data')
   }
 }

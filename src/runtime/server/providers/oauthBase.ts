@@ -5,6 +5,7 @@ import { defu } from 'defu'
 import { useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
+import { consola } from 'consola'
 
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0'
@@ -174,13 +175,11 @@ export function defineOAuthEventHandler<
         await storeAuthCode(authCode, user, tokens, authCodeExpiresIn, resolvedCustomClaims)
 
         // Security event logging - OAuth flow completed, redirecting with CODE
-        if (import.meta.dev) {
-          console.log('[Nuxt Aegis Security] OAuth authentication successful, redirecting with CODE', {
-            timestamp: new Date().toISOString(),
-            event: 'OAUTH_SUCCESS_REDIRECT',
-            codePrefix: `${authCode.substring(0, 8)}...`,
-          })
-        }
+        consola.debug('[Nuxt Aegis Security] OAuth authentication successful, redirecting with CODE', {
+          timestamp: new Date().toISOString(),
+          event: 'OAUTH_SUCCESS_REDIRECT',
+          codePrefix: `${authCode.substring(0, 8)}...`,
+        })
 
         // PR-13: Redirect to client-side callback with authorization CODE
         const callbackUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
@@ -190,7 +189,7 @@ export function defineOAuthEventHandler<
       }
       catch (codeError) {
         // EH-4: Handle CODE generation/storage failure
-        console.error('[Nuxt Aegis Security] Authorization code generation/storage failed', {
+        consola.error('[Nuxt Aegis Security] Authorization code generation/storage failed', {
           timestamp: new Date().toISOString(),
           event: 'CODE_GENERATION_ERROR',
           error: import.meta.dev ? codeError : 'Error details hidden in production',
@@ -205,7 +204,7 @@ export function defineOAuthEventHandler<
     }
     catch (error) {
       // Security event logging - OAuth authentication failure
-      console.error('[Nuxt Aegis Security] OAuth authentication error', {
+      consola.error('[Nuxt Aegis Security] OAuth authentication error', {
         timestamp: new Date().toISOString(),
         event: 'OAUTH_AUTH_ERROR',
         error: import.meta.dev ? error : 'Error details hidden in production',

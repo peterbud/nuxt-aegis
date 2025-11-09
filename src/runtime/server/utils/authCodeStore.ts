@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { useStorage } from '#imports'
+import { consola } from 'consola'
 
 /**
  * Authorization Code Store Utilities
@@ -64,13 +65,11 @@ export function generateAuthCode(): string {
   const code = randomBytes(32).toString('base64url')
 
   // Security event logging
-  if (import.meta.dev) {
-    console.log('[Nuxt Aegis Security] Authorization code generated', {
-      timestamp: new Date().toISOString(),
-      event: 'CODE_GENERATED',
-      codePrefix: `${code.substring(0, 8)}...`,
-    })
-  }
+  consola.debug('[Nuxt Aegis Security] Authorization code generated', {
+    timestamp: new Date().toISOString(),
+    event: 'CODE_GENERATED',
+    codePrefix: `${code.substring(0, 8)}...`,
+  })
 
   return code
 }
@@ -123,15 +122,13 @@ export async function storeAuthCode(
   await useStorage('authCodeStore').setItem<AuthCodeData>(code, authCodeData)
 
   // Security event logging
-  if (import.meta.dev) {
-    console.log('[Nuxt Aegis Security] Authorization code stored', {
-      timestamp: new Date().toISOString(),
-      event: 'CODE_STORED',
-      codePrefix: `${code.substring(0, 8)}...`,
-      expiresAt: new Date(authCodeData.expiresAt).toISOString(),
-      expiresInSeconds: expiresIn,
-    })
-  }
+  consola.debug('[Nuxt Aegis Security] Authorization code stored', {
+    timestamp: new Date().toISOString(),
+    event: 'CODE_STORED',
+    codePrefix: `${code.substring(0, 8)}...`,
+    expiresAt: new Date(authCodeData.expiresAt).toISOString(),
+    expiresInSeconds: expiresIn,
+  })
 }
 
 /**
@@ -154,7 +151,7 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
 
   if (!authCodeData) {
     // Security event logging - code not found (potential security issue)
-    console.warn('[Nuxt Aegis Security] Authorization code not found', {
+    consola.warn('[Nuxt Aegis Security] Authorization code not found', {
       timestamp: new Date().toISOString(),
       event: 'CODE_NOT_FOUND',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -166,7 +163,7 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
   // Check if code has expired
   if (Date.now() > authCodeData.expiresAt) {
     // Security event logging - expired code usage attempt
-    console.warn('[Nuxt Aegis Security] Authorization code expired', {
+    consola.warn('[Nuxt Aegis Security] Authorization code expired', {
       timestamp: new Date().toISOString(),
       event: 'CODE_EXPIRED',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -208,7 +205,7 @@ export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeD
   if (!authCodeData) {
     // EP-18: Code is invalid, expired, or not found
     // Security event logging - failed exchange attempt
-    console.warn('[Nuxt Aegis Security] Invalid authorization code exchange attempt', {
+    consola.warn('[Nuxt Aegis Security] Invalid authorization code exchange attempt', {
       timestamp: new Date().toISOString(),
       event: 'CODE_EXCHANGE_FAILED',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -222,14 +219,12 @@ export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeD
   await useStorage('authCodeStore').removeItem(code)
 
   // Security event logging - successful exchange
-  if (import.meta.dev) {
-    console.log('[Nuxt Aegis Security] Authorization code successfully exchanged', {
-      timestamp: new Date().toISOString(),
-      event: 'CODE_EXCHANGE_SUCCESS',
-      codePrefix: `${code.substring(0, 8)}...`,
-      codeAge: Date.now() - authCodeData.createdAt,
-    })
-  }
+  consola.debug('[Nuxt Aegis Security] Authorization code successfully exchanged', {
+    timestamp: new Date().toISOString(),
+    event: 'CODE_EXCHANGE_SUCCESS',
+    codePrefix: `${code.substring(0, 8)}...`,
+    codeAge: Date.now() - authCodeData.createdAt,
+  })
 
   return authCodeData
 }
@@ -271,14 +266,12 @@ export async function cleanupExpiredAuthCodes(): Promise<number> {
       await storage.removeItem(key)
       cleanedCount++
 
-      if (import.meta.dev) {
-        console.log('[Nuxt Aegis] Cleaned up expired authorization code:', `${key.substring(0, 8)}...`)
-      }
+      consola.debug('[Nuxt Aegis] Cleaned up expired authorization code:', `${key.substring(0, 8)}...`)
     }
   }
 
-  if (import.meta.dev && cleanedCount > 0) {
-    console.log(`[Nuxt Aegis] Cleanup completed: ${cleanedCount} expired code(s) removed`)
+  if (cleanedCount > 0) {
+    consola.info(`[Nuxt Aegis] Cleanup completed: ${cleanedCount} expired code(s) removed`)
   }
 
   return cleanedCount

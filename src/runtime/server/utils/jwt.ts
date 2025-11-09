@@ -1,6 +1,7 @@
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import type { TokenConfig, TokenPayload } from '../../types'
 import { filterReservedClaims, validateClaimTypes } from './customClaims'
+import { consola } from 'consola'
 
 /**
  * Generate a JWT token with the given payload and custom claims
@@ -116,9 +117,7 @@ export async function verifyToken(
     }
   }
   catch {
-    if (import.meta.dev) {
-      console.error('[Nuxt Aegis] Token verification failed')
-    }
+    consola.error('[Nuxt Aegis] Token verification failed')
     return null
   }
 }

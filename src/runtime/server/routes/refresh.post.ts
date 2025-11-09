@@ -9,6 +9,7 @@ import {
 import { setRefreshTokenCookie } from '../utils/cookies'
 import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRefreshConfig } from '../../types'
+import { consola } from 'consola'
 
 /**
  * POST /auth/refresh
@@ -119,7 +120,7 @@ export default defineEventHandler(async (event) => {
     } as RefreshResponse
   }
   catch (error) {
-    console.error('[Nuxt Aegis] Token refresh error:', error)
+    consola.error('[Nuxt Aegis] Token refresh error:', error)
 
     // EP-21: Return 401 for any refresh errors
     throw createError({

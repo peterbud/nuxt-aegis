@@ -2,6 +2,7 @@ import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
 import type { TokenConfig } from '../../types'
+import { consola } from 'consola'
 
 /**
  * Authentication middleware for Nuxt Aegis
@@ -87,7 +88,7 @@ export default defineEventHandler(async (event) => {
 
   // Verify the token
   if (!tokenConfig || !tokenConfig.secret) {
-    console.error('Token configuration is missing')
+    consola.error('Token configuration is missing')
     throw createError({
       statusCode: 500,
       statusMessage: 'Internal Server Error',
