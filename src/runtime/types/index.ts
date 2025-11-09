@@ -31,6 +31,8 @@ export type {
 export type {
   CookieConfig,
   TokenRefreshConfig,
+  EncryptionConfig,
+  StorageConfig,
 } from './refresh'
 
 // Auth Code types

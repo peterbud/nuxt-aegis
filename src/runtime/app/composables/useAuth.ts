@@ -1,7 +1,7 @@
 import type { ComputedRef } from 'vue'
-import { useRuntimeConfig, navigateTo, useState, computed, useNuxtApp } from '#imports'
+import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
 import type { TokenPayload } from '../../types'
-import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
+import { clearAccessToken } from '../utils/tokenStore'
 
 /**
  * Internal authentication state interface
@@ -87,32 +87,72 @@ export function useAuth(): UseAuthReturn {
   const authPath = publicConfig.nuxtAegis?.authPath
 
   /**
-   * Refresh the authentication state by fetching current user
+   * Refresh the authentication state by obtaining a new access token
+   *
+   * CL-12, CL-13, CL-20: Restores authentication state using refresh token cookie
+   * EP-27, EP-28: Calls /auth/refresh endpoint to obtain new access token
+   * RS-1, RS-2: Server reconstructs token from stored user object (no old token needed)
+   *
+   * Flow:
+   * 1. Call /auth/refresh endpoint (refresh token sent via httpOnly cookie)
+   * 2. Server validates refresh token and retrieves stored user object
+   * 3. Server generates new access token and rotates refresh token
+   * 4. Store new access token in memory
+   * 5. Decode token to update user state
+   *
+   * @throws Clears auth state on 401 (invalid/expired refresh token)
    */
   async function refresh(): Promise<void> {
     authState.value.isLoading = true
     authState.value.error = null
 
-    console.log('[Nuxt Aegis] REFRESH')
-    try {
-      // CL-18: Check for existing token in memory (NOT sessionStorage)
-      const existingToken = getAccessToken()
-      if (!existingToken) {
-        authState.value.user = null
-        return
-      }
-
-      const userData = await useNuxtApp().$api<TokenPayload>(
-        '/api/user/me',
-      )
-
-      authState.value.user = userData || null
+    if (import.meta.dev) {
+      console.log('[Nuxt Aegis] Refreshing authentication state...')
     }
-    catch (error) {
+
+    try {
+      // EP-27: Call refresh endpoint (refresh token sent automatically via httpOnly cookie)
+      // RS-1: No old access token needed - server uses stored user object
+      // IMPORTANT: Use $fetch directly instead of $api to avoid triggering the 401 interceptor
+      // which would cause an infinite refresh loop
+      const response = await $fetch<{ accessToken: string }>(`${authPath}/refresh`, {
+        method: 'POST',
+      })
+
+      if (response?.accessToken) {
+        // CL-18: Store new access token in memory (NOT sessionStorage)
+        const { setAccessToken } = await import('../utils/tokenStore')
+        setAccessToken(response.accessToken)
+
+        // Decode token to get user payload
+        const tokenParts = response.accessToken.split('.')
+        if (tokenParts[1]) {
+          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          authState.value.user = payload
+          authState.value.error = null
+
+          if (import.meta.dev) {
+            console.log('[Nuxt Aegis] Auth state refreshed successfully')
+          }
+        }
+      }
+      else {
+        // No token received, clear state
+        authState.value.user = null
+        clearAccessToken()
+      }
+    }
+    catch (error: unknown) {
+      // CL-13: Clear state on refresh failure (401 means refresh token expired/invalid)
+      authState.value.user = null
       authState.value.error = 'Failed to refresh authentication'
+      clearAccessToken()
+
       if (import.meta.dev) {
         console.error('[Nuxt Aegis] Auth refresh failed:', error)
       }
+
+      // Don't throw - just clear state and let app handle unauthenticated state
     }
     finally {
       authState.value.isLoading = false
@@ -162,7 +202,8 @@ export function useAuth(): UseAuthReturn {
       authState.value.error = null
 
       // Call logout endpoint - this will delete the httpOnly cookie
-      await useNuxtApp().$api(`${authPath}/logout`, { method: 'POST' })
+      // Use $fetch directly to avoid triggering interceptors
+      await $fetch(`${authPath}/logout`, { method: 'POST' })
 
       // Clear local auth state
       authState.value.user = null

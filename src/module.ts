@@ -38,6 +38,15 @@ export default defineNuxtModule<ModuleOptions>({
         httpOnly: true,
         path: '/',
       },
+      encryption: {
+        enabled: false, // SC-16: Encryption disabled by default
+        algorithm: 'aes-256-gcm', // SC-17: Default encryption algorithm
+      },
+      storage: {
+        driver: 'fs', // RS-10: Default to filesystem storage
+        prefix: 'refresh:', // Default key prefix
+        base: './.data/refresh-tokens', // Default filesystem path
+      },
     },
     authCode: {
       expiresIn: 60, // CS-4, CF-9: Authorization code expiry in seconds (default 60s)
@@ -61,6 +70,7 @@ export default defineNuxtModule<ModuleOptions>({
       public: {
         nuxtAegis: {
           authPath: options.endpoints?.authPath || '/auth',
+          callbackPath: options.endpoints?.callbackPath || '/auth/callback',
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
         },
@@ -75,6 +85,30 @@ export default defineNuxtModule<ModuleOptions>({
     // CF-4: Validate configuration
     if (!options.token?.secret && !process.env.NUXT_AEGIS_TOKEN_SECRET) {
       logger.warn('[Nuxt Aegis] Warning: No token secret configured. Authentication will not work properly.')
+    }
+
+    // SC-19: Validate encryption configuration
+    if (options.tokenRefresh?.encryption?.enabled) {
+      const encryptionKey = options.tokenRefresh.encryption.key || process.env.NUXT_AEGIS_ENCRYPTION_KEY
+
+      if (!encryptionKey) {
+        throw new Error(
+          '[Nuxt Aegis] Encryption is enabled but no encryption key is configured. '
+          + 'Please set tokenRefresh.encryption.key in nuxt.config.ts or NUXT_AEGIS_ENCRYPTION_KEY environment variable.',
+        )
+      }
+
+      // Store encryption key in runtime config for server access
+      if (!runtimeConfig.nuxtAegis) {
+        runtimeConfig.nuxtAegis = {}
+      }
+      if (!runtimeConfig.nuxtAegis.tokenRefresh) {
+        runtimeConfig.nuxtAegis.tokenRefresh = {}
+      }
+      if (!runtimeConfig.nuxtAegis.tokenRefresh.encryption) {
+        runtimeConfig.nuxtAegis.tokenRefresh.encryption = {}
+      }
+      runtimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
     }
 
     addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))
@@ -147,10 +181,11 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.nitro.storage = {}
     }
 
-    // Add default storage configuration for refresh tokens
+    // RS-10: Add persistent storage configuration for refresh tokens
+    const storageConfig = options.tokenRefresh?.storage || {}
     nuxt.options.nitro.storage.refreshTokenStore = defu(nuxt.options.nitro.storage.refreshTokenStore, {
-      driver: 'fs',
-      base: './.data/refresh-tokens',
+      driver: storageConfig.driver || 'fs',
+      base: storageConfig.base || './.data/refresh-tokens',
     })
 
     // CS-1, CS-4, PF-3: Add storage configuration for authorization codes

@@ -38,17 +38,16 @@ export interface TokenPayload {
  * on the server side for validation and management
  */
 export interface RefreshTokenData {
-  /** the subject, links the token back to the specific user account.  */
+  /** RS-4: Subject identifier, links the token back to the specific user account */
   sub: string
-  /** Timestamp when the refresh token expires */
+  /** RS-4: Timestamp when the refresh token expires */
   expiresAt: number
-  /**
-   * Allows for immediate revocation if the user logs out, changes a password,
-   * or a security event occurs
-   */
+  /** RS-4: Allows for immediate revocation if the user logs out, changes a password, or a security event occurs */
   isRevoked: boolean
-  /** Timestamp when the refresh token was issued */
+  /** RS-8: Hash of the previous refresh token for rotation tracking */
   previousTokenHash?: string
+  /** RS-2, RS-3: Complete user object from the authentication provider including all profile data and provider-specific properties */
+  user: Record<string, unknown>
 }
 
 /**

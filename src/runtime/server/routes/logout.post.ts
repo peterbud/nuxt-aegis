@@ -1,28 +1,42 @@
-import { defineEventHandler } from 'h3'
-import { useRuntimeConfig, clearToken } from '#imports'
+import { defineEventHandler, getCookie } from 'h3'
+import { hashRefreshToken, revokeRefreshToken } from '../utils/refreshToken'
+import { clearToken } from '../utils/cookies'
+import { useRuntimeConfig } from '#imports'
 import type { CookieConfig } from '../../types'
 
 /**
  * POST /auth/logout
- * Ends the user session by clearing authentication cookies
- * EP-12: Clear all authentication cookies
- * EP-13: Return success response
+ * Ends the user session by clearing authentication cookies and revoking refresh token
+ * EP-20: Clear refresh token cookie
+ * EP-21: Return success response
+ * RS-7, SC-15: Revoke refresh token to prevent further use
  */
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const cookieConfig = config.nuxtAegis?.cookie as CookieConfig
+  const config = useRuntimeConfig(event)
+  const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
 
   try {
-    // EP-12: Clear authentication cookies using utility function
+    // Get refresh token from cookie
+    const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-refresh'
+    const refreshToken = getCookie(event, cookieName)
+
+    // RS-7: Revoke the refresh token if it exists
+    if (refreshToken) {
+      const hashedRefreshToken = hashRefreshToken(refreshToken)
+      await revokeRefreshToken(hashedRefreshToken, event)
+    }
+
+    // EP-20: Clear refresh token cookie
     clearToken(event, cookieConfig)
 
-    // EP-13: Return success response
+    // EP-21: Return success response
     return { success: true, message: 'Logout successful' }
   }
   catch (error) {
     console.error('[Nuxt Aegis] Logout error:', error)
 
-    // Still return success even if cookie clearing fails
+    // Still clear cookie and return success even if revocation fails
+    clearToken(event, cookieConfig)
     return { success: true, message: 'Logout completed' }
   }
 })

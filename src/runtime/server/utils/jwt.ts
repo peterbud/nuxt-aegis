@@ -1,5 +1,6 @@
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import type { TokenConfig, TokenPayload } from '../../types'
+import { filterReservedClaims, validateClaimTypes } from './customClaims'
 
 /**
  * Generate a JWT token with the given payload and custom claims
@@ -20,32 +21,11 @@ export async function generateToken(
   const secret = new TextEncoder().encode(config.secret)
   const expiresIn = config.expiresIn || '1h'
 
-  // JT-12: Reserved JWT claims that cannot be overridden
-  const reservedClaims = ['iss', 'sub', 'exp', 'iat', 'nbf', 'jti', 'aud']
-
-  // JT-13: Merge custom claims, filtering out reserved ones
-  const safeClaims: Record<string, unknown> = {}
+  // JT-12, JT-13: Filter and validate custom claims
+  let safeClaims: Record<string, unknown> = {}
   if (customClaims) {
-    Object.entries(customClaims).forEach(([key, value]) => {
-      if (!reservedClaims.includes(key)) {
-        // Validate claim value types (primitive types and arrays)
-        if (
-          typeof value === 'string'
-          || typeof value === 'number'
-          || typeof value === 'boolean'
-          || Array.isArray(value)
-          || value === null
-        ) {
-          safeClaims[key] = value
-        }
-        else {
-          console.warn(`[Nuxt Aegis] Custom claim "${key}" has unsupported type and will be ignored`)
-        }
-      }
-      else {
-        console.warn(`[Nuxt Aegis] Cannot override reserved JWT claim: ${key}`)
-      }
-    })
+    const filtered = filterReservedClaims(customClaims)
+    safeClaims = validateClaimTypes(filtered)
   }
 
   // Create JWT with standard claims

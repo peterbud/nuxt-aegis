@@ -1,7 +1,6 @@
 import { defineNuxtPlugin, navigateTo } from '#app'
-import type { RefreshResponse } from '../../types'
 import { useAuth } from '#imports'
-import { getAccessToken, setAccessToken, clearAccessToken } from '../utils/tokenStore'
+import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
 
 /**
  * Nuxt Aegis plugin
@@ -16,35 +15,31 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   let refreshPromise: Promise<string | null> | null = null
   let isInitialized = false
   const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
-  const authPath = nuxtApp.$config.public.nuxtAegis.authPath
 
   async function attemptTokenRefresh(): Promise<string | null> {
     if (isRefreshing) return refreshPromise
 
-    console.log('[Nuxt Aegis] Attempting token refresh...')
+    if (import.meta.dev) {
+      console.log('[Nuxt Aegis] Attempting token refresh...')
+    }
+
     isRefreshing = true
-    refreshPromise = $fetch<RefreshResponse>(`${authPath}/refresh`, {
-      method: 'POST',
-      headers: {
-        // CL-18: Get token from memory, not sessionStorage
-        Authorization: `Bearer ${getAccessToken()}`,
-      },
-    }).then(async (response) => {
-      if (response && 'accessToken' in response && response.accessToken) {
-        // CL-18: Store new token in memory, not sessionStorage
-        setAccessToken(response.accessToken)
-
-        // Refresh auth state after successful token refresh
-        await nuxtApp.runWithContext(async () => {
-          await useAuth().refresh()
-        })
-
-        return response.accessToken
+    refreshPromise = nuxtApp.runWithContext(async () => {
+      const auth = useAuth()
+      try {
+        await auth.refresh()
+        return getAccessToken()
       }
-      return null
-    }).finally(() => {
-      isRefreshing = false
-      refreshPromise = null
+      catch (error) {
+        if (import.meta.dev) {
+          console.error('[Nuxt Aegis] Token refresh failed:', error)
+        }
+        return null
+      }
+      finally {
+        isRefreshing = false
+        refreshPromise = null
+      }
     })
 
     return refreshPromise
@@ -91,25 +86,46 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     },
   }
 
-  // CL-12: Initialize auth state on plugin startup if token exists in memory
-  // This must happen AFTER $api is provided
-  const existingToken = getAccessToken()
-  if (existingToken && !isInitialized) {
+  // CL-12, CL-20: Initialize auth state on plugin startup by attempting token refresh
+  // EP-27, RS-1: Refresh endpoint uses httpOnly cookie, no token needed in memory
+  if (!isInitialized && autoRefreshEnabled) {
     isInitialized = true
 
     if (import.meta.dev) {
       console.log('[Nuxt Aegis] Initializing auth state on startup...')
     }
 
-    // Use nextTick to ensure the plugin is fully initialized
+    // Use app:mounted to ensure the plugin is fully initialized
     nuxtApp.hook('app:mounted', async () => {
       await nuxtApp.runWithContext(async () => {
+        // Skip refresh if we're on the auth callback page
+        // The callback page will handle setting up auth state after token exchange
+        const callbackPath = nuxtApp.$config.public.nuxtAegis.callbackPath
+        if (typeof window !== 'undefined' && window.location.pathname === callbackPath) {
+          if (import.meta.dev) {
+            console.log('[Nuxt Aegis] On auth callback page, skipping refresh')
+          }
+          return
+        }
+
+        // Only attempt refresh if we don't already have an access token
+        // This prevents conflicts with the AuthCallback page which sets the token directly
+        const currentToken = getAccessToken()
+        if (currentToken) {
+          if (import.meta.dev) {
+            console.log('[Nuxt Aegis] Access token already present, skipping refresh on startup')
+          }
+          return
+        }
+
         try {
+          // Try to refresh using the httpOnly refresh token cookie
           await useAuth().refresh()
         }
-        catch (error) {
+        catch {
+          // Silent failure - user is just not authenticated
           if (import.meta.dev) {
-            console.error('[Nuxt Aegis] Failed to initialize auth state:', error)
+            console.log('[Nuxt Aegis] No valid refresh token found on startup')
           }
         }
       })

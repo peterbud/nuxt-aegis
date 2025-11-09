@@ -23,6 +23,30 @@ export interface CookieConfig {
 }
 
 /**
+ * Encryption configuration for refresh token storage
+ */
+export interface EncryptionConfig {
+  /** SC-16: Enable encryption-at-rest for user data (default: false) */
+  enabled?: boolean
+  /** SC-18: Encryption key (loaded from environment variable) */
+  key?: string
+  /** SC-17: Encryption algorithm (default: 'aes-256-gcm') */
+  algorithm?: 'aes-256-gcm'
+}
+
+/**
+ * Storage configuration for refresh tokens
+ */
+export interface StorageConfig {
+  /** RS-10: Storage driver to use (default: 'fs' for filesystem) */
+  driver?: 'fs' | 'redis' | 'memory'
+  /** Key prefix for refresh tokens in storage (default: 'refresh:') */
+  prefix?: string
+  /** Base path for filesystem storage (default: './.data/refresh-tokens') */
+  base?: string
+}
+
+/**
  * Token refresh configuration
  */
 export interface TokenRefreshConfig {
@@ -32,4 +56,8 @@ export interface TokenRefreshConfig {
   automaticRefresh?: boolean
   /** Refresh token cookie configuration */
   cookie?: CookieConfig
+  /** CF-10, CF-11: Encryption configuration for stored user data */
+  encryption?: EncryptionConfig
+  /** RS-10: Storage configuration */
+  storage?: StorageConfig
 }

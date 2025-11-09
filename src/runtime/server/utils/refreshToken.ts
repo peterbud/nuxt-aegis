@@ -1,6 +1,7 @@
-import { createHash, randomBytes } from 'node:crypto'
-import type { RefreshTokenData, TokenRefreshConfig } from '../../types'
-import { useStorage } from '#imports'
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import type { H3Event } from 'h3'
+import type { RefreshTokenData, TokenRefreshConfig, EncryptionConfig } from '../../types'
+import { useStorage, useRuntimeConfig } from '#imports'
 
 /**
  * Hash a refresh token using SHA-256
@@ -12,26 +13,217 @@ export function hashRefreshToken(token: string): string {
 }
 
 /**
+ * SC-17: Encrypt data using AES-256-GCM
+ * @param data - Data to encrypt
+ * @param key - Encryption key (must be 32 bytes for AES-256)
+ * @returns Encrypted data as base64 string with IV prepended
+ */
+export function encryptData(data: unknown, key: string): string {
+  // Ensure key is 32 bytes for AES-256
+  const keyBuffer = Buffer.from(key.padEnd(32, '0').slice(0, 32))
+
+  // Generate random IV (12 bytes for GCM)
+  const iv = randomBytes(12)
+
+  // Create cipher
+  const cipher = createCipheriv('aes-256-gcm', keyBuffer, iv)
+
+  // Encrypt data
+  const jsonData = JSON.stringify(data)
+  let encrypted = cipher.update(jsonData, 'utf8', 'base64')
+  encrypted += cipher.final('base64')
+
+  // Get auth tag
+  const authTag = cipher.getAuthTag()
+
+  // Combine IV + authTag + encrypted data
+  const combined = Buffer.concat([
+    iv,
+    authTag,
+    Buffer.from(encrypted, 'base64'),
+  ])
+
+  return combined.toString('base64')
+}
+
+/**
+ * SC-20: Decrypt data using AES-256-GCM
+ * @param encrypted - Encrypted data as base64 string
+ * @param key - Encryption key (must be 32 bytes for AES-256)
+ * @returns Decrypted data
+ */
+export function decryptData(encrypted: string, key: string): unknown {
+  try {
+    // Ensure key is 32 bytes for AES-256
+    const keyBuffer = Buffer.from(key.padEnd(32, '0').slice(0, 32))
+
+    // Decode combined data
+    const combined = Buffer.from(encrypted, 'base64')
+
+    // Extract IV (12 bytes), authTag (16 bytes), and encrypted data
+    const iv = combined.subarray(0, 12)
+    const authTag = combined.subarray(12, 28)
+    const encryptedData = combined.subarray(28)
+
+    // Create decipher
+    const decipher = createDecipheriv('aes-256-gcm', keyBuffer, iv)
+    decipher.setAuthTag(authTag)
+
+    // Decrypt
+    let decrypted = decipher.update(encryptedData.toString('base64'), 'base64', 'utf8')
+    decrypted += decipher.final('utf8')
+
+    return JSON.parse(decrypted)
+  }
+  catch (error) {
+    console.error('[Nuxt Aegis] Decryption failed:', error)
+    throw new Error('Failed to decrypt data')
+  }
+}
+
+/**
+ * Get encryption config from runtime config
+ * @param event - H3 event (optional, for server context)
+ * @returns Encryption configuration
+ */
+export function getEncryptionConfig(event?: H3Event): EncryptionConfig {
+  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
+  return config.nuxtAegis?.tokenRefresh?.encryption || { enabled: false }
+}
+
+/**
+ * RS-11, SC-14: Store refresh token data in persistent storage
+ * Handles encryption transparently if enabled
+ * @param tokenHash - Hashed refresh token (used as storage key)
+ * @param data - Refresh token data to store
+ * @param event - H3 event for runtime config access
+ */
+export async function storeRefreshTokenData(
+  tokenHash: string,
+  data: RefreshTokenData,
+  event?: H3Event,
+): Promise<void> {
+  const encryptionConfig = getEncryptionConfig(event)
+  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
+  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
+
+  let dataToStore: RefreshTokenData | { encrypted: string }
+
+  // SC-16, SC-17: Encrypt data if encryption is enabled
+  if (encryptionConfig.enabled) {
+    if (!encryptionConfig.key) {
+      throw new Error('[Nuxt Aegis] Encryption is enabled but no encryption key is configured')
+    }
+
+    // Encrypt the entire data object
+    const encrypted = encryptData(data, encryptionConfig.key)
+    dataToStore = { encrypted } as unknown as RefreshTokenData
+  }
+  else {
+    dataToStore = data
+  }
+
+  // Store in Nitro storage
+  await useStorage('refreshTokenStore').setItem(`${storagePrefix}${tokenHash}`, dataToStore)
+}
+
+/**
+ * RS-11, SC-20: Retrieve refresh token data from persistent storage
+ * Handles decryption transparently if enabled
+ * @param tokenHash - Hashed refresh token (storage key)
+ * @param event - H3 event for runtime config access
+ * @returns Refresh token data or null if not found
+ */
+export async function getRefreshTokenData(
+  tokenHash: string,
+  event?: H3Event,
+): Promise<RefreshTokenData | null> {
+  const encryptionConfig = getEncryptionConfig(event)
+  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
+  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
+
+  const storedData = await useStorage('refreshTokenStore').getItem<RefreshTokenData | { encrypted: string }>(`${storagePrefix}${tokenHash}`)
+
+  if (!storedData) {
+    return null
+  }
+
+  // SC-20: Decrypt data if it's encrypted
+  if ('encrypted' in storedData && typeof storedData.encrypted === 'string') {
+    if (!encryptionConfig.key) {
+      throw new Error('[Nuxt Aegis] Data is encrypted but no encryption key is configured')
+    }
+
+    return decryptData(storedData.encrypted, encryptionConfig.key) as RefreshTokenData
+  }
+
+  return storedData as RefreshTokenData
+}
+
+/**
+ * Delete refresh token data from storage
+ * @param tokenHash - Hashed refresh token (storage key)
+ * @param event - H3 event for runtime config access
+ */
+export async function deleteRefreshTokenData(
+  tokenHash: string,
+  event?: H3Event,
+): Promise<void> {
+  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
+  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
+
+  await useStorage('refreshTokenStore').removeItem(`${storagePrefix}${tokenHash}`)
+}
+
+/**
+ * RS-7, SC-15: Revoke a refresh token (mark as revoked without deleting)
+ * @param tokenHash - Hashed refresh token (storage key)
+ * @param event - H3 event for runtime config access
+ */
+export async function revokeRefreshToken(
+  tokenHash: string,
+  event?: H3Event,
+): Promise<void> {
+  const data = await getRefreshTokenData(tokenHash, event)
+
+  if (!data) {
+    // Token doesn't exist, nothing to revoke
+    return
+  }
+
+  // Mark as revoked
+  data.isRevoked = true
+
+  // Store updated data
+  await storeRefreshTokenData(tokenHash, data, event)
+}
+
+/**
  * Generate a refresh token and store it in the server-side storage
- * @param sub - Subject identifier for the user
+ * @param user - Complete user object from the authentication provider
  * @param tokenRefreshConfig - Refresh token configuration including expiration settings
+ * @param previousTokenHash - Hash of the previous refresh token for rotation tracking
+ * @param event - H3 event for runtime config access
  * @returns Generated refresh token
  */
 export async function generateAndStoreRefreshToken(
-  sub: string,
+  user: Record<string, unknown>,
   tokenRefreshConfig: TokenRefreshConfig,
   previousTokenHash?: string,
+  event?: H3Event,
 ): Promise<string> {
   const refreshToken = randomBytes(32).toString('base64url')
 
   const expiresIn = tokenRefreshConfig.cookie?.maxAge || 604800
 
-  await useStorage('refreshTokenStore').setItem<RefreshTokenData>(hashRefreshToken(refreshToken), {
-    sub,
+  // RS-2, RS-3, RS-4: Store complete user object with metadata
+  await storeRefreshTokenData(hashRefreshToken(refreshToken), {
+    sub: String(user.sub || user.email || user.id || ''),
     expiresAt: Date.now() + (expiresIn * 1000),
     isRevoked: false,
     previousTokenHash,
-  })
+    user, // Store complete user object
+  }, event)
 
   return refreshToken
 }

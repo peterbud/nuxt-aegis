@@ -14,6 +14,7 @@ declare module '@nuxt/schema' {
   interface PublicRuntimeConfig {
     nuxtAegis: {
       authPath: string
+      callbackPath: string
       redirect: RedirectConfig
       tokenRefresh: TokenRefreshConfig
     }

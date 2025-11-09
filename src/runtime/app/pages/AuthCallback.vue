@@ -19,9 +19,8 @@
  *
  * Requirements: CL-21, CL-22, CL-23, CL-24, EP-15, EP-16, EH-4
  */
-import { navigateTo, useNuxtApp } from '#app'
+import { navigateTo } from '#app'
 import { ref, onMounted } from 'vue'
-import { useAuth } from '#imports'
 import { setAccessToken } from '../utils/tokenStore'
 
 const processing = ref(true)
@@ -60,7 +59,8 @@ onMounted(async () => {
     }
 
     // CL-22: Exchange CODE for tokens via /auth/token endpoint
-    const response = await useNuxtApp().$api<{ accessToken: string }>(
+    // Use $fetch directly instead of $api to avoid triggering request interceptors
+    const response = await $fetch<{ accessToken: string }>(
       '/auth/token',
       {
         method: 'POST',
@@ -80,15 +80,23 @@ onMounted(async () => {
     // CL-18, CL-23: Store access token in memory (NOT sessionStorage)
     setAccessToken(response.accessToken)
 
+    // Decode token and update auth state directly (no need to call refresh)
+    // We already have a fresh access token from the exchange
+    const tokenParts = response.accessToken.split('.')
+    if (tokenParts[1]) {
+      const payload = JSON.parse(atob(tokenParts[1]))
+      // Update the auth state by accessing the useState directly
+      const { useState } = await import('#app')
+      const authState = useState('auth-state')
+      authState.value = { user: payload, isLoading: false, error: null }
+    }
+
     // Clear the code from URL to prevent reuse
     window.history.replaceState(
       {},
       '',
       window.location.pathname,
     )
-
-    // Update authentication state
-    await useAuth().refresh()
 
     processing.value = false
 

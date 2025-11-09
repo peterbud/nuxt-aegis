@@ -78,19 +78,27 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **JT-10:** WHERE custom claims are configured, the module SHALL allow developers to define custom claim mappings from provider tokens.
 
-**JT-11:** WHERE custom claims are configured, the module SHALL allow developers to define custom claim values through static values or callback functions.
+**JT-11:** WHERE custom claims are configured, the module SHALL allow developers to define custom claim values through static values or callback functions that receive the user object as input.
+
+**JT-11a:** WHERE a custom claims callback function is configured, the module SHALL pass the complete user object (including all profile data and provider-specific properties) to the callback function.
+
+**JT-11b:** WHERE a custom claims callback function is configured, the module SHALL support both synchronous and asynchronous callback functions that return a claims object.
 
 **JT-12:** WHEN adding custom claims, the module SHALL prevent overriding reserved JWT claims (iss, sub, exp, iat, nbf, jti).
 
 **JT-13:** WHERE custom claims are added, the module SHALL support primitive types (string, number, boolean) and arrays as claim values.
 
+**JT-14:** WHEN generating tokens during refresh, the module SHALL reuse the same custom claims configuration (static values or callback function) by passing the stored user object to generate consistent custom claims.
+
+**JT-15:** WHERE a custom claims callback is used, the module SHALL ensure the same callback function is invoked both during initial authentication and token refresh to maintain consistent claim generation logic.
+
 ### 4.4 Token Expiration
 
-**JT-14:** WHERE token expiration is configured, the module SHALL allow developers to set custom expiration times for access and refresh tokens.
+**JT-16:** WHERE token expiration is configured, the module SHALL allow developers to set custom expiration times for access and refresh tokens.
 
-**JT-15:** IF no expiration time is configured for an access token, THEN the module SHALL use a default expiration of 15 minutes.
+**JT-17:** IF no expiration time is configured for an access token, THEN the module SHALL use a default expiration of 15 minutes.
 
-**JT-16:** IF no expiration time is configured for a refresh token, THEN the module SHALL use a default expiration of 7 days.
+**JT-18:** IF no expiration time is configured for a refresh token, THEN the module SHALL use a default expiration of 7 days.
 
 ## 5. Middleware Requirements
 
@@ -216,6 +224,30 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CS-8:** WHERE the key-value store is implemented, the module SHALL support automatic cleanup of expired CODEs to prevent memory leaks.
 
+## 7.5 Refresh Token Storage Requirements
+
+**RS-1:** The module SHALL provide a server-side persistent key-value store for refresh token storage that survives server restarts.
+
+**RS-2:** WHEN a refresh token is stored, the module SHALL associate it with the complete user object obtained from the authentication provider.
+
+**RS-3:** WHERE a user object is stored with a refresh token, the module SHALL include all user profile data (subject, email, name, picture) and any additional properties from the provider response.
+
+**RS-4:** WHERE a refresh token is stored, the module SHALL include metadata including subject identifier (sub), expiration timestamp, and revocation status.
+
+**RS-5:** WHEN a refresh token is stored, the module SHALL hash the token value before using it as the storage key to prevent token exposure.
+
+**RS-6:** WHEN a refresh token expires, the module SHALL automatically remove it from the key-value store.
+
+**RS-7:** WHEN a refresh token is revoked (e.g., during logout), the module SHALL mark it as revoked in the store to prevent further use.
+
+**RS-8:** WHERE token rotation is enabled, the module SHALL optionally store a reference to the previous token hash to enable rotation tracking.
+
+**RS-9:** WHERE the key-value store is implemented, the module SHALL support automatic cleanup of expired refresh tokens to prevent memory leaks.
+
+**RS-10:** WHERE the persistent key-value store is implemented, the module SHALL use Nitro's storage layer with an appropriate driver (e.g., filesystem, Redis, database) to ensure data persists across server restarts.
+
+**RS-11:** WHERE encryption-at-rest is enabled, the module SHALL encrypt user data before storing it in the persistent store to protect against storage backend compromise.
+
 ## 8. API Endpoint Requirements
 
 ### 7.1 Provider Authentication Endpoints
@@ -248,7 +280,11 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-13:** WHEN user information is retrieved from the CODE, the module SHALL generate an application-specific JWT access token containing the user information.
 
-**EP-14:** WHEN an access token is generated, the module SHALL generate a refresh token (JWT) for token refresh functionality.
+**EP-14:** WHEN an access token is generated, the module SHALL generate a refresh token and store it server-side in a persistent key-value store.
+
+**EP-14a:** WHEN a refresh token is stored, the module SHALL associate it with the complete user object from the authentication provider (including email, name, picture, and any additional provider-specific properties).
+
+**EP-14b:** WHERE a refresh token is stored, the module SHALL include metadata such as subject identifier (sub), expiration timestamp, and revocation status.
 
 **EP-15:** WHEN application tokens are generated, the token endpoint SHALL return the access token in the JSON response body.
 
@@ -282,7 +318,11 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-27:** The module SHALL provide a `/auth/refresh` endpoint to obtain a new access token.
 
-**EP-28:** WHEN a POST request is made to the refresh endpoint with a valid refresh token cookie, the module SHALL generate a new access token and return it in the JSON response body.
+**EP-28:** WHEN a POST request is made to the refresh endpoint with a valid refresh token cookie, the module SHALL retrieve the stored user object from the server-side refresh token store.
+
+**EP-28a:** WHEN generating a new access token via refresh, the module SHALL NOT require the old access token to be provided.
+
+**EP-28b:** WHEN generating a new access token via refresh, the module SHALL reconstruct the token payload by passing the stored user object to the same custom claims configuration (static values or callback function) used during initial authentication.
 
 **EP-29:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
 
@@ -316,6 +356,10 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CF-9:** WHERE the authorization CODE expiration time is configurable, the module SHALL allow developers to set a custom expiration time with a recommended default of 60 seconds.
 
+**CF-10:** WHERE encryption-at-rest is needed for stored user data, the module SHALL allow developers to enable encryption and configure an encryption key.
+
+**CF-11:** WHERE the persistent storage backend provides its own encryption (e.g., encrypted database, encrypted Redis), the module's encryption-at-rest configuration SHALL be optional.
+
 ## 10. Security Requirements
 
 **SC-1:** WHEN storing JWT signing secrets, the module SHALL NOT log or expose secrets in error messages.
@@ -340,6 +384,26 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **SC-11:** WHEN authorization CODEs expire, the module SHALL automatically clean them up from the store to prevent unauthorized access.
 
+**SC-12:** WHEN generating refresh tokens, the module SHALL use cryptographically secure random number generation.
+
+**SC-13:** WHERE refresh tokens are stored server-side, the module SHALL hash the token value before using it as a storage key to prevent token exposure.
+
+**SC-14:** WHEN storing user profile data with refresh tokens, the module SHALL ensure the data is stored server-side only and never exposed to the client.
+
+**SC-15:** WHERE refresh tokens are revoked, the module SHALL prevent their use for generating new access tokens even if the token has not yet expired.
+
+**SC-16:** WHERE user data is stored with refresh tokens in the persistent store, the module SHALL provide optional encryption-at-rest for sensitive user data.
+
+**SC-17:** WHERE encryption-at-rest is enabled, the module SHALL use industry-standard encryption algorithms (e.g., AES-256-GCM) to encrypt user data before storing it.
+
+**SC-18:** WHERE encryption-at-rest is enabled, the module SHALL allow developers to configure an encryption key via environment variables.
+
+**SC-19:** WHERE encryption-at-rest is enabled and no encryption key is configured, the module SHALL throw an error during initialization to prevent unencrypted storage.
+
+**SC-20:** WHEN retrieving user data from the refresh token store, the module SHALL automatically decrypt the data if encryption is enabled.
+
+**SC-21:** WHERE the persistent storage backend is already encrypted (e.g., encrypted Redis, encrypted filesystem), the module's encryption-at-rest MAY be optional as a defense-in-depth measure.
+
 ## 11. Error Handling Requirements
 
 **EH-1:** WHEN an authentication error occurs, the module SHALL provide descriptive error messages for debugging.
@@ -360,3 +424,6 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PF-4:** WHEN cleaning up expired authorization CODEs, the module SHALL perform cleanup operations without blocking active authentication requests.
 
+**PF-5:** WHERE refresh tokens are stored in the key-value store, the module SHALL support efficient lookup operations with O(1) time complexity.
+
+**PF-6:** WHEN cleaning up expired refresh tokens, the module SHALL perform cleanup operations without blocking active authentication or refresh requests.
