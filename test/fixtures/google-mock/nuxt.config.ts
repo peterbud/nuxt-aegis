@@ -20,6 +20,10 @@ export default defineNuxtConfig({
         clientId: 'mock-google-client-id',
         clientSecret: 'mock-google-client-secret',
         scopes: ['openid', 'profile', 'email'],
+        authorizationParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     },
   },

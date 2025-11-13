@@ -263,4 +263,33 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       expect(payload.sub).toBe('mock-google-user-12345')
     })
   })
+
+  describe('Custom Authorization Parameters', () => {
+    it('should include custom authorization parameters in redirect URL', async () => {
+      // Test that custom authorizationParams are properly appended to the authorization URL
+      const baseUrl = getUrl('/')
+
+      // Start OAuth flow
+      const response = await fetch(`${baseUrl}auth/google`, {
+        redirect: 'manual',
+      })
+
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toBeDefined()
+
+      // Parse the authorization URL
+      const url = new URL(location!, baseUrl)
+
+      // Verify standard OAuth parameters
+      expect(url.searchParams.get('response_type')).toBe('code')
+      expect(url.searchParams.get('client_id')).toBe('mock-google-client-id')
+      expect(url.searchParams.get('scope')).toContain('openid')
+
+      // Verify custom authorization parameters from config
+      // These are set in test/fixtures/google-mock/nuxt.config.ts
+      expect(url.searchParams.get('access_type')).toBe('offline')
+      expect(url.searchParams.get('prompt')).toBe('consent')
+    })
+  })
 })

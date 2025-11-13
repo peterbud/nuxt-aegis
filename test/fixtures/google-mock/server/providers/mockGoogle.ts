@@ -1,7 +1,7 @@
 import { eventHandler, getRequestURL } from 'h3'
 import type { H3Event } from 'h3'
 import type { OAuthConfig, GoogleProviderConfig } from '../../../../../src/runtime/types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation } from '../../../../../src/runtime/server/providers/oauthBase'
+import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from '../../../../../src/runtime/server/providers/oauthBase'
 
 /**
  * Mock Google OAuth provider implementation
@@ -39,13 +39,21 @@ const mockGoogleImplementation: OAuthProviderImplementation = {
   // Use the same logic as real Google provider
   extractUser: (userResponse: unknown) => userResponse as { [key: string]: unknown },
 
-  buildAuthQuery: (config: GoogleProviderConfig, redirectUri: string, state?: string) => ({
-    response_type: 'code',
-    client_id: config.clientId,
-    redirect_uri: redirectUri,
-    scope: config.scopes?.join(' ') || 'openid profile email',
-    state: state || '',
-  }),
+  buildAuthQuery: (config: GoogleProviderConfig, redirectUri: string, state?: string) => {
+    // Validate and filter custom authorization parameters
+    const customParams = validateAuthorizationParams(config.authorizationParams, 'google')
+
+    return {
+      // Custom parameters first (can be overridden by defaults)
+      ...customParams,
+      // Default OAuth parameters (take precedence)
+      response_type: 'code',
+      client_id: config.clientId,
+      redirect_uri: redirectUri,
+      scope: config.scopes?.join(' ') || 'openid profile email',
+      state: state || '',
+    }
+  },
 
   buildTokenBody: (config: GoogleProviderConfig, code: string, redirectUri: string) => ({
     code,

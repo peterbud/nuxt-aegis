@@ -11,6 +11,51 @@ import { consola } from 'consola'
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0'
 
 /**
+ * Protected OAuth parameters that cannot be overridden via authorizationParams
+ * These are critical for OAuth security and flow integrity
+ */
+const PROTECTED_PARAMS = ['client_id', 'redirect_uri', 'code', 'grant_type'] as const
+
+/**
+ * Validates and filters custom authorization parameters
+ * Removes protected OAuth parameters and logs warnings when they are attempted
+ *
+ * @param authorizationParams - Custom parameters from configuration
+ * @param providerKey - Provider identifier for logging
+ * @returns Filtered parameters safe to merge with OAuth query
+ */
+export function validateAuthorizationParams(
+  authorizationParams: Record<string, string> | undefined,
+  providerKey: string,
+): Record<string, string> {
+  if (!authorizationParams) {
+    return {}
+  }
+
+  const filtered: Record<string, string> = {}
+  const protectedFound: string[] = []
+
+  for (const [key, value] of Object.entries(authorizationParams)) {
+    if (PROTECTED_PARAMS.includes(key as typeof PROTECTED_PARAMS[number])) {
+      protectedFound.push(key)
+    }
+    else {
+      filtered[key] = value
+    }
+  }
+
+  if (protectedFound.length > 0) {
+    consola.warn(`[Nuxt Aegis] Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
+      attempted: protectedFound,
+      protected: PROTECTED_PARAMS,
+      message: 'These parameters are ignored for security reasons',
+    })
+  }
+
+  return filtered
+}
+
+/**
  * OAuth provider implementation interface
  * Defines the structure required for OAuth provider implementations
  */

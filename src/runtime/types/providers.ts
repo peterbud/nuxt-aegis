@@ -23,6 +23,28 @@ export interface OAuthProviderConfig {
   userInfoUrl?: string
   /** Redirect URI for OAuth callback (defaults to authPath + '/providers/[provider]') */
   redirectUri?: string
+  /**
+   * Custom query parameters to append to the authorization URL
+   *
+   * These parameters will be included when redirecting to the OAuth provider's authorization endpoint.
+   * Custom parameters override default parameters, but critical OAuth parameters (client_id, redirect_uri,
+   * code, grant_type) are protected and cannot be overridden for security reasons.
+   *
+   * @example
+   * // Google-specific parameters
+   * authorizationParams: {
+   *   access_type: 'offline',    // Request refresh token
+   *   prompt: 'consent',         // Force consent screen
+   * }
+   *
+   * @example
+   * // Auth0-specific parameters
+   * authorizationParams: {
+   *   prompt: 'login',           // Force login screen
+   *   screen_hint: 'signup',     // Show signup page
+   * }
+   */
+  authorizationParams?: Record<string, string>
 }
 
 /**

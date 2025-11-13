@@ -1,5 +1,5 @@
 import type { OAuthConfig, GithubProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation } from './oauthBase'
+import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 
 /**
  * GitHub OAuth provider implementation
@@ -16,12 +16,20 @@ const githubImplementation: OAuthProviderImplementation = {
 
   extractUser: (userResponse: unknown) => userResponse as { [key: string]: unknown },
 
-  buildAuthQuery: (config: GithubProviderConfig, redirectUri: string, state?: string) => ({
-    client_id: config.clientId,
-    redirect_uri: redirectUri,
-    scope: config.scopes?.join(' ') || 'user:email',
-    state: state || '',
-  }),
+  buildAuthQuery: (config: GithubProviderConfig, redirectUri: string, state?: string) => {
+    // Validate and filter custom authorization parameters
+    const customParams = validateAuthorizationParams(config.authorizationParams, 'github')
+
+    return {
+      // Custom parameters first (can be overridden by defaults)
+      ...customParams,
+      // Default OAuth parameters (take precedence)
+      client_id: config.clientId,
+      redirect_uri: redirectUri,
+      scope: config.scopes?.join(' ') || 'user:email',
+      state: state || '',
+    }
+  },
 
   buildTokenBody: (config: GithubProviderConfig, code: string, redirectUri: string) => ({
     code,

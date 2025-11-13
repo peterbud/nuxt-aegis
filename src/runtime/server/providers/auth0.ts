@@ -1,5 +1,5 @@
 import type { OAuthConfig, Auth0ProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation } from './oauthBase'
+import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 
 /**
  * Get Auth0 domain URL, ensuring it has the https:// prefix
@@ -35,7 +35,13 @@ const auth0Implementation: OAuthProviderImplementation = {
     auth0Implementation.tokenUrl = config.tokenUrl || `${domainUrl}/oauth/token`
     auth0Implementation.userInfoUrl = config.userInfoUrl || `${domainUrl}/userinfo`
 
+    // Validate and filter custom authorization parameters
+    const customParams = validateAuthorizationParams(config.authorizationParams, 'auth0')
+
     return {
+      // Custom parameters first (can be overridden by defaults)
+      ...customParams,
+      // Default OAuth parameters (take precedence)
       response_type: 'code',
       client_id: config.clientId,
       redirect_uri: redirectUri,

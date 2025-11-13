@@ -229,6 +229,11 @@ export default defineNuxtConfig({
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        // Optional: Custom authorization parameters
+        authorizationParams: {
+          access_type: 'offline',    // Request refresh token from Google
+          prompt: 'consent',         // Force consent screen
+        },
       },
     },
   },
@@ -242,6 +247,11 @@ export default defineNuxtConfig({
 export default defineOAuthGoogleEventHandler({
   config: {
     scopes: ['openid', 'profile', 'email'],
+    // Optional: Custom authorization parameters (can also be set here)
+    authorizationParams: {
+      access_type: 'offline',
+      prompt: 'consent',
+    },
   },
   // Add custom claims to the JWT
   customClaims: {
@@ -262,6 +272,11 @@ export default defineNuxtConfig({
         clientId: process.env.AUTH0_CLIENT_ID!,
         clientSecret: process.env.AUTH0_CLIENT_SECRET!,
         domain: process.env.AUTH0_DOMAIN!, // e.g., 'your-tenant.auth0.com'
+        // Optional: Custom authorization parameters
+        authorizationParams: {
+          prompt: 'login',           // Force login screen
+          screen_hint: 'signup',     // Show signup page instead of login
+        },
       },
     },
   },
@@ -275,6 +290,10 @@ export default defineNuxtConfig({
 export default defineOAuthAuth0EventHandler({
   config: {
     scopes: ['openid', 'profile', 'email'],
+    // Optional: Custom authorization parameters
+    authorizationParams: {
+      prompt: 'login',
+    },
   },
   // Add custom claims to the JWT
   customClaims: {
@@ -290,6 +309,44 @@ export default defineOAuthAuth0EventHandler({
 AUTH0_CLIENT_ID=your-auth0-client-id
 AUTH0_CLIENT_SECRET=your-auth0-client-secret
 AUTH0_DOMAIN=your-tenant.auth0.com
+```
+
+### Custom Authorization Parameters
+
+All OAuth providers support custom authorization parameters via the `authorizationParams` configuration option. These parameters are appended to the authorization URL when redirecting users to the OAuth provider.
+
+**Security Note**: Critical OAuth parameters (`client_id`, `redirect_uri`, `code`, `grant_type`) are protected and cannot be overridden. If you attempt to override these, a warning will be logged and the parameters will be ignored.
+
+#### Common Use Cases
+
+**Google - Request Offline Access**:
+```typescript
+authorizationParams: {
+  access_type: 'offline',  // Get refresh token
+  prompt: 'consent',       // Force consent screen to ensure refresh token
+}
+```
+
+**Google - Restrict to Domain**:
+```typescript
+authorizationParams: {
+  hd: 'example.com',  // Only allow users from example.com Google Workspace
+}
+```
+
+**Auth0 - Force Login**:
+```typescript
+authorizationParams: {
+  prompt: 'login',         // Always show login screen
+  screen_hint: 'signup',   // Show signup form instead of login
+}
+```
+
+**GitHub - Allow Signup**:
+```typescript
+authorizationParams: {
+  allow_signup: 'true',  // Allow users to create new accounts during OAuth flow
+}
 ```
 
 ### Custom Provider
