@@ -61,28 +61,40 @@ export async function generateAuthTokens(
 }
 
 /**
- * Type guard to assert that a route is protected and user is authenticated
- * Use this at the start of protected route handlers to narrow the type of event.context.user
- *
- * This function should be used in routes that are protected by the auth middleware.
- * It will throw a 401 error if the user is not authenticated (which should never happen
- * if the middleware is configured correctly, but provides a runtime safety check).
+ * Ensures the event has an authenticated user and narrows the type
+ * Returns the event with narrowed context type for better type inference
  *
  * @param event - H3Event object
- * @returns The event with user guaranteed to be present
+ * @returns Event with guaranteed user context
  * @throws 401 Unauthorized if user is not authenticated
  *
  * @example
  * ```typescript
  * export default defineEventHandler((event) => {
- *   const authenticatedEvent = requireAuth(event)
- *   const { user } = authenticatedEvent.context
- *   // TypeScript now knows user is defined, no need to check
- *   return { userId: user.sub, email: user.email }
+ *   const authedEvent = requireAuth(event)
+ *   // TypeScript knows authedEvent.context.user is defined
+ *   return { userId: authedEvent.context.user.sub }
+ * })
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With custom claims typing
+ * interface MyTokenPayload extends TokenPayload {
+ *   role: string
+ *   permissions: string[]
+ * }
+ *
+ * export default defineEventHandler((event) => {
+ *   const authedEvent = requireAuth<MyTokenPayload>(event)
+ *   // TypeScript knows about role and permissions
+ *   return { role: authedEvent.context.user.role }
  * })
  * ```
  */
-export function requireAuth(event: H3Event): H3Event & { context: { user: TokenPayload } } {
+export function requireAuth<T extends TokenPayload = TokenPayload>(
+  event: H3Event,
+): H3Event & { context: { user: T } } {
   if (!event.context.user) {
     throw createError({
       statusCode: 401,
@@ -91,7 +103,7 @@ export function requireAuth(event: H3Event): H3Event & { context: { user: TokenP
     })
   }
 
-  return event as H3Event & { context: { user: TokenPayload } }
+  return event as H3Event & { context: { user: T } }
 }
 
 /**
@@ -110,8 +122,23 @@ export function requireAuth(event: H3Event): H3Event & { context: { user: TokenP
  *   return { userId: user.sub, email: user.email }
  * })
  * ```
+ *
+ * @example
+ * ```typescript
+ * // With custom claims typing
+ * interface MyTokenPayload extends TokenPayload {
+ *   role: string
+ *   permissions: string[]
+ * }
+ *
+ * export default defineEventHandler((event) => {
+ *   const user = getAuthUser<MyTokenPayload>(event)
+ *   // TypeScript knows about role and permissions
+ *   return { role: user.role, permissions: user.permissions }
+ * })
+ * ```
  */
-export function getAuthUser(event: H3Event): TokenPayload {
+export function getAuthUser<T extends TokenPayload = TokenPayload>(event: H3Event): T {
   if (!event.context.user) {
     throw createError({
       statusCode: 401,
@@ -120,5 +147,5 @@ export function getAuthUser(event: H3Event): TokenPayload {
     })
   }
 
-  return event.context.user
+  return event.context.user as T
 }

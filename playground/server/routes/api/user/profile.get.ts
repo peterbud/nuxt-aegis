@@ -1,3 +1,5 @@
+import type { MyTokenPayload } from '~~/types/payload'
+
 /**
  * Example: API endpoint that demonstrates Bearer token authentication
  *
@@ -7,10 +9,10 @@
  * The auth middleware automatically validates the token and injects user data
  */
 export default defineEventHandler((event) => {
-  // getAuthUser() ensures user is authenticated and returns the typed user object
-  const user = getAuthUser(event)
+  // Use the generic type parameter to get fully typed custom claims
+  const user = getAuthUser<MyTokenPayload>(event)
 
-  // Access standard JWT claims
+  // Access standard JWT claims (fully typed)
   return {
     success: true,
     user: {
@@ -18,11 +20,11 @@ export default defineEventHandler((event) => {
       email: user.email,
       name: user.name,
       picture: user.picture,
+      // Access custom claims (fully typed thanks to generic parameter)
+      role: user.role,
+      permissions: user.permissions,
+      organizationId: user.organizationId,
     },
-    // Access custom claims if they exist
-    role: user.role,
-    permissions: user.permissions,
-    organizationId: user.organizationId,
     // Show authentication metadata
     authenticatedAt: user.iat,
     expiresAt: user.exp,
