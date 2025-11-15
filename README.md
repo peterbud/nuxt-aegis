@@ -629,13 +629,7 @@ export default defineOAuthGoogleEventHandler({
 })
 ```
 
-**Important**: During token refresh, the same custom claims callback is invoked with the stored user object to maintain consistency. The provider tokens are not available during refresh since we're not re-authenticating with the provider.    return {
-      role: user.role,
-      providerId: tokens.id_token,
-    }
-  },
-})
-```
+**Important**: During token refresh, the same custom claims callback is invoked with the stored user object to maintain consistency. The provider tokens are not available during refresh since we're not re-authenticating with the provider.
 
 #### Supported Claim Types
 
@@ -796,9 +790,9 @@ Nuxt Aegis provides automatic token refresh to maintain user sessions without re
 #### How Token Refresh Works
 
 1. **Initial Authentication**: After OAuth login, refresh token is stored server-side with user data
-2. **Auto-Refresh on Startup**: When app initializes, attempts to get new access token using refresh token cookie
-3. **Expiration Handling**: When access token expires, client can request a new one
-4. **Token Generation**: Server retrieves stored user object and regenerates access token with same custom claims
+2. **Auto-Refresh on Startup**: When app initializes, and there is a valid refresh token cookie, it attempts to get new access token using refresh token cookie
+3. **Expiration Handling**: When access token expires, client can request a new one (if it is enabled in the configuration)
+4. **Token Generation**: Upon token refresh, the server retrieves stored user object and regenerates access token with same custom claims
 5. **Optional Rotation**: Server can rotate (replace) the refresh token for additional security
 
 #### Automatic Refresh
@@ -834,18 +828,8 @@ export default defineNuxtConfig({
   nuxtAegis: {
     tokenRefresh: {
       storage: {
-        driver: 'fs', // Options: 'fs', 'redis', 'memory'
+        driver: 'fs', // Options: 'fs', 'redis'
         prefix: 'refresh:',
-        base: './.data/refresh-tokens',
-      },
-    },
-  },
-  
-  // Configure Nitro storage for persistence
-  nitro: {
-    storage: {
-      refreshTokenStore: {
-        driver: 'fs', // or 'redis', 'mongodb', etc.
         base: './.data/refresh-tokens',
       },
     },
@@ -1090,7 +1074,7 @@ The module implements a secure OAuth 2.0 authorization code flow with an additio
 #### Access Tokens
 - **Storage**: In-memory (reactive reference variable), cleared on page refresh
 - **Lifetime**: Short-lived (default: 1 hour, configurable via `token.expiresIn`)
-- **Format**: JWT with standard claims (sub, iss, exp, iat) and custom claims
+- **Format**: JWT with standard claims (sub, iss, exp, iat) and configurable custom claims
 - **Transport**: Sent via `Authorization: Bearer` header for API requests
 
 #### Refresh Tokens
@@ -1106,7 +1090,7 @@ The module implements a secure OAuth 2.0 authorization code flow with an additio
 - **Security**: Single-use enforcement, cryptographically secure random generation
 
 #### Token Refresh Process
-1. Client detects expired access token or calls `refresh()` manually
+1. Client detects expired access token or calls `refresh()` manually / automatically
 2. Browser automatically sends refresh token cookie with request to `/auth/refresh`
 3. Server validates refresh token (existence, expiration, revocation status)
 4. Server retrieves stored user object from persistent storage
@@ -1128,16 +1112,6 @@ export default defineNuxtConfig({
         driver: 'fs', // 'fs', 'redis', or 'memory'
         prefix: 'refresh:', // Storage key prefix
         base: './.data/refresh-tokens', // Base path for filesystem
-      },
-    },
-  },
-  
-  // Configure Nitro storage for persistent refresh tokens
-  nitro: {
-    storage: {
-      refreshTokenStore: {
-        driver: 'fs', // Or 'redis', 'mongodb', etc.
-        base: './.data/refresh-tokens',
       },
     },
   },
