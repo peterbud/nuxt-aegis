@@ -13,12 +13,13 @@ import { generateToken } from './jwt'
  *
  * @param event - H3Event object
  * @param user - Complete user object from the OAuth provider (will be stored with refresh token)
+ * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param customClaims - Optional custom claims to add to the JWT (already processed)
  * @returns Object containing accessToken and refreshToken
  *
  * @example
  * ```typescript
- * const tokens = await generateAuthTokens(event, user, {
+ * const tokens = await generateAuthTokens(event, user, 'google', {
  *   role: 'admin',
  *   permissions: ['read', 'write'],
  * })
@@ -27,6 +28,7 @@ import { generateToken } from './jwt'
 export async function generateAuthTokens(
   event: H3Event,
   user: Record<string, unknown>,
+  provider: string,
   customClaims?: Record<string, unknown>,
 ): Promise<{ accessToken: string, refreshToken?: string }> {
   const config = useRuntimeConfig(event)
@@ -48,6 +50,7 @@ export async function generateAuthTokens(
   // EP-14, EP-14a: Generate and store refresh token with complete user object
   const refreshToken = await generateAndStoreRefreshToken(
     user, // RS-2: Store complete user object
+    provider, // Store provider name for custom claims refresh
     tokenRefreshConfig,
     undefined, // No previous token hash for initial auth
     event,

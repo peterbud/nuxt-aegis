@@ -4,6 +4,20 @@
  */
 
 /**
+ * Minimal user interface contract
+ * All user objects must conform to this shape at minimum
+ * Providers can extend with additional provider-specific fields
+ */
+export interface BaseUser {
+  /** User identifier - required */
+  id: string
+  /** User display name - optional but recommended */
+  name?: string
+  /** Additional provider-specific or custom fields */
+  [key: string]: unknown
+}
+
+/**
  * JWT Token payload interface
  * Represents the decoded JWT token structure with standard and custom claims
  */
@@ -48,6 +62,8 @@ export interface RefreshTokenData {
   previousTokenHash?: string
   /** RS-2, RS-3: Complete user object from the authentication provider including all profile data and provider-specific properties */
   user: Record<string, unknown>
+  /** Provider name for dynamic custom claims generation during refresh (e.g., 'google', 'github', 'microsoft', 'auth0') */
+  provider: string
 }
 
 /**

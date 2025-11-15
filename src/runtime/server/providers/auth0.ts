@@ -65,16 +65,22 @@ const auth0Implementation: OAuthProviderImplementation = {
  * @param options.config - Auth0 OAuth provider configuration
  * @param options.onError - Error callback function
  * @param options.customClaims - Custom claims to add to JWT
+ * @param options.onUserInfo - User transformation hook
+ * @param options.onSuccess - Success callback hook
  * @returns Event handler for Auth0 OAuth authentication
  */
 export function defineOAuthAuth0EventHandler({
   config = {} as Auth0ProviderConfig,
   onError,
   customClaims,
+  onUserInfo,
+  onSuccess,
 }: OAuthConfig<Auth0ProviderConfig>) {
   return defineOAuthEventHandler(auth0Implementation, {
     config,
     onError,
     customClaims,
+    onUserInfo,
+    onSuccess,
   })
 }

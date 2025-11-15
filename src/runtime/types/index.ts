@@ -8,6 +8,7 @@ import './augmentations'
 
 // Token types
 export type {
+  BaseUser,
   TokenPayload,
   TokenConfig,
   RefreshTokenData,
@@ -51,6 +52,9 @@ export type {
 // Callback types
 export type {
   OnError,
+  OnUserInfo,
+  OnSuccess,
+  OnSuccessParams,
 } from './callbacks'
 
 // Config types

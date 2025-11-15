@@ -131,6 +131,8 @@ export function defineOAuthEventHandler<
     config,
     onError,
     customClaims: _customClaims,
+    onUserInfo: _onUserInfo,
+    onSuccess: _onSuccess,
   }: OAuthConfig<TConfig>,
 ) {
   return eventHandler(async (event: H3Event) => {
@@ -197,8 +199,18 @@ export function defineOAuthEventHandler<
         },
       })
 
-      const user = implementation.extractUser(userResponse)
+      let user = implementation.extractUser(userResponse)
       const tokens = { access_token, refresh_token, id_token, expires_in }
+
+      // Invoke onUserInfo hooks: provider-level first, then module-level fallback
+      if (_onUserInfo) {
+        // Provider-level onUserInfo hook
+        user = await _onUserInfo(user, tokens, event)
+      }
+      else if (runtimeConfig.onUserInfo) {
+        // Module-level onUserInfo hook (fallback)
+        user = await runtimeConfig.onUserInfo(user, tokens, event)
+      }
 
       // Resolve custom claims if it's a callback function
       let resolvedCustomClaims: Record<string, unknown> | undefined
@@ -209,6 +221,25 @@ export function defineOAuthEventHandler<
         else {
           resolvedCustomClaims = _customClaims
         }
+      }
+
+      // Invoke onSuccess hooks: provider-level first, then module-level
+      // Both run sequentially (Option B)
+      if (_onSuccess) {
+        await _onSuccess({
+          user,
+          tokens,
+          provider: implementation.runtimeConfigKey,
+          event,
+        })
+      }
+      if (runtimeConfig.onSuccess) {
+        await runtimeConfig.onSuccess({
+          user,
+          tokens,
+          provider: implementation.runtimeConfigKey,
+          event,
+        })
       }
 
       // PR-10, PR-11: Generate and store authorization CODE

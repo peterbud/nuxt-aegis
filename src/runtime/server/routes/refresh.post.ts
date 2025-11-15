@@ -7,6 +7,7 @@ import {
   revokeRefreshToken,
 } from '../utils/refreshToken'
 import { setRefreshTokenCookie } from '../utils/cookies'
+import { processCustomClaims } from '../utils/customClaims'
 import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRefreshConfig } from '../../types'
 import { consola } from 'consola'
@@ -67,11 +68,25 @@ export default defineEventHandler(async (event) => {
 
     // EP-28b: Extract user object from stored data
     const user = storedRefreshToken.user
+    const provider = storedRefreshToken.provider
 
-    // Get custom claims configuration from the provider
-    // Note: Since we don't know which provider was used, we need to get custom claims from somewhere
-    // For now, we'll need to store which provider was used or use a global custom claims config
-    // TODO: Consider storing provider name in RefreshTokenData for dynamic claim generation
+    // Get custom claims configuration from runtime config for this provider
+    // JT-14, JT-15: Reuse the same custom claims configuration by invoking the callback
+    let customClaims: Record<string, unknown> = {}
+
+    // Access provider-specific configuration from runtime config
+    const providerConfig = config.nuxtAegis?.providers?.[provider as 'google' | 'github' | 'microsoft' | 'auth0']
+
+    if (providerConfig && 'customClaims' in providerConfig) {
+      const customClaimsConfig = providerConfig.customClaims
+
+      if (customClaimsConfig) {
+        // Process custom claims using the same processCustomClaims utility
+        // This ensures the same callback is invoked for both initial auth and refresh
+        const tokens = {} // We don't have provider tokens during refresh, pass empty object
+        customClaims = await processCustomClaims(user, customClaimsConfig, tokens)
+      }
+    }
 
     // Build standard token payload from stored user object
     const payload: TokenPayload = {
@@ -81,27 +96,13 @@ export default defineEventHandler(async (event) => {
       picture: user.picture as string | undefined,
     }
 
-    // Process custom claims using the same logic as initial authentication
-    // JT-14, JT-15: Reuse the same custom claims configuration
-    // Note: For now, we'll extract custom claims from the old token
-    // In a future iteration, we should call the custom claims callback here
-    const customClaims: Record<string, unknown> = {}
-
-    // Temporary solution: Extract non-standard claims from stored user object
-    // A better solution would be to store custom claims callback reference or re-process them
-    const standardFields = ['sub', 'email', 'name', 'picture', 'id', 'login', 'avatar_url', 'given_name', 'family_name', 'locale', 'email_verified']
-    Object.entries(user).forEach(([key, value]) => {
-      if (!standardFields.includes(key) && value !== undefined && value !== null) {
-        customClaims[key] = value
-      }
-    })
-
     // EP-28b: Generate new access token with user data and custom claims
     const newToken = await generateToken(payload, tokenConfig, customClaims)
 
     // EP-30: Generate new refresh token (rotation)
     const newRefreshToken = await generateAndStoreRefreshToken(
       user, // RS-2: Store complete user object
+      provider, // Store provider name
       tokenRefreshConfig,
       hashedRefreshToken, // Pass previous token hash for rotation tracking
       event,

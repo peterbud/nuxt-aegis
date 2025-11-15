@@ -79,6 +79,7 @@ export default defineEventHandler(async (event) => {
     const { accessToken, refreshToken } = await generateAuthTokens(
       event,
       authCodeData.user,
+      authCodeData.provider,
       authCodeData.customClaims,
     )
 

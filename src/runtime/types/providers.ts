@@ -1,4 +1,4 @@
-import type { CustomClaimsCallback, OnError } from './index'
+import type { CustomClaimsCallback, OnError, OnUserInfo, OnSuccess } from './index'
 
 /**
  * OAuth provider configuration types
@@ -119,4 +119,16 @@ export interface OAuthConfig<TConfig> {
    * Can be a static object or a callback function that receives user and tokens
    */
   customClaims?: Record<string, string | number | boolean | Array<string | number | boolean> | null> | CustomClaimsCallback
+  /**
+   * User information transformation hook (provider-level)
+   * Called after fetching user info from the provider, before storing it
+   * Allows provider-specific user object shaping
+   */
+  onUserInfo?: OnUserInfo
+  /**
+   * Success hook (provider-level)
+   * Called after successful authentication, before generating authorization CODE
+   * Use for side effects like database storage
+   */
+  onSuccess?: OnSuccess
 }

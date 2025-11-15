@@ -9,6 +9,7 @@ import type { TokenConfig, ClaimsValidationConfig } from './token'
 import type { TokenRefreshConfig } from './refresh'
 import type { RouteProtectionConfig } from './routes'
 import type { AuthCodeConfig } from './authCode'
+import type { OnUserInfo, OnSuccess } from './callbacks'
 
 /**
  * Module and runtime configuration types
@@ -62,6 +63,16 @@ export interface NuxtAegisRuntimeConfig {
     github?: GithubProviderConfig
     auth0?: Auth0ProviderConfig
   }
+  /**
+   * Module-level user information transformation hook
+   * Fallback for provider-level onUserInfo if not specified per provider
+   */
+  onUserInfo?: OnUserInfo
+  /**
+   * Module-level success hook
+   * Fallback for provider-level onSuccess if not specified per provider
+   */
+  onSuccess?: OnSuccess
 }
 
 /**
@@ -112,4 +123,18 @@ export interface ModuleOptions {
 
   /** API endpoint path configuration */
   endpoints?: EndpointConfig
+
+  /**
+   * Module-level user information transformation hook
+   * Called after fetching user info from the provider, before storing it
+   * Provider-level hooks take precedence if defined
+   */
+  onUserInfo?: OnUserInfo
+
+  /**
+   * Module-level success hook
+   * Called after successful authentication, before generating authorization CODE
+   * Provider-level hooks are invoked first, then module-level hook
+   */
+  onSuccess?: OnSuccess
 }

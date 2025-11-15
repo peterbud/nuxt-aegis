@@ -25,6 +25,10 @@ export interface AuthCodeData {
   expiresAt: number
   /** Timestamp when the code was created (milliseconds since epoch) */
   createdAt: number
+  /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0') */
+  provider: string
+  /** Resolved custom claims (already processed from static or callback config) */
+  customClaims?: Record<string, unknown>
 }
 
 /**

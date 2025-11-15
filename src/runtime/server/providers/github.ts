@@ -45,16 +45,22 @@ const githubImplementation: OAuthProviderImplementation = {
  * @param options.config - GitHub OAuth provider configuration
  * @param options.onError - Error callback function
  * @param options.customClaims - Custom claims to add to JWT
+ * @param options.onUserInfo - User transformation hook
+ * @param options.onSuccess - Success callback hook
  * @returns Event handler for GitHub OAuth authentication
  */
 export function defineOAuthGithubEventHandler({
   config,
   onError,
   customClaims,
+  onUserInfo,
+  onSuccess,
 }: OAuthConfig<GithubProviderConfig>) {
   return defineOAuthEventHandler(githubImplementation, {
     config,
     onError,
     customClaims,
+    onUserInfo,
+    onSuccess,
   })
 }

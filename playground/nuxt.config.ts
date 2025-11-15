@@ -39,5 +39,34 @@ export default defineNuxtConfig({
         '/public/**',
       ],
     },
+
+    // Module-level hooks - serve as fallback when provider-level hooks are not defined
+    // These demonstrate global authentication event handling
+    onUserInfo: (user, _tokens, _event) => {
+      console.log('[Module] Default user info transformation (fallback)', {
+        hasUser: !!user,
+        hasTokens: !!_tokens.access_token,
+      })
+      // Provider-level onUserInfo takes precedence, so this is only called
+      // if a provider doesn't define its own onUserInfo hook
+      return user
+    },
+
+    onSuccess: async ({ user, provider }) => {
+      console.log('[Module] Global success hook - user authenticated', {
+        provider,
+        userId: user.id || user.sub || user.email,
+        timestamp: new Date().toISOString(),
+      })
+
+      // This runs AFTER provider-level onSuccess hooks
+      // Perfect for global logging, analytics, or cross-provider actions
+
+      // Example: Log to analytics service
+      // await analytics.track('user_authenticated', {
+      //   provider,
+      //   userId: user.id,
+      // })
+    },
   },
 })

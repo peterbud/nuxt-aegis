@@ -202,6 +202,7 @@ export async function revokeRefreshToken(
 /**
  * Generate a refresh token and store it in the server-side storage
  * @param user - Complete user object from the authentication provider
+ * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param tokenRefreshConfig - Refresh token configuration including expiration settings
  * @param previousTokenHash - Hash of the previous refresh token for rotation tracking
  * @param event - H3 event for runtime config access
@@ -209,6 +210,7 @@ export async function revokeRefreshToken(
  */
 export async function generateAndStoreRefreshToken(
   user: Record<string, unknown>,
+  provider: string,
   tokenRefreshConfig: TokenRefreshConfig,
   previousTokenHash?: string,
   event?: H3Event,
@@ -224,6 +226,7 @@ export async function generateAndStoreRefreshToken(
     isRevoked: false,
     previousTokenHash,
     user, // Store complete user object
+    provider, // Store provider name for custom claims refresh
   }, event)
 
   return refreshToken
