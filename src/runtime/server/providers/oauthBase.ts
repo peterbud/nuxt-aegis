@@ -1,8 +1,9 @@
 import { eventHandler, getRequestURL, getQuery, sendRedirect, createError } from 'h3'
 import type { H3Event, H3Error } from 'h3'
 import type { OAuthConfig, OAuthProviderConfig, NuxtAegisRuntimeConfig } from '../../types'
+import type { UserInfoHookPayload, SuccessHookPayload } from '../../types/hooks'
 import { defu } from 'defu'
-import { useRuntimeConfig } from '#imports'
+import { useNitroApp, useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { consola } from 'consola'
@@ -202,14 +203,27 @@ export function defineOAuthEventHandler<
       let user = implementation.extractUser(userResponse)
       const tokens = { access_token, refresh_token, id_token, expires_in }
 
-      // Invoke onUserInfo hooks: provider-level first, then module-level fallback
+      // Invoke onUserInfo hooks in priority order:
+      // 1. Provider-level onUserInfo (if defined in route handler)
+      // 2. Nitro hook 'nuxt-aegis:userInfo' (global default in server plugin)
       if (_onUserInfo) {
-        // Provider-level onUserInfo hook
+        // Provider-level onUserInfo hook takes precedence
         user = await _onUserInfo(user, tokens, event)
       }
-      else if (runtimeConfig.onUserInfo) {
-        // Module-level onUserInfo hook (fallback)
-        user = await runtimeConfig.onUserInfo(user, tokens, event)
+      else {
+        // Call Nitro hook as fallback for global transformation
+        const nitroApp = useNitroApp()
+        const hookPayload: UserInfoHookPayload = {
+          user,
+          tokens,
+          provider: implementation.runtimeConfigKey,
+          event,
+        }
+        const transformedUser = await nitroApp.hooks.callHook('nuxt-aegis:userInfo', hookPayload)
+        // Use the transformed user if hook returned a value
+        if (transformedUser) {
+          user = transformedUser
+        }
       }
 
       // Resolve custom claims if it's a callback function
@@ -223,8 +237,10 @@ export function defineOAuthEventHandler<
         }
       }
 
-      // Invoke onSuccess hooks: provider-level first, then module-level
-      // Both run sequentially (Option B)
+      // Invoke onSuccess hooks:
+      // 1. Provider-level onSuccess (if defined in route handler)
+      // 2. Nitro hook 'nuxt-aegis:success' (global hook in server plugin)
+      // Both run sequentially if both are defined
       if (_onSuccess) {
         await _onSuccess({
           user,
@@ -233,14 +249,16 @@ export function defineOAuthEventHandler<
           event,
         })
       }
-      if (runtimeConfig.onSuccess) {
-        await runtimeConfig.onSuccess({
-          user,
-          tokens,
-          provider: implementation.runtimeConfigKey,
-          event,
-        })
+
+      // Always call Nitro hook for global success handling
+      const nitroApp = useNitroApp()
+      const successPayload: SuccessHookPayload = {
+        user,
+        tokens,
+        provider: implementation.runtimeConfigKey,
+        event,
       }
+      await nitroApp.hooks.callHook('nuxt-aegis:success', successPayload)
 
       // PR-10, PR-11: Generate and store authorization CODE
       try {

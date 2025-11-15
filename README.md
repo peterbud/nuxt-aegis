@@ -654,6 +654,141 @@ The following JWT claims are **reserved** and cannot be overridden:
 
 If you attempt to override these claims, they will be filtered out and a warning will be logged.
 
+### Authentication Hooks
+
+Nuxt Aegis provides a powerful hooks system that allows you to customize authentication behavior globally via server plugins. This is the recommended way to define default authentication event handlers across all providers.
+
+#### Available Hooks
+
+##### `nuxt-aegis:userInfo`
+
+Called after fetching user information from the OAuth provider, before storing it. Use this to:
+- Normalize user data across different providers
+- Add custom fields to all user objects
+- Enrich user data from external sources (e.g., database lookup)
+
+##### `nuxt-aegis:success`
+
+Called after successful authentication. Use this to:
+- Log authentication events
+- Send analytics
+- Save or update user records in your database
+- Trigger notifications or webhooks
+
+#### Defining Global Hooks
+
+Create a server plugin to define global authentication hooks:
+
+```typescript
+// server/plugins/aegis.ts
+export default defineNitroPlugin((nitroApp) => {
+  // Transform user data globally
+  nitroApp.hooks.hook('nuxt-aegis:userInfo', async (payload) => {
+    console.log('User authenticated via', payload.provider)
+    
+    // Add custom fields to all users
+    payload.user.authenticatedAt = new Date().toISOString()
+    payload.user.authProvider = payload.provider
+    
+    // Normalize user ID across providers
+    if (!payload.user.id && payload.user.sub) {
+      payload.user.id = payload.user.sub
+    }
+    
+    // Return the modified user object
+    return payload.user
+  })
+
+  // Handle successful authentication globally
+  nitroApp.hooks.hook('nuxt-aegis:success', async (payload) => {
+    console.log('User authenticated:', payload.user.id)
+    
+    // Save to database
+    await db.users.upsert({
+      id: payload.user.id,
+      email: payload.user.email,
+      name: payload.user.name,
+      provider: payload.provider,
+      lastLogin: new Date(),
+    })
+    
+    // Send analytics
+    await analytics.track('user_authenticated', {
+      userId: payload.user.id,
+      provider: payload.provider,
+    })
+  })
+})
+```
+
+#### Hook Payloads
+
+**UserInfo Hook Payload:**
+```typescript
+{
+  user: Record<string, unknown>      // Raw user from provider
+  tokens: {
+    access_token: string
+    refresh_token?: string
+    id_token?: string
+    expires_in?: number
+  }
+  provider: string                   // 'google', 'github', etc.
+  event: H3Event                     // Server event context
+}
+```
+
+**Success Hook Payload:**
+```typescript
+{
+  user: Record<string, unknown>      // Transformed user object
+  tokens: {
+    access_token: string
+    refresh_token?: string
+    id_token?: string
+    expires_in?: number
+  }
+  provider: string                   // 'google', 'github', etc.
+  event: H3Event                     // Server event context
+}
+```
+
+#### Provider-Level Overrides
+
+Individual OAuth route handlers can still override these global hooks by providing their own `onUserInfo` or `onSuccess` callbacks:
+
+```typescript
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  config: {
+    scope: ['openid', 'email', 'profile'],
+  },
+  // This overrides the global nuxt-aegis:userInfo hook for Google only
+  onUserInfo: async (user, tokens, event) => {
+    // Google-specific user transformation
+    user.customGoogleField = 'value'
+    return user
+  },
+  // This runs BEFORE the global nuxt-aegis:success hook
+  onSuccess: async ({ user, provider }) => {
+    // Google-specific success logic
+    console.log('Google login successful:', user.email)
+  },
+})
+```
+
+**Hook Execution Order:**
+
+1. **userInfo transformation:**
+   - If provider-level `onUserInfo` is defined → use it (global hook is skipped)
+   - Otherwise → call global `nuxt-aegis:userInfo` hook
+
+2. **Success handling:**
+   - If provider-level `onSuccess` is defined → run it first
+   - Then → always run global `nuxt-aegis:success` hook
+
+This design allows provider-specific customization while maintaining global defaults.
+
 ### Token Refresh
 
 Nuxt Aegis provides automatic token refresh to maintain user sessions without re-authentication.

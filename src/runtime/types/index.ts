@@ -57,6 +57,12 @@ export type {
   OnSuccessParams,
 } from './callbacks'
 
+// Hook types
+export type {
+  UserInfoHookPayload,
+  SuccessHookPayload,
+} from './hooks'
+
 // Config types
 export type {
   RedirectConfig,
