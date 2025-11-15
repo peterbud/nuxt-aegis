@@ -206,7 +206,6 @@ export default defineNuxtConfig({
 | `encryption.key` | `string` | - | Encryption key (32+ characters) |
 | `encryption.algorithm` | `'aes-256-gcm'` | `'aes-256-gcm'` | Encryption algorithm |
 | `storage.driver` | `'fs' \| 'redis' \| 'memory'` | `'fs'` | Storage backend driver |
-| `storage.prefix` | `string` | `'refresh:'` | Storage key prefix |
 | `storage.base` | `string` | `'./.data/refresh-tokens'` | Base path for filesystem storage |
 
 #### Authorization CODE Configuration

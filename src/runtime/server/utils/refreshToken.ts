@@ -105,8 +105,6 @@ export async function storeRefreshTokenData(
   event?: H3Event,
 ): Promise<void> {
   const encryptionConfig = getEncryptionConfig(event)
-  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
 
   let dataToStore: RefreshTokenData | { encrypted: string }
 
@@ -125,7 +123,7 @@ export async function storeRefreshTokenData(
   }
 
   // Store in Nitro storage
-  await useStorage('refreshTokenStore').setItem(`${storagePrefix}${tokenHash}`, dataToStore)
+  await useStorage('refreshTokenStore').setItem(`${tokenHash}`, dataToStore)
 }
 
 /**
@@ -140,10 +138,8 @@ export async function getRefreshTokenData(
   event?: H3Event,
 ): Promise<RefreshTokenData | null> {
   const encryptionConfig = getEncryptionConfig(event)
-  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
 
-  const storedData = await useStorage('refreshTokenStore').getItem<RefreshTokenData | { encrypted: string }>(`${storagePrefix}${tokenHash}`)
+  const storedData = await useStorage('refreshTokenStore').getItem<RefreshTokenData | { encrypted: string }>(`${tokenHash}`)
 
   if (!storedData) {
     return null
@@ -164,16 +160,11 @@ export async function getRefreshTokenData(
 /**
  * Delete refresh token data from storage
  * @param tokenHash - Hashed refresh token (storage key)
- * @param event - H3 event for runtime config access
  */
 export async function deleteRefreshTokenData(
   tokenHash: string,
-  event?: H3Event,
 ): Promise<void> {
-  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  const storagePrefix = config.nuxtAegis?.tokenRefresh?.storage?.prefix || 'refresh:'
-
-  await useStorage('refreshTokenStore').removeItem(`${storagePrefix}${tokenHash}`)
+  await useStorage('refreshTokenStore').removeItem(`${tokenHash}`)
 }
 
 /**

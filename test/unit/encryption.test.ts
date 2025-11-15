@@ -231,9 +231,6 @@ describe('Refresh Token Encryption', () => {
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             tokenRefresh: {
-              storage: {
-                prefix: 'refresh:',
-              },
               encryption: {
                 enabled: true,
                 key: testEncryptionKey,
@@ -255,12 +252,13 @@ describe('Refresh Token Encryption', () => {
           email: 'sensitive@example.com',
           ssn: '123-45-6789',
         },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
 
       // Verify data is stored encrypted
-      const storedData = mockStorage.get('refresh:hash123')
+      const storedData = mockStorage.get('hash123')
       expect(storedData).toBeDefined()
       expect(storedData).toHaveProperty('encrypted')
 
@@ -287,9 +285,6 @@ describe('Refresh Token Encryption', () => {
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             tokenRefresh: {
-              storage: {
-                prefix: 'refresh:',
-              },
               encryption: {
                 enabled: false, // Encryption disabled but data is encrypted
               },
@@ -299,7 +294,7 @@ describe('Refresh Token Encryption', () => {
       }))
 
       // Store encrypted data manually
-      mockStorage.set('refresh:hash123', { encrypted: 'some-encrypted-data' })
+      mockStorage.set('hash123', { encrypted: 'some-encrypted-data' })
 
       const { getRefreshTokenData } = await import('../../src/runtime/server/utils/refreshToken')
 

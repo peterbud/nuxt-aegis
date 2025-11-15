@@ -28,9 +28,6 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({
     nuxtAegis: {
       tokenRefresh: {
-        storage: {
-          prefix: 'refresh:',
-        },
         encryption: {
           enabled: false,
         },

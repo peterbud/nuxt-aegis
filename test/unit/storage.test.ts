@@ -28,9 +28,6 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({
     nuxtAegis: {
       tokenRefresh: {
-        storage: {
-          prefix: 'refresh:',
-        },
         encryption: {
           enabled: false,
         },
@@ -60,12 +57,13 @@ describe('Refresh Token Storage', () => {
           email: 'test@example.com',
           name: 'Test User',
         },
+        provider: 'google',
       }
 
       await storeRefreshTokenData(tokenHash, data)
 
       // Verify data was stored with correct prefix
-      const storedData = mockStorage.get('refresh:abc123hash')
+      const storedData = mockStorage.get('abc123hash')
       expect(storedData).toBeDefined()
       expect(storedData!.sub).toBe('user123')
       expect(storedData!.user.email).toBe('test@example.com')
@@ -85,11 +83,12 @@ describe('Refresh Token Storage', () => {
           customField: 'customValue',
           roles: ['admin', 'user'],
         },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
 
-      const storedData = mockStorage.get('refresh:hash123')
+      const storedData = mockStorage.get('hash123')
       expect(storedData).toBeDefined()
       expect(storedData!.user).toEqual(data.user)
       expect(storedData!.user.customField).toBe('customValue')
@@ -106,11 +105,12 @@ describe('Refresh Token Storage', () => {
         isRevoked: false,
         previousTokenHash: 'oldtoken456',
         user: { sub: 'user123' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
 
-      const storedData = mockStorage.get('refresh:hash123')
+      const storedData = mockStorage.get('hash123')
       expect(storedData).toBeDefined()
       expect(storedData!.sub).toBe('user123')
       expect(storedData!.expiresAt).toBe(expiresAt)
@@ -128,6 +128,7 @@ describe('Refresh Token Storage', () => {
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
         user: { sub: 'user123', email: 'test@example.com' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
@@ -162,6 +163,7 @@ describe('Refresh Token Storage', () => {
           },
           permissions: ['read', 'write', 'delete'],
         },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
@@ -181,6 +183,7 @@ describe('Refresh Token Storage', () => {
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
         user: { sub: 'user123' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
@@ -214,6 +217,7 @@ describe('Refresh Token Storage', () => {
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
         user: { sub: 'user123' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
@@ -242,6 +246,7 @@ describe('Refresh Token Storage', () => {
         isRevoked: false,
         previousTokenHash: 'oldtoken',
         user: { sub: 'user123', email: 'test@example.com', roles: ['admin'] },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', data)
