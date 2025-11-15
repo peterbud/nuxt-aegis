@@ -65,7 +65,7 @@ describe('Refresh Token Generation', () => {
         },
       }
 
-      const token = await generateAndStoreRefreshToken(user, tokenRefreshConfig)
+      const token = await generateAndStoreRefreshToken(user, 'google', tokenRefreshConfig)
 
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
@@ -88,8 +88,8 @@ describe('Refresh Token Generation', () => {
         cookie: { maxAge: 604800 },
       }
 
-      const token1 = await generateAndStoreRefreshToken(user, config)
-      const token2 = await generateAndStoreRefreshToken(user, config)
+      const token1 = await generateAndStoreRefreshToken(user, 'google', config)
+      const token2 = await generateAndStoreRefreshToken(user, 'google', config)
 
       expect(token1).not.toBe(token2)
     })
@@ -104,7 +104,7 @@ describe('Refresh Token Generation', () => {
       }
 
       const beforeGeneration = Date.now()
-      const token = await generateAndStoreRefreshToken(user, config)
+      const token = await generateAndStoreRefreshToken(user, 'google', config)
       const afterGeneration = Date.now()
 
       const tokenHash = hashRefreshToken(token)
@@ -124,7 +124,7 @@ describe('Refresh Token Generation', () => {
         cookie: { maxAge: 604800 },
       }
 
-      const token = await generateAndStoreRefreshToken(user, config)
+      const token = await generateAndStoreRefreshToken(user, 'google', config)
       const tokenHash = hashRefreshToken(token)
       const storedData = await getRefreshTokenData(tokenHash)
 
@@ -140,11 +140,11 @@ describe('Refresh Token Generation', () => {
       }
 
       // Generate first token
-      const firstToken = await generateAndStoreRefreshToken(user, config)
+      const firstToken = await generateAndStoreRefreshToken(user, 'google', config)
       const firstHash = hashRefreshToken(firstToken)
 
       // Generate second token with rotation
-      const secondToken = await generateAndStoreRefreshToken(user, config, firstHash)
+      const secondToken = await generateAndStoreRefreshToken(user, 'google', config, firstHash)
       const secondHash = hashRefreshToken(secondToken)
 
       const storedData = await getRefreshTokenData(secondHash)
@@ -159,7 +159,7 @@ describe('Refresh Token Generation', () => {
         cookie: { maxAge: 604800 },
       }
 
-      const token = await generateAndStoreRefreshToken(user, config)
+      const token = await generateAndStoreRefreshToken(user, 'google', config)
 
       // Should be base64url encoded (no +, /, or =)
       expect(token).toMatch(/^[\w-]+$/)
@@ -188,7 +188,7 @@ describe('Refresh Token Generation', () => {
         cookie: { maxAge: 604800 },
       }
 
-      const token = await generateAndStoreRefreshToken(user, config)
+      const token = await generateAndStoreRefreshToken(user, 'google', config)
       const tokenHash = hashRefreshToken(token)
       const storedData = await getRefreshTokenData(tokenHash)
 
@@ -207,6 +207,7 @@ describe('Refresh Token Generation', () => {
         expiresAt: Date.now() - 1000, // Expired 1 second ago
         isRevoked: false,
         user: { sub: 'user123' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', expiredData)
@@ -224,6 +225,7 @@ describe('Refresh Token Generation', () => {
         expiresAt: Date.now() + 86400000, // Expires in 1 day
         isRevoked: false,
         user: { sub: 'user123' },
+        provider: 'google',
       }
 
       await storeRefreshTokenData('hash123', validData)
@@ -244,15 +246,15 @@ describe('Refresh Token Generation', () => {
       }
 
       // Generate token 1
-      const token1 = await generateAndStoreRefreshToken(user, config)
+      const token1 = await generateAndStoreRefreshToken(user, 'google', config)
       const hash1 = hashRefreshToken(token1)
 
       // Generate token 2 (rotated from token 1)
-      const token2 = await generateAndStoreRefreshToken(user, config, hash1)
+      const token2 = await generateAndStoreRefreshToken(user, 'google', config, hash1)
       const hash2 = hashRefreshToken(token2)
 
       // Generate token 3 (rotated from token 2)
-      const token3 = await generateAndStoreRefreshToken(user, config, hash2)
+      const token3 = await generateAndStoreRefreshToken(user, 'google', config, hash2)
       const hash3 = hashRefreshToken(token3)
 
       // Verify rotation chain
