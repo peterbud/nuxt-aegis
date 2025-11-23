@@ -1,38 +1,38 @@
 export default defineOAuthGoogleEventHandler({
   // Transform user object from Google's format
-  onUserInfo: (user, _tokens, _event) => {
+  onUserInfo: (providerUserInfo, _tokens, _event) => {
     console.log('[Google] Transforming user info:', {
-      rawUser: user,
+      rawUser: providerUserInfo,
       hasTokens: !!_tokens.access_token,
     })
 
     // Shape the user object to match your application's needs
     return {
-      id: user.sub as string,
-      email: user.email,
-      name: user.name,
-      picture: user.picture,
+      id: providerUserInfo.sub as string,
+      email: providerUserInfo.email,
+      name: providerUserInfo.name,
+      picture: providerUserInfo.picture,
       // Add Google-specific fields
-      googleId: user.sub,
-      emailVerified: user.email_verified,
-      locale: user.locale,
+      googleId: providerUserInfo.sub,
+      emailVerified: providerUserInfo.email_verified,
+      locale: providerUserInfo.locale,
     }
   },
 
   // React to successful authentication
-  onSuccess: async ({ user, provider }) => {
+  onSuccess: async ({ providerUserInfo, provider }) => {
     console.log('[Google] User authenticated successfully:', {
-      userId: user.id,
+      userId: providerUserInfo.id,
       provider,
-      email: user.email,
+      email: providerUserInfo.email,
     })
 
     // Example: Store or update user in database
     // In a real app, you would save to your database here
     // await db.users.upsert({
-    //   id: user.id,
-    //   email: user.email,
-    //   name: user.name,
+    //   id: providerUserInfo.id,
+    //   email: providerUserInfo.email,
+    //   name: providerUserInfo.name,
     //   provider,
     //   lastLogin: new Date(),
     // })

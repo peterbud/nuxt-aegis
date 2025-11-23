@@ -74,7 +74,7 @@ describe('Refresh Token Generation', () => {
 
       expect(storedData).toBeDefined()
       expect(storedData?.sub).toBe('user123')
-      expect(storedData?.user).toEqual(user)
+      expect(storedData?.providerUserInfo).toEqual(user)
     })
 
     it('should generate unique tokens for same user', async () => {
@@ -189,9 +189,9 @@ describe('Refresh Token Generation', () => {
       const tokenHash = hashRefreshToken(token)
       const storedData = await getRefreshTokenData(tokenHash)
 
-      expect(storedData?.user).toEqual(user)
-      expect(storedData?.user.profile).toEqual(user.profile)
-      expect(storedData?.user.metadata).toEqual(user.metadata)
+      expect(storedData?.providerUserInfo).toEqual(user)
+      expect(storedData?.providerUserInfo.profile).toEqual(user.profile)
+      expect(storedData?.providerUserInfo.metadata).toEqual(user.metadata)
     })
   })
 

@@ -1,4 +1,4 @@
-import type { MyTokenPayload } from '~~/types/payload'
+import type { User } from '~~/shared/types/user'
 
 /**
  * Example: API endpoint that demonstrates Bearer token authentication
@@ -10,13 +10,13 @@ import type { MyTokenPayload } from '~~/types/payload'
  */
 export default defineEventHandler((event) => {
   // Use the generic type parameter to get fully typed custom claims
-  const user = getAuthUser<MyTokenPayload>(event)
+  const user = getAuthUser<User>(event)
 
   // Access standard JWT claims (fully typed)
   return {
     success: true,
     user: {
-      id: user.sub,
+      id: user.id,
       email: user.email,
       name: user.name,
       picture: user.picture,
@@ -26,7 +26,6 @@ export default defineEventHandler((event) => {
       organizationId: user.organizationId,
     },
     // Show authentication metadata
-    authenticatedAt: user.iat,
-    expiresAt: user.exp,
+    authenticatedAt: user.lastLogin,
   }
 })

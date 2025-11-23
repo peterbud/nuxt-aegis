@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { useStorage } from '#imports'
 import { consola } from 'consola'
+import type { H3Event } from 'h3'
+import type { AuthCodeData } from '../../types'
 
 /**
  * Authorization Code Store Utilities
@@ -24,28 +26,6 @@ import { consola } from 'consola'
  *
  * Requirements: PR-10, PR-11, CS-1 through CS-8, SC-9, SC-10, SC-11, EP-11, EP-12, CF-9
  */
-
-/**
- * Authorization code data stored in the key-value store
- * CS-2: Associates CODE with user information and provider tokens
- */
-export interface AuthCodeData {
-  /** User information extracted from OAuth provider */
-  user: Record<string, unknown>
-  /** Provider tokens received from OAuth provider */
-  providerTokens: {
-    access_token: string
-    refresh_token?: string
-    id_token?: string
-    expires_in?: number
-  }
-  /** Optional custom claims to add to the JWT token */
-  customClaims?: Record<string, unknown>
-  /** Timestamp when the code expires (milliseconds since epoch) */
-  expiresAt: number
-  /** Timestamp when the code was created (milliseconds since epoch) */
-  createdAt: number
-}
 
 /**
  * Generate a cryptographically secure authorization code
@@ -82,40 +62,45 @@ export function generateAuthCode(): string {
  * PR-11: Store CODE in server-side in-memory key-value store
  *
  * @param code - The authorization code to store
- * @param user - User information from OAuth provider
+ * @param providerUserInfo - Complete OAuth provider user data
  * @param providerTokens - Tokens received from OAuth provider
  * @param providerTokens.access_token - Provider access token
  * @param providerTokens.refresh_token - Optional provider refresh token
  * @param providerTokens.id_token - Optional provider ID token
  * @param providerTokens.expires_in - Optional token expiration time
+ * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
+ * @param customClaims - Resolved custom claims (already processed from static or callback config)
  * @param expiresIn - Expiration time in seconds (default: 60)
- * @param customClaims - Optional custom claims to add to the JWT token
+ * @param _event - H3Event for Nitro storage access (optional, currently unused)
  *
  * @example
  * ```typescript
- * await storeAuthCode('X7k9mP...', userInfo, providerTokens)
+ * await storeAuthCode('X7k9mP...', providerUserInfo, providerTokens, 'google', customClaims)
  * ```
  */
 export async function storeAuthCode(
   code: string,
-  user: Record<string, unknown>,
+  providerUserInfo: Record<string, unknown>,
   providerTokens: {
     access_token: string
     refresh_token?: string
     id_token?: string
     expires_in?: number
   },
+  provider: string,
+  customClaims: Record<string, unknown> | undefined,
   expiresIn = 60, // CS-4: Default 60 seconds
-  customClaims?: Record<string, unknown>,
+  _event?: H3Event,
 ): Promise<void> {
   const now = Date.now()
 
   const authCodeData: AuthCodeData = {
-    user,
+    providerUserInfo,
     providerTokens,
-    customClaims,
     expiresAt: now + (expiresIn * 1000), // CS-4: Set expiration timestamp
     createdAt: now,
+    provider,
+    customClaims, // Store resolved custom claims
   }
 
   // CS-1: Store in server-side key-value store

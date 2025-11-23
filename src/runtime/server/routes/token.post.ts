@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
     // EP-13, EP-14: Generate JWT access token and refresh token
     const { accessToken, refreshToken } = await generateAuthTokens(
       event,
-      authCodeData.user,
+      authCodeData.providerUserInfo,
       authCodeData.provider,
       authCodeData.customClaims,
     )

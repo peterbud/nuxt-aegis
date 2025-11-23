@@ -10,26 +10,26 @@ import { consola } from 'consola'
  * Supports both static claim objects and callback functions (sync/async)
  * The same function is used for both initial authentication and token refresh
  *
- * @param user - Complete user object from the authentication provider
+ * @param providerUserInfo - Complete OAuth provider user data
  * @param customClaimsConfig - Custom claims configuration (static object or callback function)
  * @returns Processed custom claims object
  *
  * @example
  * // Static claims
- * const claims = await processCustomClaims(user, { role: 'admin', tier: 'premium' })
+ * const claims = await processCustomClaims(providerUserInfo, { role: 'admin', tier: 'premium' })
  *
  * @example
  * // Callback function
- * const claims = await processCustomClaims(user, async (user) => {
- *   const dbUser = await fetchUserFromDB(user.email)
+ * const claims = await processCustomClaims(providerUserInfo, async (providerUserInfo) => {
+ *   const dbUser = await fetchUserFromDB(providerUserInfo.email)
  *   return { role: dbUser.role, permissions: dbUser.permissions }
  * })
  */
 export async function processCustomClaims(
-  user: Record<string, unknown>,
+  providerUserInfo: Record<string, unknown>,
   customClaimsConfig?:
     | Record<string, unknown>
-    | ((user: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>),
+    | ((providerUserInfo: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>),
 ): Promise<Record<string, unknown>> {
   if (!customClaimsConfig) {
     return {}
@@ -42,7 +42,7 @@ export async function processCustomClaims(
 
   // JT-11a, JT-11b: Handle callback function (sync or async)
   try {
-    const result = customClaimsConfig(user)
+    const result = customClaimsConfig(providerUserInfo)
 
     // Handle both sync and async functions
     const claims = result instanceof Promise ? await result : result

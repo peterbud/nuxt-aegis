@@ -191,32 +191,34 @@ export async function revokeRefreshToken(
 }
 
 /**
- * Generate a refresh token and store it in the server-side storage
- * @param user - Complete user object from the authentication provider
+ * Generates a refresh token and stores it with user data
+ * RS-1, RS-2, RS-3, RS-4, RS-8
+ *
+ * @param providerUserInfo - Complete OAuth provider user data
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
- * @param tokenRefreshConfig - Refresh token configuration including expiration settings
- * @param previousTokenHash - Hash of the previous refresh token for rotation tracking
- * @param event - H3 event for runtime config access
- * @returns Generated refresh token
+ * @param config - Token refresh configuration
+ * @param previousTokenHash - Hash of previous refresh token for rotation tracking
+ * @param event - H3Event for Nitro storage access
+ * @returns The generated refresh token string
  */
 export async function generateAndStoreRefreshToken(
-  user: Record<string, unknown>,
+  providerUserInfo: Record<string, unknown>,
   provider: string,
-  tokenRefreshConfig: TokenRefreshConfig,
+  config: TokenRefreshConfig,
   previousTokenHash?: string,
   event?: H3Event,
-): Promise<string> {
+): Promise<string | undefined> {
   const refreshToken = randomBytes(32).toString('base64url')
 
-  const expiresIn = tokenRefreshConfig.cookie?.maxAge || 604800
+  const expiresIn = config.cookie?.maxAge || 604800
 
   // RS-2, RS-3, RS-4: Store complete user object with metadata
   await storeRefreshTokenData(hashRefreshToken(refreshToken), {
-    sub: String(user.sub || user.email || user.id || ''),
+    sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
     expiresAt: Date.now() + (expiresIn * 1000),
     isRevoked: false,
     previousTokenHash,
-    user, // Store complete user object
+    providerUserInfo, // Store complete OAuth provider user data
     provider, // Store provider name for custom claims refresh
   }, event)
 

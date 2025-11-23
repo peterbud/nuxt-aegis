@@ -8,10 +8,12 @@ import type { H3Event } from 'h3'
 /**
  * Payload for the nuxt-aegis:userInfo hook
  * Called after fetching user info from the provider, before storing it
+ *
+ * This receives the complete OAuth provider response, NOT the JWT payload
  */
 export interface UserInfoHookPayload {
-  /** Raw user object from the provider */
-  user: Record<string, unknown>
+  /** Complete user object from OAuth provider (e.g., Google, GitHub, Microsoft) */
+  providerUserInfo: Record<string, unknown>
   /** Provider tokens */
   tokens: {
     access_token: string
@@ -28,10 +30,12 @@ export interface UserInfoHookPayload {
 /**
  * Payload for the nuxt-aegis:success hook
  * Called after successful authentication
+ *
+ * This receives the transformed OAuth provider data, NOT the JWT payload
  */
 export interface SuccessHookPayload {
-  /** Shaped user object (post-transformation) */
-  user: Record<string, unknown>
+  /** Transformed provider user data (post-userInfo hook transformation) */
+  providerUserInfo: Record<string, unknown>
   /** Provider tokens */
   tokens: {
     access_token: string

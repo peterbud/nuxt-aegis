@@ -20,6 +20,7 @@ export interface BaseUser {
 /**
  * JWT Token payload interface
  * Represents the decoded JWT token structure with standard and custom claims
+ * This is what gets stored in the JWT and attached to event.context.user
  */
 export interface TokenPayload {
   /** JT-6: Subject identifier (user ID) - required claim */
@@ -44,6 +45,26 @@ export interface TokenPayload {
   exp?: number
   /** JT-10, JT-11, JT-13: Additional custom claims */
   [key: string]: unknown
+}
+
+/**
+ * Refresh token stored data interface
+ * Represents the data stored alongside a refresh token
+ * on the server side for validation and management
+ */
+export interface RefreshTokenData {
+  /** RS-4: Subject identifier, links the token back to the specific user account */
+  sub: string
+  /** RS-4: Timestamp when the refresh token expires */
+  expiresAt: number
+  /** RS-4: Allows for immediate revocation if the user logs out, changes a password, or a security event occurs */
+  isRevoked: boolean
+  /** RS-8: Hash of the previous refresh token for rotation tracking */
+  previousTokenHash?: string
+  /** RS-2, RS-3: Complete OAuth provider user data - NOT the JWT payload. This is the full user object from the provider (Google, GitHub, etc.) */
+  providerUserInfo: Record<string, unknown>
+  /** Provider name for dynamic custom claims generation during refresh (e.g., 'google', 'github', 'microsoft', 'auth0') */
+  provider: string
 }
 
 /**
@@ -103,13 +124,16 @@ export interface ClaimsValidationConfig {
 
 /**
  * Custom claims callback function
- * @param user - The user object from the provider
- * @param tokens - The tokens from the provider
+ * Receives the full OAuth provider user data and tokens
+ * Returns claims to add to the JWT (must be JWT-compatible types)
+ *
+ * @param providerUserInfo - Complete user object from OAuth provider
+ * @param tokens - OAuth tokens from the provider
  * @returns Record of custom claims to add to the JWT
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type CustomClaimsCallback<TUser = any, TTokens = any> = (
-  user: TUser,
+export type CustomClaimsCallback<TProviderUserInfo = any, TTokens = any> = (
+  providerUserInfo: TProviderUserInfo,
   tokens: TTokens
 ) => Record<string, string | number | boolean | Array<string | number | boolean> | null>
   | Promise<Record<string, string | number | boolean | Array<string | number | boolean> | null>>

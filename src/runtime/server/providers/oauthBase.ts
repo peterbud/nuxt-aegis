@@ -200,7 +200,7 @@ export function defineOAuthEventHandler<
         },
       })
 
-      let user = implementation.extractUser(userResponse)
+      let providerUserInfo = implementation.extractUser(userResponse)
       const tokens = { access_token, refresh_token, id_token, expires_in }
 
       // Invoke onUserInfo hooks in priority order:
@@ -208,13 +208,13 @@ export function defineOAuthEventHandler<
       // 2. Nitro hook 'nuxt-aegis:userInfo' (global default in server plugin)
       if (_onUserInfo) {
         // Provider-level onUserInfo hook takes precedence
-        user = await _onUserInfo(user, tokens, event)
+        providerUserInfo = await _onUserInfo(providerUserInfo, tokens, event)
       }
       else {
         // Call Nitro hook as fallback for global transformation
         const nitroApp = useNitroApp()
         const hookPayload: UserInfoHookPayload = {
-          user,
+          providerUserInfo,
           tokens,
           provider: implementation.runtimeConfigKey,
           event,
@@ -222,7 +222,7 @@ export function defineOAuthEventHandler<
         const transformedUser = await nitroApp.hooks.callHook('nuxt-aegis:userInfo', hookPayload)
         // Use the transformed user if hook returned a value
         if (transformedUser) {
-          user = transformedUser
+          providerUserInfo = transformedUser
         }
       }
 
@@ -230,7 +230,7 @@ export function defineOAuthEventHandler<
       let resolvedCustomClaims: Record<string, unknown> | undefined
       if (_customClaims) {
         if (typeof _customClaims === 'function') {
-          resolvedCustomClaims = await _customClaims(user, tokens)
+          resolvedCustomClaims = await _customClaims(providerUserInfo, tokens)
         }
         else {
           resolvedCustomClaims = _customClaims
@@ -243,7 +243,7 @@ export function defineOAuthEventHandler<
       // Both run sequentially if both are defined
       if (_onSuccess) {
         await _onSuccess({
-          user,
+          providerUserInfo,
           tokens,
           provider: implementation.runtimeConfigKey,
           event,
@@ -253,7 +253,7 @@ export function defineOAuthEventHandler<
       // Always call Nitro hook for global success handling
       const nitroApp = useNitroApp()
       const successPayload: SuccessHookPayload = {
-        user,
+        providerUserInfo,
         tokens,
         provider: implementation.runtimeConfigKey,
         event,
@@ -266,7 +266,15 @@ export function defineOAuthEventHandler<
         // CS-4, CF-9: Use configured authorization code expiration time
         const authCodeExpiresIn = runtimeConfig.authCode?.expiresIn || 60
 
-        await storeAuthCode(authCode, user, tokens, authCodeExpiresIn, resolvedCustomClaims)
+        await storeAuthCode(
+          authCode,
+          providerUserInfo,
+          tokens,
+          implementation.runtimeConfigKey,
+          resolvedCustomClaims,
+          authCodeExpiresIn,
+          event,
+        )
 
         // Security event logging - OAuth flow completed, redirecting with CODE
         consola.debug('[Nuxt Aegis Security] OAuth authentication successful, redirecting with CODE', {

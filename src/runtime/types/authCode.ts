@@ -8,8 +8,8 @@
  * CS-2: Associates CODE with user information and provider tokens
  */
 export interface AuthCodeData {
-  /** User information extracted from OAuth provider */
-  user: Record<string, unknown>
+  /** Complete OAuth provider user data (NOT the JWT payload) - used for custom claims generation */
+  providerUserInfo: Record<string, unknown>
   /** Provider tokens received from OAuth provider */
   providerTokens: {
     /** OAuth provider access token */

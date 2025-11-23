@@ -1,29 +1,29 @@
 export default defineOAuthGithubEventHandler({
   // Transform user object from GitHub's format
-  onUserInfo: (user, _tokens, _event) => {
+  onUserInfo: (providerUserInfo, _tokens, _event) => {
     console.log('[GitHub] Transforming user info:', {
-      login: user.login,
-      id: user.id,
+      login: providerUserInfo.login,
+      id: providerUserInfo.id,
     })
 
     // GitHub uses different field names, normalize them
     return {
-      id: String(user.id),
-      email: user.email,
-      name: user.name || user.login, // GitHub might not have name
-      picture: user.avatar_url,
+      id: String(providerUserInfo.id),
+      email: providerUserInfo.email,
+      name: providerUserInfo.name || providerUserInfo.login, // GitHub might not have name
+      picture: providerUserInfo.avatar_url,
       // Add GitHub-specific fields
-      githubLogin: user.login,
-      githubId: user.id,
-      bio: user.bio,
-      publicRepos: user.public_repos,
+      githubLogin: providerUserInfo.login,
+      githubId: providerUserInfo.id,
+      bio: providerUserInfo.bio,
+      publicRepos: providerUserInfo.public_repos,
     }
   },
 
   // React to successful authentication
-  onSuccess: async ({ user, provider }) => {
+  onSuccess: async ({ providerUserInfo, provider }) => {
     console.log('[GitHub] User authenticated successfully:', {
-      login: user.githubLogin,
+      login: providerUserInfo.githubLogin,
       provider,
     })
 

@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // EP-28b: Extract user object from stored data
-    const user = storedRefreshToken.user
+    const providerUserInfo = storedRefreshToken.providerUserInfo
     const provider = storedRefreshToken.provider
 
     // Get custom claims configuration from runtime config for this provider
@@ -84,16 +84,16 @@ export default defineEventHandler(async (event) => {
         // Process custom claims using the same processCustomClaims utility
         // This ensures the same callback is invoked for both initial auth and refresh
         const tokens = {} // We don't have provider tokens during refresh, pass empty object
-        customClaims = await processCustomClaims(user, customClaimsConfig, tokens)
+        customClaims = await processCustomClaims(providerUserInfo, customClaimsConfig, tokens)
       }
     }
 
     // Build standard token payload from stored user object
     const payload: TokenPayload = {
-      sub: String(user.sub || user.email || user.id || ''),
-      email: user.email as string | undefined,
-      name: user.name as string | undefined,
-      picture: user.picture as string | undefined,
+      sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
+      email: providerUserInfo.email as string | undefined,
+      name: providerUserInfo.name as string | undefined,
+      picture: providerUserInfo.picture as string | undefined,
     }
 
     // EP-28b: Generate new access token with user data and custom claims
@@ -101,7 +101,7 @@ export default defineEventHandler(async (event) => {
 
     // EP-30: Generate new refresh token (rotation)
     const newRefreshToken = await generateAndStoreRefreshToken(
-      user, // RS-2: Store complete user object
+      providerUserInfo, // RS-2: Store complete OAuth provider user data
       provider, // Store provider name
       tokenRefreshConfig,
       hashedRefreshToken, // Pass previous token hash for rotation tracking

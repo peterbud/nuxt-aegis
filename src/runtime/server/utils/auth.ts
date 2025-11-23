@@ -12,14 +12,14 @@ import { generateToken } from './jwt'
  * EP-13, EP-14, EP-14a: Generates access token and refresh token, storing complete user object
  *
  * @param event - H3Event object
- * @param user - Complete user object from the OAuth provider (will be stored with refresh token)
+ * @param providerUserInfo - Complete user object from the OAuth provider (will be stored with refresh token)
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param customClaims - Optional custom claims to add to the JWT (already processed)
  * @returns Object containing accessToken and refreshToken
  *
  * @example
  * ```typescript
- * const tokens = await generateAuthTokens(event, user, 'google', {
+ * const tokens = await generateAuthTokens(event, providerUserInfo, 'google', {
  *   role: 'admin',
  *   permissions: ['read', 'write'],
  * })
@@ -27,7 +27,7 @@ import { generateToken } from './jwt'
  */
 export async function generateAuthTokens(
   event: H3Event,
-  user: Record<string, unknown>,
+  providerUserInfo: Record<string, unknown>,
   provider: string,
   customClaims?: Record<string, unknown>,
 ): Promise<{ accessToken: string, refreshToken?: string }> {
@@ -41,15 +41,15 @@ export async function generateAuthTokens(
 
   // Build standard token payload from user object
   const payload: TokenPayload = {
-    sub: String(user.sub || user.email || user.id || ''),
-    email: user.email as string | undefined,
-    name: user.name as string | undefined,
-    picture: user.picture as string | undefined,
+    sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
+    email: providerUserInfo.email as string | undefined,
+    name: providerUserInfo.name as string | undefined,
+    picture: providerUserInfo.picture as string | undefined,
   }
 
   // EP-14, EP-14a: Generate and store refresh token with complete user object
   const refreshToken = await generateAndStoreRefreshToken(
-    user, // RS-2: Store complete user object
+    providerUserInfo, // RS-2: Store complete user object
     provider, // Store provider name for custom claims refresh
     tokenRefreshConfig,
     undefined, // No previous token hash for initial auth
