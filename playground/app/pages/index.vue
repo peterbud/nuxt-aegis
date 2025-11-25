@@ -17,6 +17,12 @@ const loginWithAuth0 = async () => {
   login('auth0')
 }
 
+const loginWithMock = async (userType?: string) => {
+  // Navigate to mock provider with optional user parameter
+  const url = userType ? `/auth/mock?user=${userType}` : '/auth/mock'
+  await navigateTo(url, { external: true })
+}
+
 const handleLogout = async () => {
   try {
     await logout('/')
@@ -72,6 +78,36 @@ const testProtectedRoute = async () => {
       >
         Login with Auth0
       </button>
+      <!-- Mock provider login options -->
+      <div
+        v-if="!isLoggedIn"
+        style="margin: 15px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;"
+      >
+        <h3 style="margin-top: 0;">
+          🧪 Mock Provider (No Credentials Needed)
+        </h3>
+        <p style="margin: 5px 0; color: #856404;">
+          Perfect for testing without OAuth setup
+        </p>
+        <button
+          style="padding: 8px 16px; margin-right: 8px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          @click="loginWithMock()"
+        >
+          Login as Regular User
+        </button>
+        <button
+          style="padding: 8px 16px; margin-right: 8px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          @click="loginWithMock('admin')"
+        >
+          Login as Admin
+        </button>
+        <button
+          style="padding: 8px 16px; background-color: #ffc107; color: #000; border: none; border-radius: 4px; cursor: pointer;"
+          @click="loginWithMock('premium')"
+        >
+          Login as Premium
+        </button>
+      </div>
       <button
         v-if="isLoggedIn"
         style="padding: 10px 20px; font-size: 16px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"

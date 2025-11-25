@@ -9,7 +9,7 @@ import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { consola } from 'consola'
 
 // Extract provider keys from the runtime config type
-type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0'
+type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0' | 'mock'
 
 /**
  * Protected OAuth parameters that cannot be overridden via authorizationParams

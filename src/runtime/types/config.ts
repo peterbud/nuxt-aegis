@@ -3,6 +3,7 @@ import type {
   MicrosoftProviderConfig,
   GithubProviderConfig,
   Auth0ProviderConfig,
+  MockProviderConfig,
   CustomProviderConfig,
 } from './providers'
 import type { TokenConfig, ClaimsValidationConfig } from './token'
@@ -61,6 +62,7 @@ export interface NuxtAegisRuntimeConfig {
     microsoft?: MicrosoftProviderConfig
     github?: GithubProviderConfig
     auth0?: Auth0ProviderConfig
+    mock?: MockProviderConfig
   }
 }
 
@@ -84,6 +86,8 @@ export interface ModuleOptions {
     github?: GithubProviderConfig
     /** Auth0 OAuth provider configuration */
     auth0?: Auth0ProviderConfig
+    /** Mock OAuth provider configuration (development/testing only) */
+    mock?: MockProviderConfig
     /** Custom OAuth provider configurations */
     custom?: CustomProviderConfig[]
   }

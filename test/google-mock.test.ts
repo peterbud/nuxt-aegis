@@ -27,6 +27,7 @@ import {
 describe('Aegis Module - Mock Google OAuth', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('./fixtures/google-mock', import.meta.url)),
+    dev: true,
   })
 
   describe('OAuth Flow - Happy Path', () => {
@@ -41,12 +42,12 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       expect(response.status).toBe(302)
       const location = response.headers.get('location')
       expect(location).toBeDefined()
-      expect(location).toContain('/mock-google/authorize')
+      expect(location).toContain('/auth/mock/authorize')
 
       // Verify OAuth parameters in redirect URL
       const url = new URL(location!, baseUrl)
       expect(url.searchParams.get('response_type')).toBe('code')
-      expect(url.searchParams.get('client_id')).toBe('mock-google-client-id')
+      expect(url.searchParams.get('client_id')).toBe('mock-client-id')
       expect(url.searchParams.get('redirect_uri')).toContain('/auth/google')
       expect(url.searchParams.get('scope')).toContain('openid')
     })
@@ -63,7 +64,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       expect(authResponse.status).toBe(302)
       const authorizeUrl = authResponse.headers.get('location')
-      expect(authorizeUrl).toContain('/mock-google/authorize')
+      expect(authorizeUrl).toContain('/auth/mock/authorize')
 
       // Step 2: Mock Google authorize auto-redirects back with code
       // We simulate this by calling the authorize endpoint
@@ -79,7 +80,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       // This redirect should contain the Google authorization code
       const googleCode = new URL(callbackUrl!, baseUrl).searchParams.get('code')
       expect(googleCode).toBeDefined()
-      expect(googleCode).toContain('mock_google_code_')
+      expect(googleCode).toContain('mock_code_')
 
       // Step 4: Follow the callback - Aegis exchanges code and redirects to /auth/callback
       const finalResponse = await fetch(callbackUrl!, {
@@ -131,7 +132,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       // JT-1: Verify JWT contains user data
       const payload = decodeJwt(accessToken)
-      expect(payload.sub).toBe('mock-google-user-12345')
+      expect(payload.sub).toBe('mock-user-12345')
       expect(payload.email).toBe('test@example.com')
       expect(payload.name).toBe('Test User')
 
@@ -239,7 +240,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
 
       // The authorize URL should point to our mock endpoint
-      expect(authorizeUrl).toContain('/mock-google/authorize')
+      expect(authorizeUrl).toContain('/auth/mock/authorize')
       expect(authorizeUrl).not.toContain('accounts.google.com')
 
       // Complete the flow to verify token exchange also uses mock
@@ -260,7 +261,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       // Verify user data comes from mock
       const payload = decodeJwt(tokenData.accessToken as string)
-      expect(payload.sub).toBe('mock-google-user-12345')
+      expect(payload.sub).toBe('mock-user-12345')
     })
   })
 
@@ -283,7 +284,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       // Verify standard OAuth parameters
       expect(url.searchParams.get('response_type')).toBe('code')
-      expect(url.searchParams.get('client_id')).toBe('mock-google-client-id')
+      expect(url.searchParams.get('client_id')).toBe('mock-client-id')
       expect(url.searchParams.get('scope')).toContain('openid')
 
       // Verify custom authorization parameters from config

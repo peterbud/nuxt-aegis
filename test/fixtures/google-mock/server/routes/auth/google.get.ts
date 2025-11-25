@@ -1,24 +1,22 @@
-import { defineMockGoogleEventHandler } from '../../providers/mockGoogle'
-
 /**
- * Mock Google OAuth Authentication Route
+ * Mock OAuth Authentication Route
  * Route: GET /auth/google
  *
- * This route initiates the OAuth flow using the MOCK Google provider.
- * It uses the exact same Aegis logic as a real Google provider,
- * but redirects to local mock endpoints instead of real Google.
+ * This route initiates the OAuth flow using the built-in MOCK provider.
+ * It uses the exact same Aegis logic as a real OAuth provider,
+ * but redirects to local mock endpoints instead of external services.
  *
  * Flow:
  * 1. User/test navigates to /auth/google
- * 2. Aegis redirects to /mock-google/authorize (instead of accounts.google.com)
- * 3. Mock Google auto-approves and redirects back with code
- * 4. Aegis exchanges code with /mock-google/token (instead of oauth2.googleapis.com)
- * 5. Aegis fetches user from /mock-google/userinfo (instead of googleapis.com)
+ * 2. Aegis redirects to /auth/mock/authorize (local mock endpoint)
+ * 3. Mock provider auto-approves and redirects back with code
+ * 4. Aegis exchanges code with /auth/mock/token (local mock endpoint)
+ * 5. Aegis fetches user from /auth/mock/userinfo (local mock endpoint)
  * 6. Aegis generates JWT tokens and redirects to /auth/callback
  *
  * This allows testing the complete OAuth flow without external dependencies.
  */
-export default defineMockGoogleEventHandler({
+export default defineOAuthMockEventHandler({
   // Optional: Add custom claims to the JWT tokens
   // These will be merged into the JWT payload after authentication
   customClaims: {

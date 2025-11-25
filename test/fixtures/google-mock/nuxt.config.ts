@@ -16,13 +16,21 @@ export default defineNuxtConfig({
       },
     },
     providers: {
-      google: {
-        clientId: 'mock-google-client-id',
-        clientSecret: 'mock-google-client-secret',
-        scopes: ['openid', 'profile', 'email'],
+      mock: {
+        clientId: 'mock-client-id',
+        clientSecret: 'mock-client-secret',
+        defaultUser: 'default',
         authorizationParams: {
           access_type: 'offline',
           prompt: 'consent',
+        },
+        mockUsers: {
+          default: {
+            sub: 'mock-user-12345',
+            email: 'test@example.com',
+            name: 'Test User',
+            role: 'user',
+          },
         },
       },
     },

@@ -20,6 +20,43 @@ export default defineNuxtConfig({
         clientSecret: process.env.NUXT_AEGIS_PROVIDERS_AUTH0_CLIENT_SECRET || '',
         domain: process.env.NUXT_AEGIS_PROVIDERS_AUTH0_DOMAIN || '',
       },
+      // Mock provider for development/testing (works without credentials)
+      mock: {
+        clientId: 'mock-playground-client',
+        clientSecret: 'mock-playground-secret',
+        mockUsers: {
+          admin: {
+            sub: 'mock-admin-001',
+            email: 'admin@example.com',
+            name: 'Admin User',
+            given_name: 'Admin',
+            family_name: 'User',
+            role: 'admin',
+            permissions: ['read', 'write', 'delete'],
+            email_verified: true,
+          },
+          user: {
+            sub: 'mock-user-002',
+            email: 'user@example.com',
+            name: 'Regular User',
+            given_name: 'Regular',
+            family_name: 'User',
+            role: 'user',
+            permissions: ['read'],
+            email_verified: true,
+          },
+          premium: {
+            sub: 'mock-premium-003',
+            email: 'premium@example.com',
+            name: 'Premium User',
+            subscription: 'premium',
+            tier: 'gold',
+            credits: 1000,
+            email_verified: true,
+          },
+        },
+        defaultUser: 'user',
+      },
     },
     token: {
       secret: process.env.NUXT_AEGIS_TOKEN_SECRET || '',

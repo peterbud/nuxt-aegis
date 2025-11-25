@@ -20,6 +20,7 @@ import {
 describe('Aegis Module - Protected Routes & Token Refresh', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('./fixtures/google-mock', import.meta.url)),
+    dev: true,
   })
 
   describe('Protected Routes', () => {
@@ -233,7 +234,7 @@ describe('Aegis Module - Protected Routes & Token Refresh', async () => {
 
       // 7. Verify JWT contains expected claims
       const payload = decodeJwt(accessToken)
-      expect(payload.sub).toBe('mock-google-user-12345')
+      expect(payload.sub).toBe('mock-user-12345')
       expect(payload.email).toBe('test@example.com')
       expect(payload.role).toBe('user')
       expect(payload.permissions).toEqual(['read', 'write'])

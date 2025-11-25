@@ -23,6 +23,7 @@ export type {
   MicrosoftProviderConfig,
   GithubProviderConfig,
   Auth0ProviderConfig,
+  MockProviderConfig,
   CustomProviderConfig,
   OAuthConfig,
 } from './providers'

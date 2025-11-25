@@ -171,6 +171,39 @@ export default defineNuxtModule<ModuleOptions>({
       middleware: true,
     })
 
+    // MOCK PROVIDER: Register mock OAuth server routes (development/test only)
+    // Only available when NODE_ENV !== 'production'
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    if (!isProduction) {
+      const mockConfig = options.providers?.mock
+
+      if (mockConfig) {
+        logger.info('⚠️  [Nuxt Aegis] Mock authentication provider is active - for development/testing only')
+
+        // Mock OAuth authorize endpoint
+        addServerHandler({
+          route: `${runtimeConfig.public.nuxtAegis.authPath}/mock/authorize`,
+          handler: resolver.resolve('./runtime/server/routes/mock/authorize.get'),
+          method: 'get',
+        })
+
+        // Mock OAuth token exchange endpoint
+        addServerHandler({
+          route: `${runtimeConfig.public.nuxtAegis.authPath}/mock/token`,
+          handler: resolver.resolve('./runtime/server/routes/mock/token.post'),
+          method: 'post',
+        })
+
+        // Mock OAuth userinfo endpoint
+        addServerHandler({
+          route: `${runtimeConfig.public.nuxtAegis.authPath}/mock/userinfo`,
+          handler: resolver.resolve('./runtime/server/routes/mock/userinfo.get'),
+          method: 'get',
+        })
+      }
+    }
+
     // extend nuxt config with nitro storage for refresh tokens
     // Ensure the nitro configuration object exists
     if (!nuxt.options.nitro) {

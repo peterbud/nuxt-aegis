@@ -99,6 +99,58 @@ export interface Auth0ProviderConfig extends Partial<OAuthProviderConfig> {
   scopes?: string[]
 }
 
+/**
+ * Mock OAuth provider configuration (development/testing only)
+ * Enables testing OAuth flows without real provider credentials
+ */
+export interface MockProviderConfig extends Partial<OAuthProviderConfig> {
+  /** Mock OAuth client ID (required, can be any string) */
+  clientId: string
+  /** Mock OAuth client secret (required, can be any string) */
+  clientSecret: string
+  /**
+   * Mock user personas for testing different user scenarios
+   * Each key is a user identifier, value contains user profile data
+   * Required fields: sub (subject), email, name
+   *
+   * @example
+   * mockUsers: {
+   *   admin: {
+   *     sub: 'mock-user-admin',
+   *     email: 'admin@example.com',
+   *     name: 'Admin User',
+   *     role: 'admin',
+   *   },
+   *   user: {
+   *     sub: 'mock-user-001',
+   *     email: 'user@example.com',
+   *     name: 'Regular User',
+   *   },
+   * }
+   */
+  mockUsers: Record<string, {
+    /** Subject identifier (required) */
+    sub: string
+    /** User email (required) */
+    email: string
+    /** User display name (required) */
+    name: string
+    /** Additional custom claims */
+    [key: string]: unknown
+  }>
+  /**
+   * Default user to return when no ?user= parameter specified
+   * Must match a key in mockUsers
+   */
+  defaultUser?: string
+  /**
+   * Allow mock provider in production (NOT RECOMMENDED)
+   * Default: false
+   * @deprecated For testing purposes only - never use in production
+   */
+  enableInProduction?: boolean
+}
+
 // TODO:
 /**
  * Custom OAuth provider configuration

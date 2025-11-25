@@ -22,6 +22,7 @@ import {
 describe('Aegis Module - Error Scenarios', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('./fixtures/google-mock', import.meta.url)),
+    dev: true,
   })
 
   describe('OAuth Provider Errors', () => {
