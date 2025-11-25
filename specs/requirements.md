@@ -18,13 +18,32 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-1:** WHEN a developer configures an authentication provider, the module SHALL provide a pluggable provider interface.
 
-**PR-2:** WHERE an authentication provider is configured, the module SHALL support Google OAuth as a provider options:
+**PR-2:** WHERE an authentication provider is configured, the module SHALL support the following provider options:
     * Google,
     * Microsoft Entra ID (Azure AD),
     * GitHub,
-    * Auth0
+    * Auth0,
+    * Mock (for development and testing only)
 
 **PR-3:** IF a custom authentication provider is needed, THEN the module SHALL allow developers to implement custom provider plugins.
+
+### 3.1a Mock Provider (Development/Testing)
+
+**PR-3.1:** The module SHALL provide a built-in Mock Provider for development and testing purposes, simulating the OAuth 2.0 flow without requiring real provider credentials or external network calls.
+
+**PR-3.2:** The Mock Provider SHALL support defining multiple user personas (mock users) with customizable claims and properties for testing different authentication scenarios.
+
+**PR-3.3:** The Mock Provider SHALL support error simulation by accepting query parameters to trigger standard OAuth error codes (e.g., `access_denied`, `invalid_request`).
+
+**PR-3.4:** The Mock Provider SHALL generate valid JWT tokens with a distinguishable issuer (e.g., `nuxt-aegis-mock`) and support all standard claims and custom claims as with real providers.
+
+**PR-3.5:** The Mock Provider SHALL be automatically disabled in production environments (`NODE_ENV === 'production'`) unless explicitly enabled by configuration (e.g., `enableInProduction: true`).
+
+**PR-3.6:** The Mock Provider SHALL log prominent warnings when active in non-production environments and block access in production by default for security.
+
+**PR-3.7:** The Mock Provider SHALL use the same authentication flow, endpoints, and callback handling as real providers to ensure test coverage and compatibility.
+
+**PR-3.8:** The Mock Provider configuration SHALL require at least one mock user persona with `sub`, `email`, and `name` fields.
 
 ### 3.2 Initial Login
 
