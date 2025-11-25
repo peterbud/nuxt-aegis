@@ -14,10 +14,43 @@
  * User personas are defined in playground/nuxt.config.ts
  */
 export default defineOAuthMockEventHandler({
-  // Optional: Add route-specific custom claims
-  // These will be merged with the user persona data
-  customClaims: {
-    app: 'nuxt-aegis-playground',
-    environment: 'development',
+  // Extract custom claims from the user persona dynamically
+  // This ensures role, permissions, and other custom fields appear in the JWT
+  customClaims: (providerUserInfo) => {
+    const claims: Record<string, string | number | boolean | Array<string | number | boolean> | null> = {
+      app: 'nuxt-aegis-playground',
+      environment: 'development',
+    }
+
+    // Extract custom fields from the mock user profile
+    // Standard OpenID Connect fields (sub, email, name, picture) are handled automatically
+    // Add any additional fields to the JWT
+    const userInfo = providerUserInfo as Record<string, unknown>
+
+    // Add role if present
+    if (userInfo.role && typeof userInfo.role === 'string') {
+      claims.role = userInfo.role
+    }
+
+    // Add permissions if present
+    if (Array.isArray(userInfo.permissions)) {
+      claims.permissions = userInfo.permissions as string[]
+    }
+
+    // Add other custom fields (for premium user)
+    if (userInfo.subscription && typeof userInfo.subscription === 'string') {
+      claims.subscription = userInfo.subscription
+    }
+    if (userInfo.tier && typeof userInfo.tier === 'string') {
+      claims.tier = userInfo.tier
+    }
+    if (userInfo.credits && typeof userInfo.credits === 'number') {
+      claims.credits = userInfo.credits
+    }
+    if (userInfo.organizationId && typeof userInfo.organizationId === 'string') {
+      claims.organizationId = userInfo.organizationId
+    }
+
+    return claims
   },
 })
