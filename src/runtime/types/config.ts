@@ -48,6 +48,16 @@ export interface EndpointConfig {
 }
 
 /**
+ * Logging configuration
+ */
+export interface LoggingConfig {
+  /** Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info') */
+  level?: 'silent' | 'error' | 'warn' | 'info' | 'debug'
+  /** Enable security event logging (default: false, enabled when level is 'debug') */
+  security?: boolean
+}
+
+/**
  * Runtime config for Nuxt Aegis
  */
 export interface NuxtAegisRuntimeConfig {
@@ -57,6 +67,7 @@ export interface NuxtAegisRuntimeConfig {
   routeProtection?: RouteProtectionConfig
   endpoints?: EndpointConfig
   authPath?: string
+  logging?: LoggingConfig
   providers?: {
     google?: GoogleProviderConfig
     microsoft?: MicrosoftProviderConfig
@@ -116,4 +127,7 @@ export interface ModuleOptions {
 
   /** API endpoint path configuration */
   endpoints?: EndpointConfig
+
+  /** Logging configuration */
+  logging?: LoggingConfig
 }

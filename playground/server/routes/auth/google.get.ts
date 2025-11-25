@@ -1,11 +1,6 @@
 export default defineOAuthGoogleEventHandler({
   // Transform user object from Google's format
   onUserInfo: (providerUserInfo, _tokens, _event) => {
-    console.log('[Google] Transforming user info:', {
-      rawUser: providerUserInfo,
-      hasTokens: !!_tokens.access_token,
-    })
-
     // Shape the user object to match your application's needs
     return {
       id: providerUserInfo.sub as string,

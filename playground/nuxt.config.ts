@@ -67,6 +67,13 @@ export default defineNuxtConfig({
       enabled: true,
       automaticRefresh: true,
     },
+    // Logging configuration (optional)
+    // logging: {
+    //   Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info')
+    //   level: 'debug',
+    //   Enable security event logging (default: false, auto-enabled at debug level)
+    //   security: true,
+    // },
     routeProtection: {
       // Configure routes that should automatically get the bearer token
       protectedRoutes: [

@@ -6,7 +6,6 @@ import {
   createResolver,
   defineNuxtModule,
   extendPages,
-  logger,
   updateRuntimeConfig,
 } from '@nuxt/kit'
 import type { ModuleOptions } from './runtime/types'
@@ -63,6 +62,10 @@ export default defineNuxtModule<ModuleOptions>({
       authPath: '/auth',
       callbackPath: '/auth/callback',
     },
+    logging: {
+      level: 'info',
+      security: false,
+    },
   },
   setup(options, nuxt) {
     // Runtime Config
@@ -74,6 +77,7 @@ export default defineNuxtModule<ModuleOptions>({
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
           routeProtection: options.routeProtection,
+          logging: options.logging,
         },
       },
       nuxtAegis: options,
@@ -82,11 +86,6 @@ export default defineNuxtModule<ModuleOptions>({
     const runtimeConfig = nuxt.options.runtimeConfig
 
     const resolver = createResolver(import.meta.url)
-
-    // CF-4: Validate configuration
-    if (!options.token?.secret && !process.env.NUXT_AEGIS_TOKEN_SECRET) {
-      logger.warn('[Nuxt Aegis] Warning: No token secret configured. Authentication will not work properly.')
-    }
 
     // SC-19: Validate encryption configuration
     if (options.tokenRefresh?.encryption?.enabled) {
@@ -179,8 +178,6 @@ export default defineNuxtModule<ModuleOptions>({
       const mockConfig = options.providers?.mock
 
       if (mockConfig) {
-        logger.info('⚠️  [Nuxt Aegis] Mock authentication provider is active - for development/testing only')
-
         // Mock OAuth authorize endpoint
         addServerHandler({
           route: `${runtimeConfig.public.nuxtAegis.authPath}/mock/authorize`,

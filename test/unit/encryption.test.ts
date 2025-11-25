@@ -23,6 +23,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -55,6 +56,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -80,6 +82,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -119,6 +122,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -144,6 +148,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -173,6 +178,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -198,6 +204,7 @@ describe('Refresh Token Encryption', () => {
       vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {},
           },
         })),
@@ -230,6 +237,7 @@ describe('Refresh Token Encryption', () => {
         })),
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: true,
@@ -247,7 +255,7 @@ describe('Refresh Token Encryption', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: {
+        providerUserInfo: {
           sub: 'user123',
           email: 'sensitive@example.com',
           ssn: '123-45-6789',
@@ -270,7 +278,7 @@ describe('Refresh Token Encryption', () => {
       // Verify data can be retrieved and decrypted
       const retrieved = await getRefreshTokenData('hash123')
       expect(retrieved).toEqual(data)
-      expect(retrieved?.user.email).toBe('sensitive@example.com')
+      expect(retrieved?.providerUserInfo.email).toBe('sensitive@example.com')
     })
 
     it('should throw error when trying to decrypt without key', async () => {
@@ -284,6 +292,7 @@ describe('Refresh Token Encryption', () => {
         })),
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
+            logging: { level: 'silent' },
             tokenRefresh: {
               encryption: {
                 enabled: false, // Encryption disabled but data is encrypted

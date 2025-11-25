@@ -10,7 +10,6 @@ import { setRefreshTokenCookie } from '../utils/cookies'
 import { processCustomClaims } from '../utils/customClaims'
 import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRefreshConfig } from '../../types'
-import { consola } from 'consola'
 
 /**
  * POST /auth/refresh
@@ -83,8 +82,7 @@ export default defineEventHandler(async (event) => {
       if (customClaimsConfig) {
         // Process custom claims using the same processCustomClaims utility
         // This ensures the same callback is invoked for both initial auth and refresh
-        const tokens = {} // We don't have provider tokens during refresh, pass empty object
-        customClaims = await processCustomClaims(providerUserInfo, customClaimsConfig, tokens)
+        customClaims = await processCustomClaims(providerUserInfo, customClaimsConfig)
       }
     }
 
@@ -109,7 +107,9 @@ export default defineEventHandler(async (event) => {
     )
 
     // Set new refresh token cookie
-    setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
+    if (newRefreshToken) {
+      setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
+    }
 
     // Revoke the old refresh token
     await revokeRefreshToken(hashedRefreshToken, event)
@@ -120,9 +120,7 @@ export default defineEventHandler(async (event) => {
       accessToken: newToken,
     } as RefreshResponse
   }
-  catch (error) {
-    consola.error('[Nuxt Aegis] Token refresh error:', error)
-
+  catch {
     // EP-21: Return 401 for any refresh errors
     throw createError({
       statusCode: 401,

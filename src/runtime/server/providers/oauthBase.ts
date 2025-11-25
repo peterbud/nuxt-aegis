@@ -6,10 +6,23 @@ import { defu } from 'defu'
 import { useNitroApp, useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
-import { consola } from 'consola'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('OAuth')
 
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0' | 'mock'
+
+/**
+ * Type mapping from provider keys to their configuration types
+ */
+type ProviderConfigMap = {
+  google: import('../../types').GoogleProviderConfig
+  microsoft: import('../../types').MicrosoftProviderConfig
+  github: import('../../types').GithubProviderConfig
+  auth0: import('../../types').Auth0ProviderConfig
+  mock: import('../../types').MockProviderConfig
+}
 
 /**
  * Protected OAuth parameters that cannot be overridden via authorizationParams
@@ -46,7 +59,7 @@ export function validateAuthorizationParams(
   }
 
   if (protectedFound.length > 0) {
-    consola.warn(`[Nuxt Aegis] Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
+    logger.warn(`Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
       attempted: protectedFound,
       protected: PROTECTED_PARAMS,
       message: 'These parameters are ignored for security reasons',
@@ -77,6 +90,16 @@ export interface OAuthProviderImplementation<TKey extends ProviderKey = Provider
   buildAuthQuery: (config: OAuthProviderConfig, redirectUri: string, state?: string) => Record<string, string>
   /** Build token exchange body parameters */
   buildTokenBody: (config: OAuthProviderConfig, code: string, redirectUri: string) => Record<string, string>
+}
+
+/**
+ * Helper function to create a properly typed OAuth provider implementation
+ * Infers the provider key from the runtimeConfigKey property
+ */
+export function defineOAuthProvider<TKey extends ProviderKey>(
+  implementation: OAuthProviderImplementation<TKey>,
+): OAuthProviderImplementation<TKey> {
+  return implementation
 }
 
 /**
@@ -124,8 +147,8 @@ function getOAuthRedirectUri(event: H3Event): string {
  *               EP-2, EP-4, EP-5, EP-7, EP-8, CS-2, CS-3, CS-4, CF-9, EH-4
  */
 export function defineOAuthEventHandler<
-  TConfig extends OAuthProviderConfig,
-  TKey extends ProviderKey = ProviderKey,
+  TKey extends ProviderKey,
+  TConfig extends ProviderConfigMap[TKey] = ProviderConfigMap[TKey],
 >(
   implementation: OAuthProviderImplementation<TKey>,
   {
@@ -140,7 +163,7 @@ export function defineOAuthEventHandler<
     try {
       // Merge configuration with runtime config and defaults
       const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
-      const providerRuntimeConfig = runtimeConfig.providers?.[implementation.runtimeConfigKey] as Partial<TConfig> || {}
+      const providerRuntimeConfig = (runtimeConfig.providers?.[implementation.runtimeConfigKey] || {}) as Partial<TConfig>
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 
       // Validate required configuration
@@ -277,7 +300,7 @@ export function defineOAuthEventHandler<
         )
 
         // Security event logging - OAuth flow completed, redirecting with CODE
-        consola.debug('[Nuxt Aegis Security] OAuth authentication successful, redirecting with CODE', {
+        logger.security('OAuth authentication successful, redirecting with CODE', {
           timestamp: new Date().toISOString(),
           event: 'OAUTH_SUCCESS_REDIRECT',
           codePrefix: `${authCode.substring(0, 8)}...`,
@@ -291,7 +314,7 @@ export function defineOAuthEventHandler<
       }
       catch (codeError) {
         // EH-4: Handle CODE generation/storage failure
-        consola.error('[Nuxt Aegis Security] Authorization code generation/storage failed', {
+        logger.error('Authorization code generation/storage failed', {
           timestamp: new Date().toISOString(),
           event: 'CODE_GENERATION_ERROR',
           error: import.meta.dev ? codeError : 'Error details hidden in production',
@@ -306,7 +329,7 @@ export function defineOAuthEventHandler<
     }
     catch (error) {
       // Security event logging - OAuth authentication failure
-      consola.error('[Nuxt Aegis Security] OAuth authentication error', {
+      logger.error('OAuth authentication error', {
         timestamp: new Date().toISOString(),
         event: 'OAUTH_AUTH_ERROR',
         error: import.meta.dev ? error : 'Error details hidden in production',

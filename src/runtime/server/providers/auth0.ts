@@ -1,5 +1,5 @@
 import type { OAuthConfig, Auth0ProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
+import { defineOAuthEventHandler, defineOAuthProvider, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 
 /**
  * Get Auth0 domain URL, ensuring it has the https:// prefix
@@ -12,7 +12,7 @@ function getAuth0DomainUrl(domain: string): string {
  * Auth0 OAuth provider implementation
  * Implements OAuth 2.0 flow for Auth0 authentication
  */
-const auth0Implementation: OAuthProviderImplementation = {
+const auth0Implementation: OAuthProviderImplementation = defineOAuthProvider({
   runtimeConfigKey: 'auth0',
   defaultConfig: {
     scopes: ['openid', 'profile', 'email'],
@@ -57,7 +57,7 @@ const auth0Implementation: OAuthProviderImplementation = {
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
   }),
-}
+})
 
 /**
  * Create an Auth0 OAuth event handler

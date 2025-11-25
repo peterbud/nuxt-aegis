@@ -22,7 +22,9 @@
 import { navigateTo } from '#app'
 import { ref, onMounted } from 'vue'
 import { setAccessToken } from '../utils/tokenStore'
+import { createLogger } from '../utils/logger'
 
+const logger = createLogger('Callback')
 const processing = ref(true)
 const error = ref<string | null>(null)
 
@@ -37,7 +39,7 @@ onMounted(async () => {
     if (errorParam) {
       // EH-4: Display generic error message to user
       error.value = 'Authentication failed. Please try again.'
-      console.error('[Nuxt Aegis] Authentication error:', errorParam)
+      logger.error('Authentication error:', errorParam)
 
       // Clear query params from URL
       window.history.replaceState(null, '', window.location.pathname)
@@ -52,7 +54,7 @@ onMounted(async () => {
     if (!code) {
       // EH-4: Generic error message - don't reveal CODE is missing
       error.value = 'Authentication failed. Please try again.'
-      console.error('[Nuxt Aegis] No authorization code in URL')
+      logger.error('No authorization code in URL')
       processing.value = false
       setTimeout(() => navigateTo('/'), 3000)
       return
@@ -71,7 +73,7 @@ onMounted(async () => {
     if (!response?.accessToken) {
       // EH-4: Generic error message
       error.value = 'Authentication failed. Please try again.'
-      console.error('[Nuxt Aegis] No access token in response')
+      logger.error('No access token in response')
       processing.value = false
       setTimeout(() => navigateTo('/'), 3000)
       return
@@ -106,7 +108,7 @@ onMounted(async () => {
   }
   catch (err) {
     // EH-4: Generic error message to prevent information leakage
-    console.error('[Nuxt Aegis] Error processing callback:', err)
+    logger.error('Error processing callback:', err)
     error.value = 'Authentication failed. Please try again.'
     processing.value = false
 

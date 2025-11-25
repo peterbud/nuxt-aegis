@@ -1,4 +1,4 @@
-import type { NuxtAegisRuntimeConfig, RedirectConfig } from './config'
+import type { NuxtAegisRuntimeConfig, RedirectConfig, LoggingConfig } from './config'
 import type { TokenRefreshConfig } from './refresh'
 import type { TokenPayload } from './token'
 import type { RouteProtectionConfig } from './routes'
@@ -20,6 +20,7 @@ declare module '@nuxt/schema' {
       redirect: RedirectConfig
       tokenRefresh: TokenRefreshConfig
       routeProtection: RouteProtectionConfig
+      logging: LoggingConfig
     }
   }
 }

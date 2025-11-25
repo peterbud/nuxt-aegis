@@ -1,11 +1,11 @@
 import type { OAuthConfig, GithubProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
+import { defineOAuthEventHandler, defineOAuthProvider, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 
 /**
  * GitHub OAuth provider implementation
  * Implements OAuth 2.0 flow for GitHub authentication
  */
-const githubImplementation: OAuthProviderImplementation = {
+const githubImplementation: OAuthProviderImplementation = defineOAuthProvider({
   runtimeConfigKey: 'github',
   defaultConfig: {
     scopes: ['user:email'],
@@ -37,7 +37,7 @@ const githubImplementation: OAuthProviderImplementation = {
     client_secret: config.clientSecret,
     redirect_uri: redirectUri,
   }),
-}
+})
 
 /**
  * Create a GitHub OAuth event handler

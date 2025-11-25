@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 /**
  * Unit Tests for Custom Claims Processing
@@ -9,6 +9,19 @@ import { describe, it, expect } from 'vitest'
  * - JT-13: Claim type validation
  * - JT-14, JT-15: Callback function support (sync and async)
  */
+
+// Mock the logger
+const mockLogger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  security: vi.fn(),
+}
+
+vi.mock('../../src/runtime/server/utils/logger', () => ({
+  createLogger: () => mockLogger,
+}))
 
 describe('Custom Claims Processing', () => {
   describe('processCustomClaims', () => {

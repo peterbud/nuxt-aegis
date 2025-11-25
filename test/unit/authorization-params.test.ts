@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { consola } from 'consola'
 
 /**
  * Unit Tests for Authorization Parameters Validation
@@ -9,6 +8,19 @@ import { consola } from 'consola'
  * 2. Protected OAuth parameters cannot be overridden
  * 3. Warnings are logged when protected parameters are attempted
  */
+
+// Mock the logger
+const mockLogger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  security: vi.fn(),
+}
+
+vi.mock('../../../src/runtime/server/utils/logger', () => ({
+  createLogger: () => mockLogger,
+}))
 
 // Inline the validation function for unit testing
 const PROTECTED_PARAMS = ['client_id', 'redirect_uri', 'code', 'grant_type'] as const
@@ -34,7 +46,7 @@ function validateAuthorizationParams(
   }
 
   if (protectedFound.length > 0) {
-    consola.warn(`[Nuxt Aegis] Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
+    mockLogger.warn(`Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
       attempted: protectedFound,
       protected: PROTECTED_PARAMS,
       message: 'These parameters are ignored for security reasons',
@@ -53,15 +65,17 @@ function validateAuthorizationParams(
  * 3. Warnings are logged when protected parameters are attempted
  */
 describe('Authorization Parameters', () => {
-  // Spy on consola.warn to verify warnings
-  let warnSpy: ReturnType<typeof vi.spyOn>
+  // Spy on logger.warn to verify warnings
+  let warnSpy: typeof mockLogger.warn
 
   beforeEach(() => {
-    warnSpy = vi.spyOn(consola, 'warn').mockImplementation(() => { })
+    // Reset the mock before each test
+    vi.clearAllMocks()
+    warnSpy = mockLogger.warn
   })
 
   afterEach(() => {
-    warnSpy.mockRestore()
+    vi.clearAllMocks()
   })
 
   describe('validateAuthorizationParams', () => {

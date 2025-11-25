@@ -3,7 +3,9 @@
  * Handles processing of custom claims from static values or callback functions
  */
 
-import { consola } from 'consola'
+import { createLogger } from './logger'
+
+const logger = createLogger('CustomClaims')
 
 /**
  * JT-11, JT-11a, JT-11b, JT-14, JT-15: Process custom claims configuration
@@ -49,14 +51,14 @@ export async function processCustomClaims(
 
     // Validate result is an object
     if (typeof claims !== 'object' || claims === null || Array.isArray(claims)) {
-      consola.warn('[Nuxt Aegis] Custom claims callback must return an object')
+      logger.warn('Custom claims callback must return an object')
       return {}
     }
 
     return claims
   }
   catch (error) {
-    consola.error('[Nuxt Aegis] Error processing custom claims:', error)
+    logger.error('Error processing custom claims:', error)
     return {}
   }
 }
@@ -72,7 +74,7 @@ export function filterReservedClaims(claims: Record<string, unknown>): Record<st
 
   Object.entries(claims).forEach(([key, value]) => {
     if (reservedClaims.includes(key)) {
-      consola.warn(`[Nuxt Aegis] Cannot override reserved JWT claim: ${key}`)
+      logger.warn(`Cannot override reserved JWT claim: ${key}`)
     }
     else {
       filtered[key] = value
@@ -102,7 +104,7 @@ export function validateClaimTypes(claims: Record<string, unknown>): Record<stri
       validated[key] = value
     }
     else {
-      consola.warn(`[Nuxt Aegis] Custom claim "${key}" has unsupported type and will be ignored`)
+      logger.warn(`Custom claim "${key}" has unsupported type and will be ignored`)
     }
   })
 

@@ -1,12 +1,12 @@
 import type { OAuthConfig, GoogleProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
+import { defineOAuthEventHandler, defineOAuthProvider, validateAuthorizationParams } from './oauthBase'
 
 /**
  * Google OAuth provider implementation
  * Implements OAuth 2.0 flow for Google authentication
  */
-const googleImplementation: OAuthProviderImplementation = {
-  runtimeConfigKey: 'google',
+const googleImplementation = defineOAuthProvider({
+  runtimeConfigKey: 'google' as const,
   defaultConfig: {
     scopes: ['openid', 'profile', 'email'],
   },
@@ -39,7 +39,7 @@ const googleImplementation: OAuthProviderImplementation = {
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
   }),
-}
+})
 
 /**
  * Create a Google OAuth event handler

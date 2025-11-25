@@ -2,6 +2,9 @@ import { defineNuxtPlugin, navigateTo } from '#app'
 import { useAuth } from '#imports'
 import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
 import { isRouteMatch } from '../utils/routeMatching'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('API')
 
 /**
  * Nuxt Aegis plugin
@@ -20,9 +23,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   async function attemptTokenRefresh(): Promise<string | null> {
     if (isRefreshing) return refreshPromise
 
-    if (import.meta.dev) {
-      console.log('[Nuxt Aegis] Attempting token refresh...')
-    }
+    logger.debug('Attempting token refresh...')
 
     isRefreshing = true
     refreshPromise = nuxtApp.runWithContext(async () => {
@@ -32,9 +33,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         return getAccessToken()
       }
       catch (error) {
-        if (import.meta.dev) {
-          console.error('[Nuxt Aegis] Token refresh failed:', error)
-        }
+        logger.error('Token refresh failed:', error)
         return null
       }
       finally {
@@ -92,9 +91,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   if (!isInitialized && autoRefreshEnabled) {
     isInitialized = true
 
-    if (import.meta.dev) {
-      console.log('[Nuxt Aegis] Initializing auth state on startup...')
-    }
+    logger.debug('Initializing auth state on startup...')
 
     // Use app:mounted to ensure the plugin is fully initialized
     nuxtApp.hook('app:mounted', async () => {
@@ -103,9 +100,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         // The callback page will handle setting up auth state after token exchange
         const callbackPath = nuxtApp.$config.public.nuxtAegis.callbackPath
         if (typeof window !== 'undefined' && window.location.pathname === callbackPath) {
-          if (import.meta.dev) {
-            console.log('[Nuxt Aegis] On auth callback page, skipping refresh')
-          }
+          logger.debug('On auth callback page, skipping refresh')
           return
         }
 
@@ -115,9 +110,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           const currentPath = window.location.pathname
 
           if (isRouteMatch(currentPath, publicRoutes)) {
-            if (import.meta.dev) {
-              console.log('[Nuxt Aegis] On public route, skipping refresh on startup')
-            }
+            logger.debug('On public route, skipping refresh on startup')
             return
           }
         }
@@ -126,9 +119,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         // This prevents conflicts with the AuthCallback page which sets the token directly
         const currentToken = getAccessToken()
         if (currentToken) {
-          if (import.meta.dev) {
-            console.log('[Nuxt Aegis] Access token already present, skipping refresh on startup')
-          }
+          logger.debug('Access token already present, skipping refresh on startup')
           return
         }
 
@@ -138,9 +129,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         }
         catch {
           // Silent failure - user is just not authenticated
-          if (import.meta.dev) {
-            console.log('[Nuxt Aegis] No valid refresh token found on startup')
-          }
+          logger.debug('No valid refresh token found on startup')
         }
       })
     })

@@ -2,6 +2,9 @@ import { defineEventHandler, getQuery, sendRedirect, createError } from 'h3'
 import { withQuery } from 'ufo'
 import { useRuntimeConfig } from '#imports'
 import { generateMockCode, storeMockCode } from '../../utils/mockCodeStore'
+import { createLogger } from '../../utils/logger'
+
+const logger = createLogger('MockAuthorize')
 
 /**
  * Mock OAuth Authorization Endpoint
@@ -127,13 +130,11 @@ export default defineEventHandler(async (event) => {
     redirectUri: query.redirect_uri as string,
   })
 
-  if (import.meta.dev) {
-    console.log('[nuxt-aegis:mock] Generated authorization code:', {
-      code: code.substring(0, 20) + '...',
-      user: userId,
-      clientId: query.client_id,
-    })
-  }
+  logger.debug('Generated authorization code:', {
+    code: code.substring(0, 20) + '...',
+    user: userId,
+    clientId: query.client_id,
+  })
 
   // Redirect back to the application with authorization code
   return sendRedirect(event, withQuery(query.redirect_uri as string, {

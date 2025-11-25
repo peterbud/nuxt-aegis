@@ -1,11 +1,6 @@
 export default defineOAuthGithubEventHandler({
   // Transform user object from GitHub's format
   onUserInfo: (providerUserInfo, _tokens, _event) => {
-    console.log('[GitHub] Transforming user info:', {
-      login: providerUserInfo.login,
-      id: providerUserInfo.id,
-    })
-
     // GitHub uses different field names, normalize them
     return {
       id: String(providerUserInfo.id),

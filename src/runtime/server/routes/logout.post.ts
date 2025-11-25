@@ -3,7 +3,9 @@ import { hashRefreshToken, revokeRefreshToken } from '../utils/refreshToken'
 import { clearToken } from '../utils/cookies'
 import { useRuntimeConfig } from '#imports'
 import type { CookieConfig } from '../../types'
-import { consola } from 'consola'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('Logout')
 
 /**
  * POST /auth/logout
@@ -34,7 +36,7 @@ export default defineEventHandler(async (event) => {
     return { success: true, message: 'Logout successful' }
   }
   catch (error) {
-    consola.error('[Nuxt Aegis] Logout error:', error)
+    logger.error('Logout error:', error)
 
     // Still clear cookie and return success even if revocation fails
     clearToken(event, cookieConfig)

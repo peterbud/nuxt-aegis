@@ -2,6 +2,9 @@ import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
 import type { TokenPayload } from '../../types'
 import { clearAccessToken } from '../utils/tokenStore'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('Auth')
 
 /**
  * Internal authentication state interface
@@ -106,9 +109,7 @@ export function useAuth(): UseAuthReturn {
     authState.value.isLoading = true
     authState.value.error = null
 
-    if (import.meta.dev) {
-      console.log('[Nuxt Aegis] Refreshing authentication state...')
-    }
+    logger.debug('Refreshing authentication state...')
 
     try {
       // EP-27: Call refresh endpoint (refresh token sent automatically via httpOnly cookie)
@@ -131,9 +132,7 @@ export function useAuth(): UseAuthReturn {
           authState.value.user = payload
           authState.value.error = null
 
-          if (import.meta.dev) {
-            console.log('[Nuxt Aegis] Auth state refreshed successfully')
-          }
+          logger.debug('Auth state refreshed successfully')
         }
       }
       else {
@@ -148,9 +147,7 @@ export function useAuth(): UseAuthReturn {
       authState.value.error = 'Failed to refresh authentication'
       clearAccessToken()
 
-      if (import.meta.dev) {
-        console.error('[Nuxt Aegis] Auth refresh failed:', error)
-      }
+      logger.error('Auth refresh failed:', error)
 
       // Don't throw - just clear state and let app handle unauthenticated state
     }
@@ -187,9 +184,7 @@ export function useAuth(): UseAuthReturn {
     }
     catch (error) {
       authState.value.error = 'Failed to initiate login'
-      if (import.meta.dev) {
-        console.error('[Nuxt Aegis] Login error:', error)
-      }
+      logger.error('Login error:', error)
       throw error
     }
   }
@@ -212,9 +207,7 @@ export function useAuth(): UseAuthReturn {
       // Clear state even if API call fails
       authState.value.user = null
       authState.value.error = 'Logout completed with errors'
-      if (import.meta.dev) {
-        console.error('[Nuxt Aegis] Logout error:', error)
-      }
+      logger.error('Logout error:', error)
 
       // Still redirect on error
       const logoutRedirect = redirectTo || '/'

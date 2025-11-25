@@ -1,9 +1,14 @@
 import { eventHandler, getRequestURL } from 'h3'
 import type { H3Event } from 'h3'
 import type { OAuthConfig, MockProviderConfig, OAuthProviderConfig } from '../../types'
-import { defineOAuthEventHandler, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
+import { defineOAuthEventHandler, defineOAuthProvider, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 import { useRuntimeConfig } from '#imports'
-import { consola } from 'consola'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('MockProvider')
+
+// Track if we've already logged the mock provider warning
+let hasLoggedWarning = false
 
 /**
  * Mock OAuth Provider Implementation
@@ -53,17 +58,22 @@ function checkMockProviderAllowed(config: MockProviderConfig): void {
   }
 
   if (isProduction && config.enableInProduction) {
-    consola.error(
-      '⚠️  [nuxt-aegis] Mock provider is enabled in PRODUCTION mode. '
-      + 'This is extremely dangerous and should never be done in a real production environment!',
-    )
+    if (!hasLoggedWarning) {
+      logger.error(
+        '⚠️  Mock provider is enabled in PRODUCTION mode. '
+        + 'This is extremely dangerous and should never be done in a real production environment!',
+      )
+      hasLoggedWarning = true
+    }
   }
 
-  if (!isProduction) {
-    consola.warn(
-      '⚠️  [nuxt-aegis] Mock authentication provider is active. '
+  // Only log warning at runtime (first actual request), not during imports/build
+  if (!isProduction && !hasLoggedWarning) {
+    logger.warn(
+      '⚠️  Mock authentication provider is active. '
       + 'This is for development/testing only and should never be used in production.',
     )
+    hasLoggedWarning = true
   }
 }
 
@@ -120,7 +130,7 @@ function validateMockConfig(config: Partial<MockProviderConfig>): void {
  * Mock OAuth provider implementation
  * Uses dynamic URLs that point to local mock endpoints
  */
-const mockImplementation: OAuthProviderImplementation = {
+const mockImplementation: OAuthProviderImplementation = defineOAuthProvider({
   runtimeConfigKey: 'mock',
   defaultConfig: {
     scopes: ['openid', 'profile', 'email'],
@@ -155,7 +165,7 @@ const mockImplementation: OAuthProviderImplementation = {
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
   }),
-}
+})
 
 /**
  * Create a Mock OAuth event handler

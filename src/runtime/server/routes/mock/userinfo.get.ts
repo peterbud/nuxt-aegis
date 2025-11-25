@@ -1,6 +1,9 @@
 import { defineEventHandler, getHeader, createError } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { getUserForMockToken } from '../../utils/mockCodeStore'
+import { createLogger } from '../../utils/logger'
+
+const logger = createLogger('MockUserInfo')
 
 /**
  * Mock OAuth UserInfo Endpoint
@@ -86,9 +89,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (import.meta.dev) {
-    console.log('[nuxt-aegis:mock] UserInfo request returning user:', userId)
-  }
+  logger.debug('UserInfo request returning user:', userId)
 
   // Return mock user profile
   // This includes all fields from the mockUsers configuration

@@ -1,6 +1,8 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { retrieveAndDeleteMockCode, storeMockToken } from '../../utils/mockCodeStore'
+import { createLogger } from '../../utils/logger'
+
+const logger = createLogger('MockToken')
 
 /**
  * Mock OAuth Token Endpoint
@@ -109,9 +111,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (import.meta.dev) {
-    console.log('[nuxt-aegis:mock] Token exchange successful for user:', codeData.userId)
-  }
+  logger.debug('Token exchange successful for user:', codeData.userId)
 
   // Generate cryptographically secure mock tokens
   const randomBytes = crypto.getRandomValues(new Uint8Array(32))

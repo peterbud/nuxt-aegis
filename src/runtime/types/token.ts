@@ -68,26 +68,6 @@ export interface RefreshTokenData {
 }
 
 /**
- * Refresh token stored data interface
- * Represents the data stored alongside a refresh token
- * on the server side for validation and management
- */
-export interface RefreshTokenData {
-  /** RS-4: Subject identifier, links the token back to the specific user account */
-  sub: string
-  /** RS-4: Timestamp when the refresh token expires */
-  expiresAt: number
-  /** RS-4: Allows for immediate revocation if the user logs out, changes a password, or a security event occurs */
-  isRevoked: boolean
-  /** RS-8: Hash of the previous refresh token for rotation tracking */
-  previousTokenHash?: string
-  /** RS-2, RS-3: Complete user object from the authentication provider including all profile data and provider-specific properties */
-  user: Record<string, unknown>
-  /** Provider name for dynamic custom claims generation during refresh (e.g., 'google', 'github', 'microsoft', 'auth0') */
-  provider: string
-}
-
-/**
  * Response from token refresh operation
  */
 export interface RefreshResponse {

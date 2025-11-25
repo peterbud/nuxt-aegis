@@ -4,7 +4,9 @@ import { useRuntimeConfig } from '#imports'
 import { generateAuthTokens } from '../utils/auth'
 import { setRefreshTokenCookie } from '../utils/cookies'
 import type { TokenExchangeRequest, TokenExchangeResponse } from '../../types'
-import { consola } from 'consola'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('TokenExchange')
 
 /**
  * POST /auth/token
@@ -39,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   if (!body?.code) {
     // Security event logging - missing code
-    consola.warn('[Nuxt Aegis Security] Token exchange attempted without authorization code', {
+    logger.security('Token exchange attempted without authorization code', {
       timestamp: new Date().toISOString(),
       event: 'TOKEN_EXCHANGE_MISSING_CODE',
       severity: 'warning',
@@ -59,7 +61,7 @@ export default defineEventHandler(async (event) => {
   // EP-17, EP-18: Validate CODE exists and is not expired/already used
   if (!authCodeData) {
     // Security event logging - invalid code (already logged in authCodeStore)
-    consola.warn('[Nuxt Aegis Security] Token exchange failed - invalid authorization code', {
+    logger.security('Token exchange failed - invalid authorization code', {
       timestamp: new Date().toISOString(),
       event: 'TOKEN_EXCHANGE_INVALID_CODE',
       codePrefix: `${body.code.substring(0, 8)}...`,
@@ -122,7 +124,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Security event logging - successful token generation
-    consola.info('[Nuxt Aegis Security] JWT tokens generated successfully', {
+    logger.security('JWT tokens generated successfully', {
       timestamp: new Date().toISOString(),
       event: 'TOKEN_GENERATION_SUCCESS',
       expiresIn: expiresInSeconds,
@@ -132,7 +134,7 @@ export default defineEventHandler(async (event) => {
   }
   catch (error) {
     // Security event logging - token generation failure
-    consola.error('[Nuxt Aegis Security] Token generation error', {
+    logger.error('Token generation error', {
       timestamp: new Date().toISOString(),
       event: 'TOKEN_GENERATION_ERROR',
       error: import.meta.dev ? error : 'Error details hidden in production',

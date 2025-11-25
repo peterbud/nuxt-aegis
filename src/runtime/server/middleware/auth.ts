@@ -2,8 +2,10 @@ import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
 import type { TokenConfig } from '../../types'
-import { consola } from 'consola'
 import { isRouteMatch } from '../../app/utils/routeMatching'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('Middleware')
 
 /**
  * Authentication middleware for Nuxt Aegis
@@ -66,7 +68,7 @@ export default defineEventHandler(async (event) => {
 
   // Verify the token
   if (!tokenConfig || !tokenConfig.secret) {
-    consola.error('Token configuration is missing')
+    logger.error('Token configuration is missing')
     throw createError({
       statusCode: 500,
       statusMessage: 'Internal Server Error',
@@ -79,7 +81,7 @@ export default defineEventHandler(async (event) => {
 
   if (!payload) {
     // EH-2: Log failure reason at debug level
-    console.debug('Token verification failed for path:', requestURL.pathname)
+    logger.debug('Token verification failed for path:', requestURL.pathname)
 
     // MW-5: Return 401 if JWT is invalid or expired
     throw createError({
@@ -91,7 +93,7 @@ export default defineEventHandler(async (event) => {
 
   // MW-4: Verify the token's issuer claim matches the configured issuer
   if (tokenConfig.issuer && payload.iss !== tokenConfig.issuer) {
-    console.debug('[Nuxt Aegis] Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
+    logger.debug('Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
 
     throw createError({
       statusCode: 401,
@@ -107,7 +109,7 @@ export default defineEventHandler(async (event) => {
       : payload.aud === tokenConfig.audience
 
     if (!audienceMatch) {
-      console.debug('[Nuxt Aegis] Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
+      logger.debug('Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
 
       throw createError({
         statusCode: 401,

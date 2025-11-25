@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import { useStorage } from '#imports'
-import { consola } from 'consola'
 import type { H3Event } from 'h3'
 import type { AuthCodeData } from '../../types'
+import { createLogger } from './logger'
+
+const logger = createLogger('AuthCode')
 
 /**
  * Authorization Code Store Utilities
@@ -45,7 +47,7 @@ export function generateAuthCode(): string {
   const code = randomBytes(32).toString('base64url')
 
   // Security event logging
-  consola.debug('[Nuxt Aegis Security] Authorization code generated', {
+  logger.security('Authorization code generated', {
     timestamp: new Date().toISOString(),
     event: 'CODE_GENERATED',
     codePrefix: `${code.substring(0, 8)}...`,
@@ -107,7 +109,7 @@ export async function storeAuthCode(
   await useStorage('authCodeStore').setItem<AuthCodeData>(code, authCodeData)
 
   // Security event logging
-  consola.debug('[Nuxt Aegis Security] Authorization code stored', {
+  logger.security('Authorization code stored', {
     timestamp: new Date().toISOString(),
     event: 'CODE_STORED',
     codePrefix: `${code.substring(0, 8)}...`,
@@ -136,7 +138,7 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
 
   if (!authCodeData) {
     // Security event logging - code not found (potential security issue)
-    consola.warn('[Nuxt Aegis Security] Authorization code not found', {
+    logger.security('Authorization code not found', {
       timestamp: new Date().toISOString(),
       event: 'CODE_NOT_FOUND',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -148,7 +150,7 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
   // Check if code has expired
   if (Date.now() > authCodeData.expiresAt) {
     // Security event logging - expired code usage attempt
-    consola.warn('[Nuxt Aegis Security] Authorization code expired', {
+    logger.security('Authorization code expired', {
       timestamp: new Date().toISOString(),
       event: 'CODE_EXPIRED',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -190,7 +192,7 @@ export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeD
   if (!authCodeData) {
     // EP-18: Code is invalid, expired, or not found
     // Security event logging - failed exchange attempt
-    consola.warn('[Nuxt Aegis Security] Invalid authorization code exchange attempt', {
+    logger.security('Invalid authorization code exchange attempt', {
       timestamp: new Date().toISOString(),
       event: 'CODE_EXCHANGE_FAILED',
       codePrefix: `${code.substring(0, 8)}...`,
@@ -204,7 +206,7 @@ export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeD
   await useStorage('authCodeStore').removeItem(code)
 
   // Security event logging - successful exchange
-  consola.debug('[Nuxt Aegis Security] Authorization code successfully exchanged', {
+  logger.security('Authorization code successfully exchanged', {
     timestamp: new Date().toISOString(),
     event: 'CODE_EXCHANGE_SUCCESS',
     codePrefix: `${code.substring(0, 8)}...`,
@@ -251,12 +253,12 @@ export async function cleanupExpiredAuthCodes(): Promise<number> {
       await storage.removeItem(key)
       cleanedCount++
 
-      consola.debug('[Nuxt Aegis] Cleaned up expired authorization code:', `${key.substring(0, 8)}...`)
+      logger.debug('Cleaned up expired authorization code:', `${key.substring(0, 8)}...`)
     }
   }
 
   if (cleanedCount > 0) {
-    consola.info(`[Nuxt Aegis] Cleanup completed: ${cleanedCount} expired code(s) removed`)
+    logger.info(`Cleanup completed: ${cleanedCount} expired code(s) removed`)
   }
 
   return cleanedCount

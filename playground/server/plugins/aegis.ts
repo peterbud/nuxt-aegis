@@ -32,12 +32,6 @@ export default defineNitroPlugin((nitroApp) => {
    */
   // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
   nitroApp.hooks.hook('nuxt-aegis:userInfo', async (payload: UserInfoHookPayload) => {
-    console.log('[Aegis Plugin] Global user info transformation', {
-      provider: payload.provider,
-      userId: payload.providerUserInfo.id || payload.providerUserInfo.sub || payload.providerUserInfo.email,
-      timestamp: new Date().toISOString(),
-    })
-
     // Example: Add a custom field to all users
     // This demonstrates global user transformation across all providers
     payload.providerUserInfo.authenticatedAt = new Date().toISOString()
@@ -65,12 +59,6 @@ export default defineNitroPlugin((nitroApp) => {
    */
   // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
   nitroApp.hooks.hook('nuxt-aegis:success', async (payload: SuccessHookPayload) => {
-    console.log('[Aegis Plugin] Global success hook - user authenticated', {
-      provider: payload.provider,
-      userId: payload.providerUserInfo.id || payload.providerUserInfo.sub || payload.providerUserInfo.email,
-      timestamp: new Date().toISOString(),
-    })
-
     const providerName = payload.provider
     const providerId = String(payload.providerUserInfo.id || payload.providerUserInfo.sub)
     const userEmail = payload.providerUserInfo.email as string

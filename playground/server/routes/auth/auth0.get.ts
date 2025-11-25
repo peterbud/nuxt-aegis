@@ -1,11 +1,6 @@
 export default defineOAuthAuth0EventHandler({
   // Transform user object from Auth0's format
   onUserInfo: (providerUserInfo, _tokens, _event) => {
-    console.log('[Auth0] Transforming user info:', {
-      sub: providerUserInfo.sub,
-      email: providerUserInfo.email,
-    })
-
     // Auth0 provides standardized OIDC claims
     return {
       id: providerUserInfo.sub as string,
