@@ -27,4 +27,4 @@ For comprehensive understanding of the project scope and technical architecture,
 * 'src/runtime/server/routes/' - API routes for login, callback, token refresh, and logout
 * 'src/runtime/types/' - TypeScript type definitions
 * 'specs/' - Specifications and requirements documents
-* 'tests/' - Unit and integration tests for the module
+* 'test/' - Unit and integration tests for the module
