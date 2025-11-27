@@ -1,0 +1,24 @@
+:root,
+.light-mode {
+    --mermaid-error-color: #f8d7da;
+    /* Light Red/Pink background */
+    --mermaid-error-text: #721c24;
+    /* Dark Red text */
+}
+
+/* Dark Mode */
+.dark-mode {
+    --mermaid-error-color: #490e10;
+    /* Dark Red/Maroon background */
+    --mermaid-error-text: #f8d7da;
+    /* Light Red/Pink text */
+}
+
+.error-node rect {
+    fill: var(--mermaid-error-color) !important;
+}
+
+.error-node g.label span {
+    /* fill: var(--mermaid-error-text) !important; */
+    color: var(--mermaid-error-text) !important;
+}

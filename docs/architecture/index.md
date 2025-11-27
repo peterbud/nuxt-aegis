@@ -107,12 +107,15 @@ graph LR
     D -->|Yes| F{Authorized?}
     F -->|No| G[403 Forbidden]
     F -->|Yes| H[Process Request]
+
+    class E error-node
+    class G error-node
 ```
 
 ## Security Layers
 
 ```mermaid
-graph TB
+graph LR
     A[Security Layers] --> B[OAuth 2.0]
     A --> C[Authorization CODE]
     A --> D[JWT Tokens]
