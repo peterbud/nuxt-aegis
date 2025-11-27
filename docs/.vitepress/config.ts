@@ -1,9 +1,30 @@
 import { defineConfig } from 'vitepress'
+import MermaidExample from './mermaid-markdown-all'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: 'Nuxt Aegis',
   description: 'OAuth-based authentication with JWT token management for Nuxt 3/4',
+
+  vite: {
+    ssr: {
+      noExternal: ['mermaid'],
+    },
+    optimizeDeps: {
+      // crappy mermaid dependencies
+      exclude: [
+        'vscode-languageserver-types',
+        'vscode-jsonrpc',
+        '@chevrotain/regexp-to-ast',
+      ],
+    },
+  },
+
+  markdown: {
+    config: (md) => {
+      MermaidExample(md)
+    },
+  },
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
@@ -28,6 +49,7 @@ export default defineConfig({
       {
         text: 'Architecture',
         items: [
+          { text: 'Overview', link: '/architecture' },
           { text: 'Authentication Flow', link: '/architecture/authentication-flow' },
           { text: 'Token Lifecycle', link: '/architecture/token-lifecycle' },
           { text: 'Project Structure', link: '/architecture/project-structure' },

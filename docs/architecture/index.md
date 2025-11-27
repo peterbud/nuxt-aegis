@@ -17,13 +17,6 @@ graph TB
     B -->|Issue| E[JWT Token]
     E -->|Auth Header| F[Protected API]
     D -->|Refresh| B
-    
-    style A fill:#E3F2FD
-    style B fill:#FFF3E0
-    style C fill:#E8F5E9
-    style D fill:#FCE4EC
-    style E fill:#F3E5F5
-    style F fill:#FFF9C4
 ```
 
 ### Client-Side Components
@@ -114,10 +107,6 @@ graph LR
     D -->|Yes| F{Authorized?}
     F -->|No| G[403 Forbidden]
     F -->|Yes| H[Process Request]
-    
-    style E fill:#FFCDD2
-    style G fill:#FFE0B2
-    style H fill:#C8E6C9
 ```
 
 ## Security Layers
@@ -148,13 +137,6 @@ graph TB
     F --> F1[AES-256-GCM]
     F --> F2[Random IV]
     F --> F3[Auth Tags]
-    
-    style A fill:#E1F5FE
-    style B fill:#F3E5F5
-    style C fill:#FFF3E0
-    style D fill:#E8F5E9
-    style E fill:#FCE4EC
-    style F fill:#FFF9C4
 ```
 
 ## Data Flow
@@ -170,9 +152,6 @@ graph LR
     D -->|Sign| F[JWT Token]
     E -->|Encrypted| G[Redis/Filesystem]
     F -->|Return| H[Client]
-    
-    style G fill:#FFE0B2
-    style F fill:#C8E6C9
 ```
 
 ### Token Types
@@ -207,11 +186,6 @@ graph TB
     
     F --> F1[useAuth]
     
-    style B fill:#E1F5FE
-    style C fill:#F3E5F5
-    style D fill:#FFF3E0
-    style E fill:#E8F5E9
-    style F fill:#C8E6C9
 ```
 
 ## Performance Considerations
