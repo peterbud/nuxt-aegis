@@ -23,9 +23,13 @@ function useAuth<TUser = User>(): {
   user: Ref<TUser | null>
   isAuthenticated: Ref<boolean>
   isLoading: Ref<boolean>
+  isImpersonating: Ref<boolean>
+  originalUser: Ref<OriginalUser | null>
   login: (provider: string, options?: LoginOptions) => Promise<void>
   logout: (options?: LogoutOptions) => Promise<void>
   refresh: () => Promise<void>
+  impersonate: (targetUserId: string, reason?: string) => Promise<void>
+  stopImpersonation: () => Promise<void>
 }
 ```
 
@@ -101,6 +105,50 @@ Boolean indicating whether authentication state is being loaded.
 ::: warning Always Check Loading
 Always check `isLoading` before rendering authentication-dependent content to avoid flashing incorrect UI states.
 :::
+
+### `isImpersonating`
+
+**Type:** `Ref<boolean>`
+
+Boolean indicating whether the current user is impersonating another user.
+
+```vue
+<template>
+  <div v-if="isImpersonating" class="impersonation-banner">
+    <p>You are currently impersonating {{ user?.email }}</p>
+    <button @click="stopImpersonation">Stop Impersonation</button>
+  </div>
+</template>
+```
+
+::: tip Impersonation Feature
+This property is only available when the impersonation feature is enabled in configuration. See [User Impersonation Guide](/guides/impersonation) for details.
+:::
+
+### `originalUser`
+
+**Type:** `Ref<OriginalUser | null>`
+
+Original user information when impersonating. Returns `null` when not impersonating.
+
+```typescript
+const { originalUser, isImpersonating } = useAuth()
+
+if (isImpersonating.value) {
+  console.log('Original admin:', originalUser.value?.originalUserEmail)
+  console.log('Impersonating:', user.value?.email)
+}
+```
+
+**OriginalUser Interface:**
+
+```typescript
+interface OriginalUser {
+  originalUserId: string      // Original user's ID
+  originalUserEmail?: string  // Original user's email
+  originalUserName?: string   // Original user's name
+}
+```
 
 ### `login(provider, options?)`
 
@@ -205,6 +253,86 @@ When `automaticRefresh: true` is configured, tokens are refreshed automatically.
 
 **Returns:** `Promise<void>`
 
+### `impersonate(targetUserId, reason?)`
+
+**Type:** `(targetUserId: string, reason?: string) => Promise<void>`
+
+Start impersonating another user. Requires impersonation to be enabled and proper authorization.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `targetUserId` | `string` | ✅ | Target user ID or email to impersonate |
+| `reason` | `string` | ❌ | Optional reason for impersonation (for audit logs) |
+
+**Example:**
+
+```typescript
+const { impersonate } = useAuth()
+
+// Basic impersonation
+await impersonate('user-123')
+
+// With reason for audit trail
+await impersonate('user@example.com', 'Debugging issue #456')
+```
+
+**Behavior:**
+
+- Generates a new short-lived access token (15 minutes default)
+- Does NOT generate a refresh token (impersonated sessions cannot be refreshed)
+- Updates authentication state to the impersonated user
+- Stores original user information for restoration
+- Triggers `nuxt-aegis:impersonate:start` audit hook
+
+**Throws:**
+
+- `403` - Insufficient permissions to impersonate
+- `404` - Target user not found or impersonation feature not enabled
+- `403` - Already impersonating (cannot chain impersonations)
+
+::: warning Authorization Required
+The `nuxt-aegis:impersonate:check` and `nuxt-aegis:impersonate:fetchTarget` hooks must be implemented. See [User Impersonation Guide](/guides/impersonation).
+:::
+
+**Returns:** `Promise<void>`
+
+### `stopImpersonation()`
+
+**Type:** `() => Promise<void>`
+
+Stop impersonating and restore the original user session.
+
+**Example:**
+
+```typescript
+const { stopImpersonation } = useAuth()
+
+try {
+  await stopImpersonation()
+  console.log('Restored to original user')
+} catch (error) {
+  console.error('Failed to stop impersonation:', error)
+}
+```
+
+**Behavior:**
+
+- Validates current session is impersonated
+- Attempts to fetch fresh data for the original user
+- Falls back to stored original claims if user not found
+- Generates new access token with original user's claims
+- Generates new refresh token and sets cookie
+- Updates authentication state to the original user
+- Triggers `nuxt-aegis:impersonate:end` audit hook
+
+**Throws:**
+
+- `400` - Current session is not impersonated
+
+**Returns:** `Promise<void>`
+
 ## Usage Examples
 
 ### Basic Authentication
@@ -279,6 +407,90 @@ const isPremium = computed(() => user.value?.premium === true)
 </template>
 ```
 
+### User Impersonation
+
+```vue
+<script setup lang="ts">
+const { 
+  user, 
+  isImpersonating, 
+  originalUser, 
+  impersonate, 
+  stopImpersonation 
+} = useAuth()
+
+const targetUserId = ref('')
+const reason = ref('')
+const error = ref<string | null>(null)
+
+async function handleImpersonate() {
+  try {
+    error.value = null
+    await impersonate(targetUserId.value, reason.value || undefined)
+    targetUserId.value = ''
+    reason.value = ''
+  } catch (err) {
+    error.value = 'Failed to impersonate user'
+    console.error(err)
+  }
+}
+
+async function handleStopImpersonation() {
+  try {
+    error.value = null
+    await stopImpersonation()
+  } catch (err) {
+    error.value = 'Failed to stop impersonation'
+    console.error(err)
+  }
+}
+</script>
+
+<template>
+  <div>
+    <!-- Impersonation Banner -->
+    <div v-if="isImpersonating" class="impersonation-banner">
+      <p>
+        You ({{ originalUser?.originalUserEmail }}) are impersonating 
+        {{ user?.email }}
+      </p>
+      <p v-if="user?.impersonation?.reason" class="reason">
+        Reason: {{ user.impersonation.reason }}
+      </p>
+      <button @click="handleStopImpersonation">
+        Stop Impersonation
+      </button>
+    </div>
+
+    <!-- Admin Impersonation Controls -->
+    <div v-if="user?.role === 'admin' && !isImpersonating" class="admin-controls">
+      <h3>Impersonate User</h3>
+      <input 
+        v-model="targetUserId" 
+        placeholder="User ID or Email"
+      />
+      <textarea 
+        v-model="reason" 
+        placeholder="Reason for impersonation (optional)"
+      />
+      <button @click="handleImpersonate">
+        Start Impersonation
+      </button>
+      <p v-if="error" class="error">{{ error }}</p>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.impersonation-banner {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+</style>
+```
+
 ### Error Handling
 
 ```vue
@@ -321,14 +533,26 @@ export interface AppUser {
   permissions: string[]
   organizationId: string
   premium: boolean
+  impersonation?: {
+    originalUserId: string
+    originalUserEmail?: string
+    originalUserName?: string
+    impersonatedAt: string
+    reason?: string
+  }
 }
 
 // Component
-const { user } = useAuth<AppUser>()
+const { user, isImpersonating } = useAuth<AppUser>()
 
 // Fully typed
 const role = user.value?.role           // Type: 'admin' | 'user' | 'guest'
 const permissions = user.value?.permissions // Type: string[]
+
+// Check impersonation
+if (isImpersonating.value) {
+  const originalEmail = user.value?.impersonation?.originalUserEmail
+}
 ```
 
 ## Related
@@ -336,3 +560,4 @@ const permissions = user.value?.permissions // Type: string[]
 - [Login Guide](/guides/client-auth)
 - [Route Protection](/guides/route-protection)
 - [Custom Claims](/guides/custom-claims)
+- [User Impersonation](/guides/impersonation)

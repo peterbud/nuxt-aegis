@@ -121,4 +121,13 @@ export default defineEventHandler(async (event) => {
 
   // MW-9, MW-10, MW-11: Inject decoded user data into request context
   event.context.user = payload
+
+  // If impersonating, also inject original user data for audit trails and permission checks
+  if (payload.impersonation) {
+    event.context.originalUser = {
+      sub: payload.impersonation.originalUserId,
+      email: payload.impersonation.originalUserEmail,
+      name: payload.impersonation.originalUserName,
+    }
+  }
 })

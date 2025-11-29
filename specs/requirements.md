@@ -446,3 +446,128 @@ This document specifies the functional and non-functional requirements for a Nux
 **PF-5:** WHERE refresh tokens are stored in the key-value store, the module SHALL support efficient lookup operations with O(1) time complexity.
 
 **PF-6:** WHEN cleaning up expired refresh tokens, the module SHALL perform cleanup operations without blocking active authentication or refresh requests.
+
+## 13. User Impersonation Requirements
+
+### 13.1 Feature Configuration
+
+**IM-1:** The module SHALL provide an optional user impersonation feature that is disabled by default.
+
+**IM-2:** WHERE impersonation is enabled, the module SHALL require explicit configuration in the Nuxt config file.
+
+**IM-3:** WHERE impersonation is configured, the module SHALL allow developers to specify the impersonated token expiration time with a default of 15 minutes (900 seconds).
+
+### 13.2 Authorization
+
+**IM-4:** WHEN a user attempts to impersonate another user, the module SHALL call a configurable Nitro hook (`nuxt-aegis:impersonate:check`) to determine if impersonation is allowed.
+
+**IM-5:** WHERE the impersonation check hook is not implemented, the module SHALL throw a 500 error indicating the hook is required.
+
+**IM-6:** WHEN impersonation is attempted while already impersonating, the module SHALL return a 403 Forbidden error to prevent impersonation chains.
+
+**IM-7:** WHERE the impersonation check hook throws an error, the module SHALL propagate the error to deny impersonation.
+
+### 13.3 Target User Lookup
+
+**IM-8:** WHEN a user is authorized to impersonate, the module SHALL call a configurable Nitro hook (`nuxt-aegis:impersonate:fetchTarget`) to retrieve the target user's data.
+
+**IM-9:** WHERE the fetch target hook is not implemented, the module SHALL throw a 500 error indicating the hook is required.
+
+**IM-10:** WHEN the fetch target hook throws a 404 error, the module SHALL return a 404 Not Found response.
+
+**IM-11:** WHERE the fetch target hook populates the result object with user data, the module SHALL use this data to generate the impersonated token.
+
+### 13.4 Impersonated Token Generation
+
+**IM-12:** WHEN generating an impersonated token, the module SHALL create a JWT containing the target user's claims.
+
+**IM-13:** WHERE an impersonated token is generated, the module SHALL include an `impersonation` object containing the original user's ID, email, name, and all custom claims.
+
+**IM-14:** WHERE an impersonated token is generated, the module SHALL include the impersonation start timestamp and optional reason in the impersonation context.
+
+**IM-15:** WHEN generating an impersonated token, the module SHALL use a shorter expiration time than regular access tokens (default 15 minutes).
+
+**IM-16:** WHERE an impersonated token is generated, the module SHALL NOT generate a refresh token to prevent long-lived impersonated sessions.
+
+### 13.5 Session Restoration
+
+**IM-17:** WHEN ending impersonation, the module SHALL validate that the current token contains an impersonation context.
+
+**IM-18:** WHERE impersonation is being ended, the module SHALL attempt to fetch fresh data for the original user by calling the fetch target hook.
+
+**IM-19:** IF the original user is not found in the database (404 error), the module SHALL fall back to the stored original user claims from the impersonation context.
+
+**IM-20:** WHEN restoring the original session, the module SHALL generate a new access token with the original user's claims (either fresh or stored).
+
+**IM-21:** WHEN restoring the original session, the module SHALL generate a new refresh token and set it as an HttpOnly cookie.
+
+**IM-22:** WHERE the original user data includes custom claims, the module SHALL ensure all custom claims are restored in the new access token.
+
+### 13.6 Audit Logging
+
+**IM-23:** WHEN impersonation starts successfully, the module SHALL call a fire-and-forget Nitro hook (`nuxt-aegis:impersonate:start`) for audit logging.
+
+**IM-24:** WHERE the start impersonation hook is called, the module SHALL pass the requester's token payload, target user's token payload, reason, IP address, user agent, and timestamp.
+
+**IM-25:** IF the start impersonation hook throws an error, the module SHALL log a warning but NOT block the impersonation (fire-and-forget).
+
+**IM-26:** WHEN impersonation ends successfully, the module SHALL call a fire-and-forget Nitro hook (`nuxt-aegis:impersonate:end`) for audit logging.
+
+**IM-27:** WHERE the end impersonation hook is called, the module SHALL pass the restored user's token payload, impersonated user's token payload, IP address, user agent, and timestamp.
+
+**IM-28:** IF the end impersonation hook throws an error, the module SHALL log a warning but NOT block the session restoration (fire-and-forget).
+
+### 13.7 Client-Side API
+
+**IM-29:** WHERE the `useAuth()` composable is used, the module SHALL provide an `isImpersonating` computed property that returns true when the current user token contains an impersonation context.
+
+**IM-30:** WHERE the `useAuth()` composable is used, the module SHALL provide an `originalUser` computed property that returns the original user's ID, email, and name when impersonating.
+
+**IM-31:** WHERE the `useAuth()` composable is used, the module SHALL provide an `impersonate(targetUserId, reason?)` method to start impersonation.
+
+**IM-32:** WHERE the `useAuth()` composable is used, the module SHALL provide a `stopImpersonation()` method to end impersonation and restore the original session.
+
+**IM-33:** WHEN the `impersonate()` method is called, the module SHALL make a POST request to `/auth/impersonate` with the target user ID and optional reason.
+
+**IM-34:** WHEN impersonation starts successfully, the `impersonate()` method SHALL update the in-memory access token and authentication state.
+
+**IM-35:** WHEN the `stopImpersonation()` method is called, the module SHALL make a POST request to `/auth/unimpersonate` with the current impersonated token.
+
+**IM-36:** WHEN impersonation ends successfully, the `stopImpersonation()` method SHALL update the in-memory access token, set the refresh token cookie, and update the authentication state.
+
+### 13.8 Server-Side Context
+
+**IM-37:** WHEN the authentication middleware validates an impersonated token, the module SHALL inject the current user (impersonated) into `event.context.user`.
+
+**IM-38:** WHERE an impersonated token is validated, the module SHALL additionally inject the original user's ID, email, and name into `event.context.originalUser`.
+
+**IM-39:** WHERE server routes access `event.context.originalUser`, they SHALL be able to distinguish impersonated requests from normal requests.
+
+### 13.9 API Endpoints
+
+**IM-40:** WHERE impersonation is enabled, the module SHALL provide a `/auth/impersonate` POST endpoint to start impersonation.
+
+**IM-41:** WHEN a POST request is made to `/auth/impersonate`, the module SHALL validate the request includes a valid access token in the Authorization header and a request body with `targetUserId` and optional `reason`.
+
+**IM-42:** WHERE impersonation is enabled, the module SHALL provide a `/auth/unimpersonate` POST endpoint to end impersonation.
+
+**IM-43:** WHEN a POST request is made to `/auth/unimpersonate`, the module SHALL validate the request includes a valid impersonated token in the Authorization header.
+
+**IM-44:** WHEN impersonation endpoints are called with impersonation disabled, the module SHALL return a 404 Not Found response.
+
+### 13.10 Token Refresh Restrictions
+
+**IM-45:** WHEN a token refresh is attempted with an impersonated token, the module SHALL return a 403 Forbidden error with a message indicating impersonated sessions cannot be refreshed.
+
+**IM-46:** WHERE an impersonated session expires, the user SHALL be required to call `stopImpersonation()` to restore the original session or re-impersonate to continue.
+
+### 13.11 Security Requirements
+
+**IM-47:** WHEN storing the impersonation context in the JWT, the module SHALL store only essential fields (original user ID, email, name, reason, timestamp, and custom claims) to minimize token size.
+
+**IM-48:** WHERE an impersonated token is generated, the module SHALL use the same signing algorithm and secret as regular tokens.
+
+**IM-49:** WHEN impersonation is attempted, the module SHALL log security events including the requester's identity, target user ID, IP address, and user agent.
+
+**IM-50:** WHERE impersonation is enabled, the module SHALL prevent impersonation chains by checking for existing impersonation context in the requester's token.
+

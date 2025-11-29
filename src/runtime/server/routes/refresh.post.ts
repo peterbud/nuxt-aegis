@@ -1,5 +1,5 @@
 import { defineEventHandler, getCookie, createError } from 'h3'
-import { generateToken } from '../utils/jwt'
+import { generateToken, verifyToken } from '../utils/jwt'
 import {
   generateAndStoreRefreshToken,
   hashRefreshToken,
@@ -17,6 +17,7 @@ import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRef
  * EP-28, EP-28a, EP-28b: Generate new JWT using stored user object (no dependency on old access token)
  * EP-29: Return 401 when refresh token is invalid or expired
  * EP-30: Rotate refresh token and set new cookie
+ * Rejects refresh requests for impersonated sessions
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -46,6 +47,22 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // Check if current session is impersonated (from Authorization header if present)
+    // Impersonated sessions cannot be refreshed - user must call unimpersonate
+    const authHeader = event.node.req.headers.authorization
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const currentToken = await verifyToken(token, tokenConfig.secret, false) // Don't check expiration
+
+      if (currentToken?.impersonation) {
+        throw createError({
+          statusCode: 403,
+          statusMessage: 'Forbidden',
+          message: 'Cannot refresh impersonated session. Please call unimpersonate to restore your original session.',
+        })
+      }
+    }
+
     // Hash the refresh token
     const hashedRefreshToken = hashRefreshToken(refreshToken)
 

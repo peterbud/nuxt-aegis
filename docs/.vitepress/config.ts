@@ -83,6 +83,7 @@ export default defineConfig({
           { text: 'Authentication Hooks', link: '/guides/hooks' },
           { text: 'Token Refresh', link: '/guides/token-refresh' },
           { text: 'Authorization CODE Flow', link: '/guides/authorization-code' },
+          { text: 'Impersonation', link: '/guides/impersonation' },
         ],
       },
       {

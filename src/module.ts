@@ -164,6 +164,21 @@ export default defineNuxtModule<ModuleOptions>({
       method: 'post',
     })
 
+    // Impersonation endpoints (if enabled)
+    if (options.impersonation?.enabled) {
+      addServerHandler({
+        route: `${runtimeConfig.public.nuxtAegis.authPath}/impersonate`,
+        handler: resolver.resolve('./runtime/server/routes/impersonate.post'),
+        method: 'post',
+      })
+
+      addServerHandler({
+        route: `${runtimeConfig.public.nuxtAegis.authPath}/unimpersonate`,
+        handler: resolver.resolve('./runtime/server/routes/unimpersonate.post'),
+        method: 'post',
+      })
+    }
+
     // MW-1: Authentication middleware
     addServerHandler({
       handler: resolver.resolve('./runtime/server/middleware/auth'),

@@ -58,6 +58,16 @@ export interface LoggingConfig {
 }
 
 /**
+ * Impersonation configuration
+ */
+export interface ImpersonationConfig {
+  /** Enable user impersonation feature (default: false, opt-in for security) */
+  enabled?: boolean
+  /** Token expiration time for impersonated sessions in seconds (default: 900 = 15 minutes) */
+  tokenExpiration?: number
+}
+
+/**
  * Runtime config for Nuxt Aegis
  */
 export interface NuxtAegisRuntimeConfig {
@@ -68,6 +78,7 @@ export interface NuxtAegisRuntimeConfig {
   endpoints?: EndpointConfig
   authPath?: string
   logging?: LoggingConfig
+  impersonation?: ImpersonationConfig
   providers?: {
     google?: GoogleProviderConfig
     microsoft?: MicrosoftProviderConfig
@@ -130,4 +141,7 @@ export interface ModuleOptions {
 
   /** Logging configuration */
   logging?: LoggingConfig
+
+  /** Impersonation configuration (opt-in feature) */
+  impersonation?: ImpersonationConfig
 }

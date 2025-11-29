@@ -30,12 +30,20 @@ interface UseAuthReturn {
   user: ComputedRef<TokenPayload | null>
   /** Error state for authentication operations */
   error: ComputedRef<string | null>
+  /** Reactive property indicating if currently impersonating another user */
+  isImpersonating: ComputedRef<boolean>
+  /** Reactive property containing original user data when impersonating */
+  originalUser: ComputedRef<{ originalUserId: string, originalUserEmail?: string, originalUserName?: string } | null>
   /** Method to initiate the authentication flow */
   login: (provider?: string, redirectTo?: string) => Promise<void>
   /** Method to end the user session */
   logout: (redirectTo?: string) => Promise<void>
   /** Method to refresh the authentication state */
   refresh: () => Promise<void>
+  /** Method to impersonate another user (admin only) */
+  impersonate: (targetUserId: string, reason?: string) => Promise<void>
+  /** Method to stop impersonation and restore original session */
+  stopImpersonation: () => Promise<void>
 }
 
 /**
@@ -84,6 +92,26 @@ export function useAuth(): UseAuthReturn {
    * Computed property indicating if user is logged in
    */
   const isLoggedIn = computed(() => authState.value?.user !== null)
+
+  /**
+   * Computed property indicating if currently impersonating another user
+   */
+  const isImpersonating = computed(() => !!authState.value?.user?.impersonation)
+
+  /**
+   * Computed property containing original user data when impersonating
+   */
+  const originalUser = computed(() => {
+    const impersonation = authState.value?.user?.impersonation
+    if (!impersonation) {
+      return null
+    }
+    return {
+      originalUserId: impersonation.originalUserId,
+      originalUserEmail: impersonation.originalUserEmail,
+      originalUserName: impersonation.originalUserName,
+    }
+  })
 
   const config = useRuntimeConfig()
   const publicConfig = config.public
@@ -223,13 +251,145 @@ export function useAuth(): UseAuthReturn {
     }
   }
 
+  /**
+   * Method to impersonate another user (requires admin privileges)
+   *
+   * Exchanges current session for an impersonated session. The impersonated
+   * session has a shorter expiration time and cannot be refreshed. Use
+   * stopImpersonation() to restore the original session.
+   *
+   * @param {string} targetUserId - The ID or email of the user to impersonate
+   * @param {string} reason - Optional reason for impersonation (for audit logs)
+   * @throws {Error} If impersonation is not enabled or not allowed
+   */
+  async function impersonate(targetUserId: string, reason?: string): Promise<void> {
+    try {
+      authState.value.error = null
+      authState.value.isLoading = true
+
+      logger.debug('Starting impersonation...', { targetUserId })
+
+      // Get current access token to authenticate the request
+      const { getAccessToken } = await import('../utils/tokenStore')
+      const currentToken = getAccessToken()
+
+      if (!currentToken) {
+        throw new Error('Must be authenticated to impersonate')
+      }
+
+      // Call impersonate endpoint
+      const response = await $fetch<{ accessToken: string }>(`${authPath}/impersonate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: {
+          targetUserId,
+          reason,
+        },
+      })
+
+      if (response?.accessToken) {
+        // Store new impersonated access token
+        const { setAccessToken } = await import('../utils/tokenStore')
+        setAccessToken(response.accessToken)
+
+        // Decode token to get impersonated user payload
+        const tokenParts = response.accessToken.split('.')
+        if (tokenParts[1]) {
+          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          authState.value.user = payload
+          authState.value.error = null
+
+          logger.debug('Impersonation started successfully', {
+            targetUser: payload.sub,
+            originalUser: payload.impersonation?.originalUserId,
+          })
+        }
+      }
+    }
+    catch (error: unknown) {
+      const err = error as { statusCode?: number, message?: string, data?: { message?: string } }
+      authState.value.error = err.data?.message || err.message || 'Failed to start impersonation'
+      logger.error('Impersonation failed:', error)
+      throw error
+    }
+    finally {
+      authState.value.isLoading = false
+    }
+  }
+
+  /**
+   * Method to stop impersonation and restore original user session
+   *
+   * Ends the impersonated session and restores the original user's session
+   * with full privileges and refresh token capability.
+   *
+   * @throws {Error} If not currently impersonating or restoration fails
+   */
+  async function stopImpersonation(): Promise<void> {
+    try {
+      authState.value.error = null
+      authState.value.isLoading = true
+
+      logger.debug('Stopping impersonation...')
+
+      // Get current impersonated token
+      const { getAccessToken } = await import('../utils/tokenStore')
+      const currentToken = getAccessToken()
+
+      if (!currentToken) {
+        throw new Error('No active session')
+      }
+
+      // Call unimpersonate endpoint
+      const response = await $fetch<{ accessToken: string }>(`${authPath}/unimpersonate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+      })
+
+      if (response?.accessToken) {
+        // Store restored access token
+        const { setAccessToken } = await import('../utils/tokenStore')
+        setAccessToken(response.accessToken)
+
+        // Decode token to get restored user payload
+        const tokenParts = response.accessToken.split('.')
+        if (tokenParts[1]) {
+          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          authState.value.user = payload
+          authState.value.error = null
+
+          logger.debug('Impersonation stopped, original session restored', {
+            restoredUser: payload.sub,
+          })
+        }
+      }
+    }
+    catch (error: unknown) {
+      const err = error as { statusCode?: number, message?: string, data?: { message?: string } }
+      authState.value.error = err.data?.message || err.message || 'Failed to stop impersonation'
+      logger.error('Stop impersonation failed:', error)
+      throw error
+    }
+    finally {
+      authState.value.isLoading = false
+    }
+  }
+
   return {
     isLoggedIn,
     isLoading: computed(() => authState.value.isLoading),
     user: computed(() => authState.value.user),
     error: computed(() => authState.value.error),
+    isImpersonating,
+    originalUser,
     login,
     logout,
     refresh,
+    impersonate,
+    stopImpersonation,
   }
 }

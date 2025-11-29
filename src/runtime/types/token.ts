@@ -18,6 +18,25 @@ export interface BaseUser {
 }
 
 /**
+ * Impersonation context stored in JWT
+ * Contains essential information about the original user when impersonating
+ */
+export interface ImpersonationContext {
+  /** Original user ID (sub) who is performing the impersonation */
+  originalUserId: string
+  /** Original user email */
+  originalUserEmail?: string
+  /** Original user name */
+  originalUserName?: string
+  /** Timestamp when impersonation started */
+  impersonatedAt: string
+  /** Optional reason for impersonation (debugging, support, etc.) */
+  reason?: string
+  /** Original user's complete claims (role, permissions, etc.) for restoration */
+  originalClaims?: Record<string, unknown>
+}
+
+/**
  * JWT Token payload interface
  * Represents the decoded JWT token structure with standard and custom claims
  * This is what gets stored in the JWT and attached to event.context.user
@@ -43,6 +62,8 @@ export interface TokenPayload {
   iat?: number
   /** JT-7: Expiration timestamp - when the token expires */
   exp?: number
+  /** Impersonation context if this token represents an impersonated session */
+  impersonation?: ImpersonationContext
   /** JT-10, JT-11, JT-13: Additional custom claims */
   [key: string]: unknown
 }

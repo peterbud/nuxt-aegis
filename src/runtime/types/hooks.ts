@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import type { TokenPayload } from './token'
 
 /**
  * Nitro hook type definitions for Nuxt Aegis
@@ -47,4 +48,78 @@ export interface SuccessHookPayload {
   provider: string
   /** H3 event for server context access */
   event: H3Event
+}
+
+/**
+ * Payload for the nuxt-aegis:impersonate:check hook
+ * Called to determine if a user is allowed to impersonate others
+ */
+export interface ImpersonateCheckPayload {
+  /** JWT payload of the user requesting impersonation */
+  requester: TokenPayload
+  /** Target user ID to impersonate */
+  targetUserId: string
+  /** Optional reason for impersonation (for audit) */
+  reason?: string
+  /** H3 event for server context access */
+  event: H3Event
+  /** Client IP address (for audit) */
+  ip: string
+  /** User agent string (for audit) */
+  userAgent: string
+}
+
+/**
+ * Payload for the nuxt-aegis:impersonate:fetchTarget hook
+ * Called to fetch the target user's data
+ *
+ * This hook MUST be implemented by the user to return the target user's data
+ */
+export interface ImpersonateFetchTargetPayload {
+  /** JWT payload of the user requesting impersonation */
+  requester: TokenPayload
+  /** Target user ID to impersonate */
+  targetUserId: string
+  /** H3 event for server context access */
+  event: H3Event
+}
+
+/**
+ * Payload for the nuxt-aegis:impersonate:start hook
+ * Called after impersonation starts successfully (fire-and-forget for audit logging)
+ */
+export interface ImpersonateStartPayload {
+  /** JWT payload of the user who initiated impersonation */
+  requester: TokenPayload
+  /** JWT payload of the impersonated user */
+  targetUser: TokenPayload
+  /** Reason for impersonation */
+  reason?: string
+  /** H3 event for server context access */
+  event: H3Event
+  /** Client IP address (for audit) */
+  ip: string
+  /** User agent string (for audit) */
+  userAgent: string
+  /** Timestamp of impersonation */
+  timestamp: Date
+}
+
+/**
+ * Payload for the nuxt-aegis:impersonate:end hook
+ * Called after impersonation ends successfully (fire-and-forget for audit logging)
+ */
+export interface ImpersonateEndPayload {
+  /** JWT payload of the restored original user */
+  restoredUser: TokenPayload
+  /** JWT payload of the user who was being impersonated */
+  impersonatedUser: TokenPayload
+  /** H3 event for server context access */
+  event: H3Event
+  /** Client IP address (for audit) */
+  ip: string
+  /** User agent string (for audit) */
+  userAgent: string
+  /** Timestamp when impersonation ended */
+  timestamp: Date
 }

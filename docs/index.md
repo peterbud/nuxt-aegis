@@ -29,6 +29,9 @@ features:
   - icon: 🛡️
     title: Route Protection
     details: Flexible middleware for protecting server and client routes with declarative configuration
+  - icon: 🎭
+    title: User Impersonation
+    details: Admin users can impersonate others for debugging and support with full audit logging
   - icon: 🎨
     title: Custom Claims
     details: Add application-specific claims to JWT tokens

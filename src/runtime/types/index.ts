@@ -14,6 +14,7 @@ export type {
   RefreshResponse,
   ClaimsValidationConfig,
   CustomClaimsCallback,
+  ImpersonationContext,
 } from './token'
 
 // Provider types
@@ -61,6 +62,10 @@ export type {
 export type {
   UserInfoHookPayload,
   SuccessHookPayload,
+  ImpersonateCheckPayload,
+  ImpersonateFetchTargetPayload,
+  ImpersonateStartPayload,
+  ImpersonateEndPayload,
 } from './hooks'
 
 // Config types
@@ -69,4 +74,6 @@ export type {
   EndpointConfig,
   NuxtAegisRuntimeConfig,
   ModuleOptions,
+  LoggingConfig,
+  ImpersonationConfig,
 } from './config'

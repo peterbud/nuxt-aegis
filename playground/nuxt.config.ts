@@ -67,6 +67,11 @@ export default defineNuxtConfig({
       enabled: true,
       automaticRefresh: true,
     },
+    // Impersonation configuration (opt-in feature)
+    impersonation: {
+      enabled: true,
+      tokenExpiration: 900, // 15 minutes for impersonated sessions
+    },
     // Logging configuration (optional)
     // logging: {
     //   Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info')
