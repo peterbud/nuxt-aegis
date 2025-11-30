@@ -27,9 +27,12 @@ Before diving into the benefits, it's important to understand how the pieces fit
 
 ### How It Works Together
 
-```
-User → Provider (Google/GitHub) → Nuxt Aegis → JWT Token → Your App (Database/Logic)
-       [Authenticates]           [Creates Token]           [Uses User Info]
+```mermaid
+flowchart TB
+    User((User)) -->|Authenticates| Provider[Provider<br />Google / GitHub]
+    Provider -->|Callback| Aegis[Nuxt Aegis]
+    Aegis -->|Creates Token| Token[JWT Token]
+    Token -->|Uses User Info| App[Your App<br />Database / Logic]
 ```
 
 **The flow:**

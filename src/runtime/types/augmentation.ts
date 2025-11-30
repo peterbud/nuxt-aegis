@@ -2,7 +2,7 @@ import type { NuxtAegisRuntimeConfig, RedirectConfig, LoggingConfig } from './co
 import type { TokenRefreshConfig } from './refresh'
 import type { TokenPayload } from './token'
 import type { RouteProtectionConfig } from './routes'
-import type { UserInfoHookPayload, SuccessHookPayload } from './hooks'
+import type { SuccessHookPayload } from './hooks'
 
 /**
  * Module augmentations for external libraries
@@ -27,12 +27,6 @@ declare module '@nuxt/schema' {
 
 declare module 'nitropack' {
   interface NitroRuntimeHooks {
-    /**
-     * Hook called after fetching user info from the provider.
-     * Use this to transform or enrich user data globally.
-     */
-    'nuxt-aegis:userInfo': (payload: UserInfoHookPayload) => Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
-
     /**
      * Hook called after successful authentication.
      * Use this for logging, analytics, or database operations.

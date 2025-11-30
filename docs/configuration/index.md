@@ -64,6 +64,12 @@ export default defineNuxtConfig({
       protectedRoutes: ['/dashboard/**', '/admin/**'],
       publicRoutes: ['/login', '/about'],
     },
+
+    // Impersonation Configuration
+    impersonation: {
+      enabled: false,                // Disabled by default
+      tokenExpiration: 900,          // 15 minutes
+    },
     
     // API Endpoint Configuration
     endpoints: {
@@ -164,6 +170,19 @@ Configure which routes require authentication.
 Use glob patterns for route matching:
 - `/dashboard/**` matches all routes under `/dashboard`
 - `/api/user/*` matches direct children of `/api/user`
+:::
+
+## Impersonation Configuration
+
+Configure the user impersonation feature.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `false` | Enable user impersonation feature |
+| `tokenExpiration` | `number` | `900` | Impersonation token expiration in seconds (15 mins) |
+
+::: warning Security Implication
+Impersonation is a powerful feature. Ensure only authorized administrators can access the impersonation endpoints.
 :::
 
 ## Provider Configuration

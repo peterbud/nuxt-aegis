@@ -169,11 +169,6 @@ export default defineNuxtConfig({
 })
 ```
 
-::: warning TypeScript Non-Null Assertion
-Use the `!` operator only when you're certain the environment variable exists. For better safety, add runtime validation.
-:::
-
-
 ## Security Best Practices
 
 ::: danger Production Security

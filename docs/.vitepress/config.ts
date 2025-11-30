@@ -80,6 +80,7 @@ export default defineConfig({
           { text: 'Client Authentication', link: '/guides/client-auth' },
           { text: 'Route Protection', link: '/guides/route-protection' },
           { text: 'Custom Claims', link: '/guides/custom-claims' },
+          { text: 'Logic Handlers', link: '/guides/handlers' },
           { text: 'Authentication Hooks', link: '/guides/hooks' },
           { text: 'Token Refresh', link: '/guides/token-refresh' },
           { text: 'Authorization CODE Flow', link: '/guides/authorization-code' },

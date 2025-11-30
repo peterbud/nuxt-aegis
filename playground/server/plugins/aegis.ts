@@ -1,8 +1,5 @@
 import type {
-  UserInfoHookPayload,
   SuccessHookPayload,
-  ImpersonateCheckPayload,
-  ImpersonateFetchTargetPayload,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
 } from '../../../src/runtime/types'
@@ -14,6 +11,7 @@ import {
   dbLinkProviderToUser,
   dbUpdateUser,
 } from '../utils/db'
+import { defineAegisHandler } from '../../../src/runtime/server/utils/handler'
 
 /**
  * Example Nuxt Aegis server plugin demonstrating global hook usage
@@ -27,32 +25,83 @@ import {
 
 export default defineNitroPlugin((nitroApp) => {
   /**
-   * Global user info transformation hook
-   * Called after fetching user info from any provider, before storing it
-   *
-   * Use this to:
-   * - Normalize user data across providers
-   * - Add custom fields to all user objects
-   * - Enrich user data from external sources
-   *
-   * IMPORTANT: This hook modifies the payload.providerUserInfo object in place.
-   * Return the modified user object to use it.
+   * Register Aegis Handler for logic
    */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
-  nitroApp.hooks.hook('nuxt-aegis:userInfo', async (payload: UserInfoHookPayload) => {
-    // Example: Add a custom field to all users
-    // This demonstrates global user transformation across all providers
-    payload.providerUserInfo.authenticatedAt = new Date().toISOString()
-    payload.providerUserInfo.authProvider = payload.provider
+  defineAegisHandler({
+    /**
+     * Global user info transformation
+     * Called after fetching user info from any provider, before storing it
+     */
+    onUserInfo: async (payload) => {
+      // Example: Add a custom field to all users
+      payload.providerUserInfo.authenticatedAt = new Date().toISOString()
+      payload.providerUserInfo.authProvider = payload.provider
 
-    // You can also normalize user data here
-    // For example, ensure all users have a consistent 'id' field
-    if (!payload.providerUserInfo.id && payload.providerUserInfo.sub) {
-      payload.providerUserInfo.id = payload.providerUserInfo.sub
-    }
+      // You can also normalize user data here
+      if (!payload.providerUserInfo.id && payload.providerUserInfo.sub) {
+        payload.providerUserInfo.id = payload.providerUserInfo.sub
+      }
 
-    // Return the modified user object so it gets used
-    return payload.providerUserInfo
+      // Return the modified user object so it gets used
+      return payload.providerUserInfo
+    },
+
+    impersonation: {
+      /**
+       * Impersonation check
+       * Validates if the requesting user is allowed to impersonate others
+       */
+      canImpersonate: async (requester, _targetId, _event) => {
+        console.log('[Aegis Plugin] Impersonation check:', {
+          requester: requester.email,
+          role: requester.role,
+        })
+
+        // Check if user has admin role
+        if (requester.role !== 'admin') {
+          return false
+        }
+
+        return true
+      },
+
+      /**
+       * Fetch target user
+       * Retrieves the target user data for impersonation
+       */
+      fetchTarget: async (targetUserId, _event) => {
+        console.log('[Aegis Plugin] Fetching target user:', {
+          targetUserId: targetUserId,
+        })
+
+        // Try to find user by ID or email
+        let targetUser = dbGetUserById(targetUserId)
+        if (!targetUser) {
+          targetUser = dbGetUserProfile(targetUserId)
+        }
+
+        if (!targetUser) {
+          return null
+        }
+
+        console.log('[Aegis Plugin] Target user found:', {
+          targetEmail: targetUser.email,
+          targetRole: targetUser.role,
+        })
+
+        // Return user data that will become JWT claims
+        return {
+          sub: targetUser.id || targetUser.email,
+          id: targetUser.id,
+          email: targetUser.email,
+          name: targetUser.name,
+          picture: targetUser.picture,
+          role: targetUser.role,
+          permissions: targetUser.permissions,
+          organizationId: targetUser.organizationId,
+        }
+      },
+    },
   })
 
   /**
@@ -110,89 +159,6 @@ export default defineNitroPlugin((nitroApp) => {
         user = newUser
         // user = existingUser
       }
-    }
-  })
-
-  /**
-   * Impersonation check hook
-   * Validates if the requesting user is allowed to impersonate others
-   *
-   * Default implementation: Only users with 'admin' role can impersonate
-   * Throw an error to deny impersonation
-   */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
-  nitroApp.hooks.hook('nuxt-aegis:impersonate:check', async (payload: ImpersonateCheckPayload) => {
-    console.log('[Aegis Plugin] Impersonation check:', {
-      requester: payload.requester.email,
-      role: payload.requester.role,
-      ip: payload.ip,
-    })
-
-    // Check if user has admin role
-    if (payload.requester.role !== 'admin') {
-      throw createError({
-        statusCode: 403,
-        message: 'Only administrators can impersonate users',
-      })
-    }
-
-    // Passed - user is allowed to impersonate
-  })
-
-  /**
-   * Fetch target user hook
-   * Retrieves the target user data for impersonation
-   *
-   * This hook should populate result.userData or throw 404 if not found
-   * Supports lookup by ID or email
-   */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
-  nitroApp.hooks.hook('nuxt-aegis:impersonate:fetchTarget', async (
-    payload: ImpersonateFetchTargetPayload,
-    result: { userData?: Record<string, unknown> },
-  ) => {
-    console.log('[Aegis Plugin] Fetching target user:', {
-      requester: payload.requester.email,
-      targetUserId: payload.targetUserId,
-    })
-
-    // Try to find user by ID or email
-    let targetUser = dbGetUserById(payload.targetUserId)
-    if (!targetUser) {
-      targetUser = dbGetUserProfile(payload.targetUserId)
-    }
-
-    if (!targetUser) {
-      throw createError({
-        statusCode: 404,
-        message: `Target user not found: ${payload.targetUserId}`,
-      })
-    }
-
-    // Optional: Check if requester can impersonate this specific user
-    // For example, only allow impersonating users in the same organization
-    if (payload.requester.organizationId && targetUser.organizationId !== payload.requester.organizationId) {
-      throw createError({
-        statusCode: 403,
-        message: 'Cannot impersonate users from different organizations',
-      })
-    }
-
-    console.log('[Aegis Plugin] Target user found:', {
-      targetEmail: targetUser.email,
-      targetRole: targetUser.role,
-    })
-
-    // Populate result.userData with fields that will become JWT claims
-    result.userData = {
-      sub: targetUser.id || targetUser.email,
-      id: targetUser.id,
-      email: targetUser.email,
-      name: targetUser.name,
-      picture: targetUser.picture,
-      role: targetUser.role,
-      permissions: targetUser.permissions,
-      organizationId: targetUser.organizationId,
     }
   })
 

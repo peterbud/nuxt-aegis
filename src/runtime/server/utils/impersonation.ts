@@ -3,8 +3,6 @@ import { createError } from 'h3'
 import type {
   TokenPayload,
   ImpersonationContext,
-  ImpersonateCheckPayload,
-  ImpersonateFetchTargetPayload,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
 } from '../../types'
@@ -12,6 +10,7 @@ import { generateToken } from './jwt'
 import { useRuntimeConfig, useNitroApp } from '#imports'
 import { createLogger } from './logger'
 import { generateAndStoreRefreshToken } from './refreshToken'
+import { useAegisHandler } from './handler'
 
 const logger = createLogger('Impersonation')
 
@@ -45,11 +44,13 @@ function getClientInfo(event: H3Event): { ip?: string, userAgent?: string } {
 /**
  * Check if the requester is allowed to impersonate other users
  * @param requester - The user requesting impersonation
+ * @param targetUserId - The ID of the user to impersonate
  * @param event - H3 event for context
  * @throws 403 error if impersonation is not allowed
  */
 export async function checkImpersonationAllowed(
   requester: TokenPayload,
+  targetUserId: string,
   event: H3Event,
 ): Promise<void> {
   // Check if feature is enabled
@@ -63,44 +64,25 @@ export async function checkImpersonationAllowed(
     })
   }
 
-  const { ip, userAgent } = getClientInfo(event)
+  const handler = useAegisHandler()
 
-  // Call hook to check if impersonation is allowed
-  const nitroApp = useNitroApp()
-  const payload: ImpersonateCheckPayload = {
-    requester,
-    targetUserId: '', // Not needed for check
-    event,
-    ip: ip || '',
-    userAgent: userAgent || '',
+  // Use handler if defined
+  if (handler?.impersonation?.canImpersonate) {
+    const allowed = await handler.impersonation.canImpersonate(requester, targetUserId, event)
+    if (!allowed) {
+      throw createError({
+        statusCode: 403,
+        message: 'Insufficient permissions to impersonate users',
+      })
+    }
+    return
   }
 
-  try {
-    // Default implementation: check if user has 'admin' role
-    // Users can override this by implementing the hook in their server plugin
-    await nitroApp.hooks.callHook('nuxt-aegis:impersonate:check', payload)
-
-    // If no hook is registered, use default check
-    const hookListeners = nitroApp.hooks.hookOnce('nuxt-aegis:impersonate:check', () => { })
-    if (!hookListeners || hookListeners.length === 0) {
-      // Default: check for admin role
-      if (requester.role !== 'admin') {
-        throw createError({
-          statusCode: 403,
-          message: 'Insufficient permissions to impersonate users',
-        })
-      }
-    }
-  }
-  catch (error: unknown) {
-    // If the hook threw an error, it means impersonation is not allowed
-    const err = error as { statusCode?: number, message?: string }
-    if (err.statusCode) {
-      throw error
-    }
+  // Default: check for admin role
+  if (requester.role !== 'admin') {
     throw createError({
       statusCode: 403,
-      message: err.message || 'Impersonation not allowed',
+      message: 'Insufficient permissions to impersonate users',
     })
   }
 }
@@ -119,29 +101,26 @@ export async function fetchTargetUser(
   targetUserId: string,
   event: H3Event,
 ): Promise<Record<string, unknown>> {
-  const nitroApp = useNitroApp()
+  const handler = useAegisHandler()
 
-  // Create a result container that the hook will populate
-  const result: { userData?: Record<string, unknown> } = {}
-
-  const payload: ImpersonateFetchTargetPayload = {
-    requester,
-    targetUserId,
-    event,
+  if (!handler?.impersonation?.fetchTarget) {
+    throw createError({
+      statusCode: 500,
+      message: 'Impersonation requires implementing fetchTarget handler.',
+    })
   }
 
   try {
-    // Call hook to fetch target user - hook should populate result.userData
-    await nitroApp.hooks.callHook('nuxt-aegis:impersonate:fetchTarget', payload, result)
+    const targetUser = await handler.impersonation.fetchTarget(targetUserId, event)
 
-    if (!result.userData) {
+    if (!targetUser) {
       throw createError({
-        statusCode: 500,
-        message: 'Impersonation requires implementing nuxt-aegis:impersonate:fetchTarget hook in a server plugin. The hook must set result.userData with the target user object.',
+        statusCode: 404,
+        message: `Target user not found: ${targetUserId}`,
       })
     }
 
-    return result.userData
+    return targetUser
   }
   catch (error: unknown) {
     const err = error as { statusCode?: number, message?: string }
@@ -255,7 +234,7 @@ export async function startImpersonation(
   event: H3Event,
 ): Promise<string> {
   // 1. Check if impersonation is allowed
-  await checkImpersonationAllowed(requester, event)
+  await checkImpersonationAllowed(requester, targetUserId, event)
 
   // 2. Fetch target user data
   const targetUserData = await fetchTargetUser(requester, targetUserId, event)

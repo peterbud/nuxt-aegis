@@ -36,59 +36,57 @@ export default defineNuxtConfig({
 | `enabled` | `boolean` | `false` | Enable or disable impersonation feature |
 | `tokenExpiration` | `number` | `900` | Impersonated token expiration in seconds |
 
-## Required Hooks
+## Required Handlers
 
-To use impersonation, you must implement at least two Nitro hooks in a server plugin:
+To use impersonation, you must implement the `impersonation` handlers using `defineAegisHandler` in a server plugin.
 
-### 1. Authorization Check Hook
+### Implementation Example
 
 ```typescript
 // server/plugins/aegis.ts
 export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('nuxt-aegis:impersonate:check', async (payload) => {
-    // Check if user is allowed to impersonate
-    if (payload.requester.role !== 'admin') {
-      throw createError({
-        statusCode: 403,
-        message: 'Only administrators can impersonate users',
-      })
+  defineAegisHandler({
+    impersonation: {
+      // 1. Authorization Check (Optional, defaults to allowing if fetchTarget succeeds)
+      canImpersonate: async (requester, targetId, event) => {
+        // Check if user is allowed to impersonate
+        if (requester.role !== 'admin') {
+          return false
+        }
+        return true
+      },
+
+      // 2. Fetch Target User (Required)
+      fetchTarget: async (targetUserId, event) => {
+        // Fetch the target user from your database
+        const targetUser = await getUserById(targetUserId)
+        
+        if (!targetUser) {
+          return null
+        }
+        
+        // Optional: Additional authorization checks
+        if (requester.organizationId !== targetUser.organizationId) {
+           // You can throw errors for specific messages
+           throw createError({
+             statusCode: 403,
+             message: 'Cannot impersonate users from different organizations',
+           })
+        }
+        
+        // Return user data that will become JWT claims
+        return {
+          sub: targetUser.id,
+          email: targetUser.email,
+          name: targetUser.name,
+          picture: targetUser.picture,
+          role: targetUser.role,
+          permissions: targetUser.permissions,
+          // ... any other custom claims
+        }
+      }
     }
   })
-})
-```
-
-### 2. Fetch Target User Hook
-
-```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:fetchTarget', async (payload, result) => {
-  // Fetch the target user from your database
-  const targetUser = await getUserById(payload.targetUserId)
-  
-  if (!targetUser) {
-    throw createError({
-      statusCode: 404,
-      message: `User not found: ${payload.targetUserId}`,
-    })
-  }
-  
-  // Optional: Additional authorization checks
-  if (payload.requester.organizationId !== targetUser.organizationId) {
-    throw createError({
-      statusCode: 403,
-      message: 'Cannot impersonate users from different organizations',
-    })
-  }
-  
-  // Populate result with user data that will become JWT claims
-  result.userData = {
-    sub: targetUser.id,
-    email: targetUser.email,
-    name: targetUser.name,
-    picture: targetUser.picture,
-    role: targetUser.role,
-    permissions: targetUser.permissions,
-    // ... any other custom claims
-  }
 })
 ```
 

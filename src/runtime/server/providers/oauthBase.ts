@@ -234,18 +234,19 @@ export function defineOAuthEventHandler<
         providerUserInfo = await _onUserInfo(providerUserInfo, tokens, event)
       }
       else {
-        // Call Nitro hook as fallback for global transformation
-        const nitroApp = useNitroApp()
-        const hookPayload: UserInfoHookPayload = {
-          providerUserInfo,
-          tokens,
-          provider: implementation.runtimeConfigKey,
-          event,
-        }
-        const transformedUser = await nitroApp.hooks.callHook('nuxt-aegis:userInfo', hookPayload)
-        // Use the transformed user if hook returned a value
-        if (transformedUser) {
-          providerUserInfo = transformedUser
+        // Call Aegis Handler as fallback for global transformation
+        const handler = useAegisHandler()
+        if (handler?.onUserInfo) {
+          const hookPayload: UserInfoHookPayload = {
+            providerUserInfo,
+            tokens,
+            provider: implementation.runtimeConfigKey,
+            event,
+          }
+          const transformedUser = await handler.onUserInfo(hookPayload)
+          if (transformedUser) {
+            providerUserInfo = transformedUser
+          }
         }
       }
 
