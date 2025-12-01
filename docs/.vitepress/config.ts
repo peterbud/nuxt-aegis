@@ -5,6 +5,7 @@ import MermaidExample from './mermaid-markdown-all'
 export default defineConfig({
   title: 'Nuxt Aegis',
   description: 'OAuth-based authentication with JWT token management for Nuxt 3/4',
+  head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
 
   vite: {
     ssr: {
