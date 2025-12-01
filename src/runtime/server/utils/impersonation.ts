@@ -162,7 +162,7 @@ export async function generateImpersonatedToken(
   // Create impersonation context with essential original user fields
   // Store all original user claims for restoration
   const originalClaims: Record<string, unknown> = {}
-  const standardTokenFields = ['sub', 'id', 'email', 'name', 'picture', 'iat', 'exp', 'iss', 'aud', 'impersonation']
+  const standardTokenFields = ['sub', 'id', 'email', 'name', 'picture', 'provider', 'iat', 'exp', 'iss', 'aud', 'impersonation']
 
   for (const [key, value] of Object.entries(requester)) {
     if (!standardTokenFields.includes(key)) {
@@ -185,12 +185,13 @@ export async function generateImpersonatedToken(
     email: targetUserData.email as string | undefined,
     name: targetUserData.name as string | undefined,
     picture: targetUserData.picture as string | undefined,
+    provider: targetUserData.provider as string | undefined,
     impersonation: impersonationContext,
   }
 
   // Include custom fields from target user data directly as claims
   // Filter out standard fields to avoid duplication
-  const standardFields = ['sub', 'id', 'email', 'name', 'picture', 'iat', 'exp', 'iss', 'aud']
+  const standardFields = ['sub', 'id', 'email', 'name', 'picture', 'provider', 'iat', 'exp', 'iss', 'aud']
   const customClaims: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(targetUserData)) {
@@ -345,10 +346,11 @@ export async function endImpersonation(
       ? (originalUserData.name as string | undefined)
       : impersonation.originalUserName,
     picture: originalUserData?.picture as string | undefined,
+    provider: (originalUserData?.provider || impersonation.originalClaims?.provider) as string | undefined,
   }
 
   // Include custom fields from original user data (only if we fetched fresh data)
-  const standardFields = ['sub', 'id', 'email', 'name', 'picture', 'iat', 'exp', 'iss', 'aud', 'impersonation']
+  const standardFields = ['sub', 'id', 'email', 'name', 'picture', 'provider', 'iat', 'exp', 'iss', 'aud', 'impersonation']
   const customClaims: Record<string, unknown> = {}
 
   if (originalUserData) {
@@ -361,7 +363,10 @@ export async function endImpersonation(
   }
   else if (impersonation.originalClaims) {
     // Fall back to stored original claims
-    Object.assign(customClaims, impersonation.originalClaims)
+    // Filter out provider since it's now in the main payload
+    const filteredClaims = { ...impersonation.originalClaims }
+    delete filteredClaims.provider
+    Object.assign(customClaims, filteredClaims)
   }
 
   // Generate normal JWT with standard expiration

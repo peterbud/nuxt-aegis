@@ -109,6 +109,7 @@ export default defineEventHandler(async (event) => {
       email: providerUserInfo.email as string | undefined,
       name: providerUserInfo.name as string | undefined,
       picture: providerUserInfo.picture as string | undefined,
+      provider, // Include provider name in JWT payload
     }
 
     // EP-28b: Generate new access token with user data and custom claims

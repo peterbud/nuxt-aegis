@@ -45,6 +45,7 @@ export async function generateAuthTokens(
     email: providerUserInfo.email as string | undefined,
     name: providerUserInfo.name as string | undefined,
     picture: providerUserInfo.picture as string | undefined,
+    provider, // Include provider name in JWT payload
   }
 
   // EP-14, EP-14a: Generate and store refresh token with complete user object

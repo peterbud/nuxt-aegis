@@ -54,6 +54,8 @@ export interface TokenPayload {
    * Better to use a URL pointing to the image location or leave it empty
    */
   picture?: string
+  /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0', 'password', 'mock') */
+  provider?: string
   /** JT-5: Issuer claim - identifies who issued the token */
   iss?: string
   /** JT-9: Audience claim - identifies the recipients of the token */
