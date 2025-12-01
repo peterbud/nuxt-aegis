@@ -34,5 +34,8 @@ export default defineNuxtConfig({
         },
       },
     },
+    logging: {
+      level: 'silent',
+    },
   },
 })

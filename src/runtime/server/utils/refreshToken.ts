@@ -222,3 +222,34 @@ export async function generateAndStoreRefreshToken(
 
   return refreshToken
 }
+
+/**
+ * Delete all refresh tokens for a specific user
+ * Used during password change or account deletion
+ * @param email - User email to match
+ * @param exceptTokenHash - Optional token hash to preserve (e.g. current session)
+ * @param event - H3 event for runtime config access
+ */
+export async function deleteUserRefreshTokens(
+  email: string,
+  exceptTokenHash?: string,
+  event?: H3Event,
+): Promise<void> {
+  const storage = useStorage('refreshTokenStore')
+  const keys = await storage.getKeys()
+  const normalizedEmail = email.toLowerCase()
+
+  for (const key of keys) {
+    // key is the tokenHash
+    if (key === exceptTokenHash) continue
+
+    const data = await getRefreshTokenData(key, event)
+    if (!data) continue
+
+    const userEmail = (data.providerUserInfo?.email as string)?.toLowerCase()
+
+    if (userEmail === normalizedEmail) {
+      await deleteRefreshTokenData(key)
+    }
+  }
+}

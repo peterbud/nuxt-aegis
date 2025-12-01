@@ -10,6 +10,8 @@ import {
   dbGetUserById,
   dbLinkProviderToUser,
   dbUpdateUser,
+  dbGetUserByEmail,
+  dbCreateOrUpdatePasswordUser,
 } from '../utils/db'
 import { defineAegisHandler } from '../../../src/runtime/server/utils/handler'
 
@@ -28,6 +30,50 @@ export default defineNitroPlugin((nitroApp) => {
    * Register Aegis Handler for logic
    */
   defineAegisHandler({
+    /**
+     * Password authentication handler
+     * Required for password provider
+     */
+    password: {
+      /**
+       * Find a user by email
+       * Used during login and registration checks
+       */
+      findUser: async (email) => {
+        const user = dbGetUserByEmail(email)
+        if (!user || !user.hashedPassword) {
+          return null
+        }
+        return {
+          id: user.id,
+          email: user.email,
+          hashedPassword: user.hashedPassword,
+          name: user.name,
+          picture: user.picture,
+          role: user.role,
+          permissions: user.permissions,
+          organizationId: user.organizationId,
+        }
+      },
+
+      /**
+       * Create or update a user with password
+       * Called after successful registration or password change
+       */
+      upsertUser: async (user) => {
+        dbCreateOrUpdatePasswordUser(user.email, user.hashedPassword)
+      },
+
+      /**
+       * Send verification code to user
+       * In a real app, integrate with email service (SendGrid, Mailgun, etc.)
+       * This demo logs to console for testing
+       */
+      sendVerificationCode: async (email, code, type) => {
+        const { sendMagicCodeEmail } = await import('../utils/sendEmail')
+        await sendMagicCodeEmail(email, code, type)
+      },
+    },
     /**
      * Global user info transformation
      * Called after fetching user info from any provider, before storing it
@@ -122,6 +168,19 @@ export default defineNitroPlugin((nitroApp) => {
 
     if (!userEmail) {
       console.error('User email is missing, cannot process user persistence')
+      return
+    }
+
+    // Handle password provider differently
+    if (providerName === 'password') {
+      // Password provider already created/updated the user via onUserPersist
+      // Just ensure the user exists in our database
+      const user = dbGetUserProfile(userEmail)
+
+      if (user) {
+        dbUpdateUser(user.id, { lastLogin: new Date().toISOString() })
+        console.log(`[Aegis Plugin] Password user ${user.email} logged in.`)
+      }
       return
     }
 

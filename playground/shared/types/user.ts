@@ -14,4 +14,5 @@ export type User = {
   lastLogin: string
   organizationId: string
   providers?: Provider[]
+  hashedPassword?: string // For password authentication
 }

@@ -58,6 +58,15 @@ export default defineNuxtConfig({
         },
         defaultUser: 'user',
       },
+      // Password provider for username/password authentication
+      password: {
+        magicCodeTTL: 600, // 10 minutes
+        magicCodeMaxAttempts: 5,
+        passwordHashRounds: 12,
+        passwordPolicy: {
+          minLength: 8,
+        },
+      },
     },
     token: {
       secret: process.env.NUXT_AEGIS_TOKEN_SECRET || '',

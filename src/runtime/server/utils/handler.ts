@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import type { UserInfoHookPayload } from '../../types/hooks'
 import type { TokenPayload } from '../../types/token'
+import type { PasswordUser } from '../../types/providers'
 
 export interface AegisHandler {
   /**
@@ -9,6 +10,50 @@ export interface AegisHandler {
    * Return the modified user object to use it.
    */
   onUserInfo?: (payload: UserInfoHookPayload) => Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
+
+  /**
+   * Password authentication handler.
+   * Required if password provider is enabled.
+   */
+  password?: {
+    /**
+     * Find a user by email.
+     * Used during login and registration checks.
+     * Return null if user is not found.
+     */
+    findUser: (email: string) => Promise<PasswordUser | null> | PasswordUser | null
+
+    /**
+     * Create or update a user.
+     * Called after successful registration or password change.
+     */
+    upsertUser: (user: PasswordUser) => Promise<void> | void
+
+    /**
+     * Send a verification code to the user.
+     * Called during registration, login, and password reset.
+     */
+    sendVerificationCode: (email: string, code: string, action: 'register' | 'login' | 'reset') => Promise<void> | void
+
+    /**
+     * Validate password strength.
+     * Override default validation logic.
+     * Return true if valid, or an array of error messages.
+     */
+    validatePassword?: (password: string) => Promise<boolean | string[]> | boolean | string[]
+
+    /**
+     * Hash a password.
+     * Override default bcrypt hashing.
+     */
+    hashPassword?: (password: string) => Promise<string> | string
+
+    /**
+     * Verify a password against a hash.
+     * Override default bcrypt verification.
+     */
+    verifyPassword?: (password: string, hash: string) => Promise<boolean> | boolean
+  }
 
   /**
    * Impersonation logic.

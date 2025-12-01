@@ -179,6 +179,28 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
+    // Password provider endpoints
+    if (options.providers?.password) {
+      const passwordRoutes = [
+        { path: 'password/register', file: 'register.post', method: 'post' as const },
+        { path: 'password/register-verify', file: 'register-verify.get', method: 'get' as const },
+        { path: 'password/login', file: 'login.post', method: 'post' as const },
+        { path: 'password/login-verify', file: 'login-verify.get', method: 'get' as const },
+        { path: 'password/reset-request', file: 'reset-request.post', method: 'post' as const },
+        { path: 'password/reset-verify', file: 'reset-verify.get', method: 'get' as const },
+        { path: 'password/reset-complete', file: 'reset-complete.post', method: 'post' as const },
+        { path: 'password/change', file: 'change.post', method: 'post' as const },
+      ]
+
+      for (const route of passwordRoutes) {
+        addServerHandler({
+          route: `${runtimeConfig.public.nuxtAegis.authPath}/${route.path}`,
+          handler: resolver.resolve(`./runtime/server/routes/password/${route.file}`),
+          method: route.method,
+        })
+      }
+    }
+
     // MW-1: Authentication middleware
     addServerHandler({
       handler: resolver.resolve('./runtime/server/middleware/auth'),
@@ -238,6 +260,16 @@ export default defineNuxtModule<ModuleOptions>({
     // Use memory driver for short-lived codes (60s default, better performance, O(1) lookup)
     // PR-11: Server-side in-memory key-value store for temporary CODE storage
     nuxt.options.nitro.storage.authCodeStore = defu(nuxt.options.nitro.storage.authCodeStore, {
+      driver: 'memory',
+    })
+
+    // Magic code storage (memory)
+    nuxt.options.nitro.storage.magicCodeStore = defu(nuxt.options.nitro.storage.magicCodeStore, {
+      driver: 'memory',
+    })
+
+    // Reset session storage (memory)
+    nuxt.options.nitro.storage.resetSessionStore = defu(nuxt.options.nitro.storage.resetSessionStore, {
       driver: 'memory',
     })
 

@@ -85,6 +85,7 @@ export default defineConfig({
           { text: 'Token Refresh', link: '/guides/token-refresh' },
           { text: 'Authorization CODE Flow', link: '/guides/authorization-code' },
           { text: 'Impersonation', link: '/guides/impersonation' },
+          { text: 'Password Authentication', link: '/guides/password-auth' },
         ],
       },
       {

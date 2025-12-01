@@ -123,3 +123,46 @@ export function dbLinkProviderToUser(userId: string, provider: Provider): User |
   user.providers.push(provider)
   return user
 }
+
+/**
+ * Mock database function to get user by email (case-insensitive)
+ * Used for password authentication
+ * @param email - The email address to search for
+ * @returns The user or null if not found
+ */
+export function dbGetUserByEmail(email: string): User | null {
+  return dbGetUserProfile(email)
+}
+
+/**
+ * Mock database function to create or update a password user
+ * @param email - The user's email
+ * @param hashedPassword - The hashed password
+ * @returns The created or updated user
+ */
+export function dbCreateOrUpdatePasswordUser(email: string, hashedPassword: string): User {
+  const normalizedEmail = email.toLowerCase().trim()
+  const existingUser = dbGetUserByEmail(normalizedEmail)
+
+  if (existingUser) {
+    // Update existing user's password
+    const updated = dbUpdateUser(existingUser.id, { hashedPassword })
+    return updated!
+  }
+  else {
+    // Create new user with password
+    const newUser = dbAddUser({
+      email: normalizedEmail,
+      name: normalizedEmail.split('@')[0], // Use email prefix as name
+      picture: '',
+      role: 'user',
+      permissions: ['read'],
+      organizationId: 'default',
+      providers: [{ name: 'password', id: normalizedEmail }],
+    })
+
+    // Update with hashed password
+    const updated = dbUpdateUser(newUser.id, { hashedPassword })
+    return updated!
+  }
+}

@@ -8,6 +8,20 @@ const impersonateReason = ref('')
 const demoResponse = ref()
 const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation } = useAuth()
 
+// Password authentication state
+const passwordMode = ref<'login' | 'register' | 'reset' | null>(null)
+const passwordEmail = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+const verificationCode = ref('')
+const newPassword = ref('')
+const currentPassword = ref('')
+const passwordError = ref<string | null>(null)
+const passwordSuccess = ref<string | null>(null)
+const showPasswordChange = ref(false)
+const resetSessionId = ref<string | null>(null)
+const pendingVerification = ref(false)
+
 const loginWithGoogle = async () => {
   login('google')
 }
@@ -98,6 +112,203 @@ const testDemoRoute = async () => {
     error.value = (err as Error).message || 'Failed to fetch demo route'
   }
 }
+
+// Password authentication functions
+const handlePasswordRegister = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!passwordEmail.value || !password.value) {
+    passwordError.value = 'Email and password are required'
+    return
+  }
+
+  if (password.value !== confirmPassword.value) {
+    passwordError.value = 'Passwords do not match'
+    return
+  }
+
+  try {
+    const response = await $fetch<{ success: boolean }>('/auth/password/register', {
+      method: 'POST',
+      body: {
+        email: passwordEmail.value,
+        password: password.value,
+      },
+    })
+
+    if (response.success) {
+      pendingVerification.value = true
+      passwordSuccess.value = 'Registration initiated! Check console for verification code.'
+    }
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Registration failed'
+  }
+}
+
+const handlePasswordLogin = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!passwordEmail.value || !password.value) {
+    passwordError.value = 'Email and password are required'
+    return
+  }
+
+  try {
+    const response = await $fetch<{ success: boolean }>('/auth/password/login', {
+      method: 'POST',
+      body: {
+        email: passwordEmail.value,
+        password: password.value,
+      },
+    })
+
+    if (response.success) {
+      pendingVerification.value = true
+      passwordSuccess.value = 'Login initiated! Check console for verification code.'
+    }
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Login failed'
+  }
+}
+
+const handlePasswordReset = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!passwordEmail.value) {
+    passwordError.value = 'Email is required'
+    return
+  }
+
+  try {
+    await $fetch('/auth/password/reset-request', {
+      method: 'POST',
+      body: {
+        email: passwordEmail.value,
+      },
+    })
+
+    pendingVerification.value = true
+    passwordSuccess.value = 'If an account exists, a verification code has been sent. Check console.'
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Request failed'
+  }
+}
+
+const handleVerifyCode = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!verificationCode.value) {
+    passwordError.value = 'Verification code is required'
+    return
+  }
+
+  try {
+    if (passwordMode.value === 'reset') {
+      // Reset flow - use GET and follow redirect
+      const endpoint = 'reset-verify'
+      await navigateTo(`/auth/password/${endpoint}?code=${verificationCode.value}`, { external: true })
+    }
+    else {
+      // Register/login flow - use GET and follow redirect
+      const endpoint = passwordMode.value === 'register' ? 'register-verify' : 'login-verify'
+      await navigateTo(`/auth/password/${endpoint}?code=${verificationCode.value}`, { external: true })
+    }
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Verification failed'
+  }
+}
+
+const handleCompleteReset = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!newPassword.value || !confirmPassword.value) {
+    passwordError.value = 'Both password fields are required'
+    return
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'Passwords do not match'
+    return
+  }
+
+  if (!resetSessionId.value) {
+    passwordError.value = 'Invalid reset session'
+    return
+  }
+
+  try {
+    await $fetch('/auth/password/reset-complete', {
+      method: 'POST',
+      body: {
+        sessionId: resetSessionId.value,
+        newPassword: newPassword.value,
+      },
+    })
+
+    passwordSuccess.value = 'Password reset successful! You can now log in.'
+    resetPasswordMode()
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Password reset failed'
+  }
+}
+
+const handlePasswordChange = async () => {
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (!currentPassword.value || !newPassword.value || !confirmPassword.value) {
+    passwordError.value = 'All fields are required'
+    return
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'New passwords do not match'
+    return
+  }
+
+  try {
+    await $fetch('/auth/password/change', {
+      method: 'POST',
+      body: {
+        currentPassword: currentPassword.value,
+        newPassword: newPassword.value,
+      },
+    })
+
+    passwordSuccess.value = 'Password changed successfully!'
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    showPasswordChange.value = false
+  }
+  catch (err) {
+    passwordError.value = (err as { data?: { message?: string } }).data?.message || 'Password change failed'
+  }
+}
+
+const resetPasswordMode = () => {
+  passwordMode.value = null
+  passwordEmail.value = ''
+  password.value = ''
+  confirmPassword.value = ''
+  verificationCode.value = ''
+  newPassword.value = ''
+  currentPassword.value = ''
+  passwordError.value = null
+  passwordSuccess.value = null
+  pendingVerification.value = false
+  resetSessionId.value = null
+}
 </script>
 
 <template>
@@ -155,6 +366,232 @@ const testDemoRoute = async () => {
         >
           Login as Premium
         </button>
+      </div>
+
+      <!-- Password authentication forms -->
+      <div
+        v-if="!isLoggedIn"
+        style="margin: 15px 0; padding: 15px; background: #e3f2fd; border: 1px solid #2196F3; border-radius: 5px;"
+      >
+        <h3 style="margin-top: 0;">
+          🔐 Password Authentication
+        </h3>
+
+        <div
+          v-if="!passwordMode"
+          style="display: flex; gap: 8px; flex-wrap: wrap;"
+        >
+          <button
+            style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            @click="passwordMode = 'login'"
+          >
+            Login with Password
+          </button>
+          <button
+            style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            @click="passwordMode = 'register'"
+          >
+            Register New Account
+          </button>
+          <button
+            style="padding: 8px 16px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            @click="passwordMode = 'reset'"
+          >
+            Reset Password
+          </button>
+        </div>
+
+        <!-- Registration Form -->
+        <div
+          v-if="passwordMode === 'register' && !pendingVerification"
+          style="margin-top: 10px;"
+        >
+          <h4 style="margin: 10px 0;">
+            Register New Account
+          </h4>
+          <input
+            v-model="passwordEmail"
+            type="email"
+            placeholder="Email"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password (min 8 chars, uppercase, lowercase, number)"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirm Password"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handlePasswordRegister"
+            >
+              Register
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="resetPasswordMode"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Login Form -->
+        <div
+          v-if="passwordMode === 'login' && !pendingVerification"
+          style="margin-top: 10px;"
+        >
+          <h4 style="margin: 10px 0;">
+            Login with Password
+          </h4>
+          <input
+            v-model="passwordEmail"
+            type="email"
+            placeholder="Email"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handlePasswordLogin"
+            >
+              Login
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="resetPasswordMode"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Reset Request Form -->
+        <div
+          v-if="passwordMode === 'reset' && !pendingVerification && !resetSessionId"
+          style="margin-top: 10px;"
+        >
+          <h4 style="margin: 10px 0;">
+            Reset Password
+          </h4>
+          <input
+            v-model="passwordEmail"
+            type="email"
+            placeholder="Email"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handlePasswordReset"
+            >
+              Send Reset Code
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="resetPasswordMode"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Verification Code Form -->
+        <div
+          v-if="pendingVerification && !resetSessionId"
+          style="margin-top: 10px;"
+        >
+          <h4 style="margin: 10px 0;">
+            Enter Verification Code
+          </h4>
+          <p style="color: #666; font-size: 0.9em;">
+            Check the console for the 6-digit code
+          </p>
+          <input
+            v-model="verificationCode"
+            type="text"
+            placeholder="6-digit code"
+            maxlength="6"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handleVerifyCode"
+            >
+              Verify Code
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="resetPasswordMode"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Reset Complete Form -->
+        <div
+          v-if="resetSessionId"
+          style="margin-top: 10px;"
+        >
+          <h4 style="margin: 10px 0;">
+            Set New Password
+          </h4>
+          <input
+            v-model="newPassword"
+            type="password"
+            placeholder="New Password (min 8 chars, uppercase, lowercase, number)"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirm New Password"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handleCompleteReset"
+            >
+              Reset Password
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="resetPasswordMode"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="passwordSuccess"
+          style="margin-top: 10px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;"
+        >
+          {{ passwordSuccess }}
+        </div>
+
+        <div
+          v-if="passwordError"
+          style="margin-top: 10px; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;"
+        >
+          {{ passwordError }}
+        </div>
       </div>
       <button
         v-if="isLoggedIn"
@@ -295,6 +732,76 @@ const testDemoRoute = async () => {
             <li><code>user@example.com</code> or <code>2</code> - Regular user</li>
             <li><code>premium@example.com</code> or <code>3</code> - Premium user</li>
           </ul>
+        </div>
+      </div>
+
+      <!-- Password Change (for password-authenticated users) -->
+      <div
+        v-if="user?.provider === 'password' || user?.providers?.some((p: any) => p.name === 'password')"
+        style="margin: 15px 0; padding: 15px; background: #fff3e0; border: 1px solid #FF9800; border-radius: 5px;"
+      >
+        <h3 style="margin-top: 0; color: #E65100;">
+          🔑 Change Password
+        </h3>
+
+        <button
+          v-if="!showPasswordChange"
+          style="padding: 8px 16px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+          @click="showPasswordChange = true"
+        >
+          Change My Password
+        </button>
+
+        <div
+          v-if="showPasswordChange"
+          style="margin-top: 10px;"
+        >
+          <input
+            v-model="currentPassword"
+            type="password"
+            placeholder="Current Password"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="newPassword"
+            type="password"
+            placeholder="New Password (min 8 chars, uppercase, lowercase, number)"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Confirm New Password"
+            style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; display: block;"
+          >
+          <div style="display: flex; gap: 8px;">
+            <button
+              style="padding: 8px 16px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="handlePasswordChange"
+            >
+              Update Password
+            </button>
+            <button
+              style="padding: 8px 16px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;"
+              @click="showPasswordChange = false; currentPassword = ''; newPassword = ''; confirmPassword = ''; passwordError = null; passwordSuccess = null"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div
+            v-if="passwordSuccess"
+            style="margin-top: 10px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;"
+          >
+            {{ passwordSuccess }}
+          </div>
+
+          <div
+            v-if="passwordError"
+            style="margin-top: 10px; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;"
+          >
+            {{ passwordError }}
+          </div>
         </div>
       </div>
 

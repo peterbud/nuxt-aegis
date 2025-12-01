@@ -1,14 +1,23 @@
 # OAuth Providers
 
-Nuxt Aegis supports multiple OAuth providers out of the box, making it easy to add authentication to your application.
+Nuxt Aegis supports multiple OAuth providers out of the box, plus password-based authentication, making it easy to add authentication to your application.
 
 ## Supported Providers
+
+### OAuth 2.0 Providers
 
 - [Google](/providers/google) - Google OAuth 2.0
 - [Auth0](/providers/auth0) - Auth0 Universal Login
 - [GitHub](/providers/github) - GitHub OAuth Apps
-- [Mock Provider](/providers/mock) - Development and testing
 - [Custom Provider](/providers/custom) - Build your own
+
+### Password Authentication
+
+- [Password](/providers/password) - Username/password with email verification
+
+### Development
+
+- [Mock Provider](/providers/mock) - Development and testing
 
 ## Authorization Parameters
 
@@ -92,5 +101,6 @@ Event handler parameters override module configuration parameters if both are de
 
 - Learn how to configure [Google](/providers/google)
 - Set up [Auth0](/providers/auth0)
+- Configure [Password Authentication](/providers/password)
 - Use the [Mock Provider](/providers/mock) for testing
 - Build a [Custom Provider](/providers/custom)

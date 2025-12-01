@@ -5,6 +5,9 @@ export default defineConfig({
     // Environment
     environment: 'node',
 
+    // Don't highlight slow tests unless they take more than 5 seconds
+    slowTestThreshold: 5000,
+
     // Exclude patterns
     exclude: [
       'node_modules/**',
@@ -39,6 +42,7 @@ export default defineConfig({
             'test/google-mock.test.ts',
             'test/google-mock-errors.test.ts',
             'test/google-mock-protected.test.ts',
+            'test/password-auth.test.ts',
           ],
           pool: 'forks',
           poolOptions: {

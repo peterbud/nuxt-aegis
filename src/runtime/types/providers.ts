@@ -100,8 +100,46 @@ export interface Auth0ProviderConfig extends Partial<OAuthProviderConfig> {
 }
 
 /**
- * Mock OAuth provider configuration (development/testing only)
- * Enables testing OAuth flows without real provider credentials
+ * Password provider configuration
+ */
+export interface PasswordProviderConfig {
+  /** Magic code time-to-live in seconds (default: 600 = 10 minutes) */
+  magicCodeTTL?: number
+  /** Maximum magic code verification attempts (default: 5) */
+  magicCodeMaxAttempts?: number
+  /** Password hashing rounds (default: 12) */
+  passwordHashRounds?: number
+  /** Password policy configuration */
+  passwordPolicy?: {
+    /** Minimum password length (default: 8) */
+    minLength?: number
+    /** Require uppercase letter (default: true) */
+    requireUppercase?: boolean
+    /** Require lowercase letter (default: true) */
+    requireLowercase?: boolean
+    /** Require number (default: true) */
+    requireNumber?: boolean
+    /** Require special character (default: false) */
+    requireSpecial?: boolean
+  }
+}
+
+/**
+ * Password user interface
+ */
+export interface PasswordUser {
+  /** User ID (optional) */
+  id?: string
+  /** User email */
+  email: string
+  /** Hashed password */
+  hashedPassword: string
+  /** Additional user properties */
+  [key: string]: unknown
+}
+
+/**
+ * Mock provider configuration (for testing)
  */
 export interface MockProviderConfig extends Partial<OAuthProviderConfig> {
   /** Mock OAuth client ID (required, can be any string) */

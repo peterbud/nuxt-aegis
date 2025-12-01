@@ -8,5 +8,8 @@ export default defineNuxtConfig({
     token: {
       secret: 'secret_token',
     },
+    logging: {
+      level: 'silent',
+    },
   },
 })

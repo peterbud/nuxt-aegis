@@ -5,6 +5,7 @@ import type {
   Auth0ProviderConfig,
   MockProviderConfig,
   CustomProviderConfig,
+  PasswordProviderConfig,
 } from './providers'
 import type { TokenConfig, ClaimsValidationConfig } from './token'
 import type { TokenRefreshConfig } from './refresh'
@@ -85,6 +86,7 @@ export interface NuxtAegisRuntimeConfig {
     github?: GithubProviderConfig
     auth0?: Auth0ProviderConfig
     mock?: MockProviderConfig
+    password?: PasswordProviderConfig
   }
 }
 
@@ -110,6 +112,8 @@ export interface ModuleOptions {
     auth0?: Auth0ProviderConfig
     /** Mock OAuth provider configuration (development/testing only) */
     mock?: MockProviderConfig
+    /** Password provider configuration */
+    password?: PasswordProviderConfig
     /** Custom OAuth provider configurations */
     custom?: CustomProviderConfig[]
   }
