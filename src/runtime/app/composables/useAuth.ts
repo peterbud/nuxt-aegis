@@ -3,6 +3,7 @@ import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
 import type { TokenPayload } from '../../types'
 import { clearAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
+import { validateRedirectPath } from '../utils/redirectValidation'
 
 const logger = createLogger('Auth')
 
@@ -221,6 +222,8 @@ export function useAuth(): UseAuthReturn {
    * Method to end user session
    */
   async function logout(redirectTo?: string): Promise<void> {
+    const config = useRuntimeConfig()
+
     try {
       authState.value.error = null
 
@@ -236,17 +239,15 @@ export function useAuth(): UseAuthReturn {
       authState.value.user = null
       authState.value.error = 'Logout completed with errors'
       logger.error('Logout error:', error)
-
-      // Still redirect on error
-      const logoutRedirect = redirectTo || '/'
-      await navigateTo(logoutRedirect)
     }
     finally {
       // CL-19: Clear access token from memory (NOT sessionStorage)
       clearAccessToken()
 
-      // Redirect to specified URL or default
-      const logoutRedirect = redirectTo || '/'
+      // Redirect to specified URL (parameter takes precedence) or configured default
+      const logoutRedirect = redirectTo
+        ? validateRedirectPath(redirectTo)
+        : validateRedirectPath(config.public.nuxtAegis.redirect?.logout || '/')
       await navigateTo(logoutRedirect)
     }
   }

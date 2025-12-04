@@ -122,12 +122,15 @@ Redirect URL configuration.
 
 ```typescript
 interface RedirectConfig {
-  login?: string                      // Redirect after login (default: '/')
   logout?: string                     // Redirect after logout (default: '/')
   success?: string                    // Redirect after success (default: '/')
-  error?: string                      // Redirect on error (default: '/auth/error')
+  error?: string                      // Redirect on error (default: '/')
 }
 ```
+
+::: tip Security
+All redirect URLs must be relative paths (e.g., `/dashboard`) to prevent open redirect attacks.
+:::
 
 ### `RouteProtectionConfig`
 

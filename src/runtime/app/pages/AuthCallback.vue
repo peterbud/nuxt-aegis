@@ -19,12 +19,14 @@
  *
  * Requirements: CL-21, CL-22, CL-23, CL-24, EP-15, EP-16, EH-4
  */
-import { navigateTo } from '#app'
+import { navigateTo, useRuntimeConfig } from '#app'
 import { ref, onMounted } from 'vue'
 import { setAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
+import { validateRedirectPath } from '../utils/redirectValidation'
 
 const logger = createLogger('Callback')
+const config = useRuntimeConfig()
 const processing = ref(true)
 const error = ref<string | null>(null)
 
@@ -46,8 +48,10 @@ onMounted(async () => {
 
       processing.value = false
 
-      // TODO: Redirect to configurable error URL
-      setTimeout(() => navigateTo('/'), 3000)
+      // Redirect to configured error URL with error query params
+      const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
+      const errorDescription = urlParams.get('error_description') || 'Authentication failed'
+      await navigateTo(`${errorUrl}?error=${encodeURIComponent(errorParam)}&error_description=${encodeURIComponent(errorDescription)}`)
       return
     }
 
@@ -56,7 +60,10 @@ onMounted(async () => {
       error.value = 'Authentication failed. Please try again.'
       logger.error('No authorization code in URL')
       processing.value = false
-      setTimeout(() => navigateTo('/'), 3000)
+
+      // Redirect to configured error URL with error query params
+      const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
+      await navigateTo(`${errorUrl}?error=invalid_request&error_description=${encodeURIComponent('Authentication failed. Please try again.')}`)
       return
     }
 
@@ -75,7 +82,10 @@ onMounted(async () => {
       error.value = 'Authentication failed. Please try again.'
       logger.error('No access token in response')
       processing.value = false
-      setTimeout(() => navigateTo('/'), 3000)
+
+      // Redirect to configured error URL with error query params
+      const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
+      await navigateTo(`${errorUrl}?error=token_exchange_failed&error_description=${encodeURIComponent('Authentication failed. Please try again.')}`)
       return
     }
 
@@ -102,9 +112,9 @@ onMounted(async () => {
 
     processing.value = false
 
-    // Redirect to success URL or originally requested route
-    // TODO: Use configurable success URL
-    navigateTo('/')
+    // Redirect to configured success URL
+    const successUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.success || '/')
+    await navigateTo(successUrl)
   }
   catch (err) {
     // EH-4: Generic error message to prevent information leakage
@@ -112,8 +122,9 @@ onMounted(async () => {
     error.value = 'Authentication failed. Please try again.'
     processing.value = false
 
-    // Redirect after showing error
-    setTimeout(() => navigateTo('/'), 3000)
+    // Redirect to configured error URL with error query params
+    const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
+    await navigateTo(`${errorUrl}?error=processing_error&error_description=${encodeURIComponent('Authentication failed. Please try again.')}`)
   }
 })
 </script>

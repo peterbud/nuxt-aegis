@@ -43,9 +43,9 @@ REDIS_PASSWORD=your-redis-password
 REDIS_DB=0
 
 # Custom Redirect URLs
-NUXT_AEGIS_LOGIN_REDIRECT=/dashboard
 NUXT_AEGIS_LOGOUT_REDIRECT=/goodbye
-NUXT_AEGIS_ERROR_REDIRECT=/auth/error
+NUXT_AEGIS_SUCCESS_REDIRECT=/dashboard
+NUXT_AEGIS_ERROR_REDIRECT=/auth-failed
 ```
 
 ## .env File Setup

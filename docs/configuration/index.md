@@ -51,12 +51,11 @@ export default defineNuxtConfig({
       expiresIn: 60,                 // CODE lifetime in seconds
     },
     
-    // Redirect URLs after successful login/logout
+    // Redirect URLs after successful authentication/logout/errors
     redirect: {
-      login: '/',
       logout: '/',
       success: '/',
-      error: '/auth/error',
+      error: '/',
     },
     
     // Route Protection
@@ -152,10 +151,13 @@ Configure redirect URLs for different authentication scenarios.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `login` | `string` | `'/'` | Redirect after explicit login |
 | `logout` | `string` | `'/'` | Redirect after logout |
 | `success` | `string` | `'/'` | Redirect after successful auth |
-| `error` | `string` | `'/auth/error'` | Redirect on auth error |
+| `error` | `string` | `'/'` | Redirect on auth error |
+
+::: tip Security
+All redirect URLs must be relative paths starting with `/` to prevent open redirect vulnerabilities.
+:::
 
 ## Route Protection Configuration
 

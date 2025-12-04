@@ -20,13 +20,11 @@ import type { AuthCodeConfig } from './authCode'
  * Redirect URL configuration
  */
 export interface RedirectConfig {
-  /** Redirect URL for unauthenticated users (default: '/') */
-  login?: string
   /** Redirect URL after logout (default: '/') */
   logout?: string
   /** Redirect URL after successful authentication (default: '/') */
   success?: string
-  /** Redirect URL when authentication fails (default: '/auth/error') */
+  /** Redirect URL when authentication fails (default: '/') */
   error?: string
 }
 

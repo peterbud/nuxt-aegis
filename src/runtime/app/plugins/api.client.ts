@@ -1,8 +1,9 @@
-import { defineNuxtPlugin, navigateTo } from '#app'
+import { defineNuxtPlugin, navigateTo, useRuntimeConfig } from '#app'
 import { useAuth } from '#imports'
 import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
 import { isRouteMatch } from '../utils/routeMatching'
 import { createLogger } from '../utils/logger'
+import { validateRedirectPath } from '../utils/redirectValidation'
 
 const logger = createLogger('API')
 
@@ -69,10 +70,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           return
         }
 
-        // Refresh failed, clear token and redirect to login
+        // Refresh failed, clear token and redirect to configured error URL
         // CL-19: Clear token from memory, not sessionStorage
         clearAccessToken()
-        await nuxtApp.runWithContext(() => navigateTo('/'))
+        const config = useRuntimeConfig()
+        const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
+        await nuxtApp.runWithContext(() => navigateTo(`${errorUrl}?error=token_refresh_failed&error_description=${encodeURIComponent('Session expired. Please log in again.')}`))
       }
     },
     retry: autoRefreshEnabled ? 1 : 0,

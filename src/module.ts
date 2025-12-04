@@ -51,8 +51,9 @@ export default defineNuxtModule<ModuleOptions>({
       expiresIn: 60, // CS-4, CF-9: Authorization code expiry in seconds (default 60s)
     },
     redirect: {
-      login: '/',
       logout: '/',
+      success: '/',
+      error: '/',
     },
     routeProtection: {
       protectedRoutes: [],

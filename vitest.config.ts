@@ -43,6 +43,7 @@ export default defineConfig({
             'test/google-mock-errors.test.ts',
             'test/google-mock-protected.test.ts',
             'test/password-auth.test.ts',
+            'test/redirect-config.test.ts',
           ],
           pool: 'forks',
           poolOptions: {

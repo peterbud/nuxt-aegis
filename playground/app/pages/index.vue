@@ -42,7 +42,7 @@ const loginWithMock = async (userType?: string) => {
 
 const handleLogout = async () => {
   try {
-    await logout('/')
+    await logout()
   }
   catch (err) {
     console.error('Logout failed:', err)

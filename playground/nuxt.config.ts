@@ -81,6 +81,11 @@ export default defineNuxtConfig({
       enabled: true,
       tokenExpiration: 900, // 15 minutes for impersonated sessions
     },
+    // Redirect configuration
+    redirect: {
+      logout: '/logout-success',
+      error: '/auth-failed',
+    },
     // Logging configuration (optional)
     // logging: {
     //   Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info')
