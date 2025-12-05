@@ -13,7 +13,7 @@ export function hashRefreshToken(token: string): string {
 }
 
 /**
- * SC-17: Encrypt data using AES-256-GCM
+ * Encrypt data using AES-256-GCM
  * @param data - Data to encrypt
  * @param key - Encryption key (must be 32 bytes for AES-256)
  * @returns Encrypted data as base64 string with IV prepended
@@ -47,7 +47,7 @@ export function encryptData(data: unknown, key: string): string {
 }
 
 /**
- * SC-20: Decrypt data using AES-256-GCM
+ * Decrypt data using AES-256-GCM
  * @param encrypted - Encrypted data as base64 string
  * @param key - Encryption key (must be 32 bytes for AES-256)
  * @returns Decrypted data
@@ -91,7 +91,7 @@ export function getEncryptionConfig(event?: H3Event): EncryptionConfig {
 }
 
 /**
- * RS-11, SC-14: Store refresh token data in persistent storage
+ * Store refresh token data in persistent storage
  * Handles encryption transparently if enabled
  * @param tokenHash - Hashed refresh token (used as storage key)
  * @param data - Refresh token data to store
@@ -125,7 +125,7 @@ export async function storeRefreshTokenData(
 }
 
 /**
- * RS-11, SC-20: Retrieve refresh token data from persistent storage
+ * Retrieve refresh token data from persistent storage
  * Handles decryption transparently if enabled
  * @param tokenHash - Hashed refresh token (storage key)
  * @param event - H3 event for runtime config access
@@ -166,7 +166,7 @@ export async function deleteRefreshTokenData(
 }
 
 /**
- * RS-7, SC-15: Revoke a refresh token (mark as revoked without deleting)
+ * Revoke a refresh token (mark as revoked without deleting)
  * @param tokenHash - Hashed refresh token (storage key)
  * @param event - H3 event for runtime config access
  */
@@ -190,7 +190,6 @@ export async function revokeRefreshToken(
 
 /**
  * Generates a refresh token and stores it with user data
- * RS-1, RS-2, RS-3, RS-4, RS-8
  *
  * @param providerUserInfo - Complete OAuth provider user data
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')

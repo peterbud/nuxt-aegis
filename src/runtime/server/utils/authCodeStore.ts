@@ -13,26 +13,22 @@ const logger = createLogger('AuthCode')
  * used in the OAuth 2.0 authorization code flow.
  *
  * Flow:
- * 1. PR-10, PR-11: Generate and store authorization CODE after OAuth authentication
- * 2. CS-1, CS-2: Store CODE with user info and provider tokens in memory
- * 3. CS-4: Set 60-second expiration (configurable via CF-9)
- * 4. EP-11, EP-12: Retrieve and delete CODE when exchanging for tokens
- * 5. CS-6, SC-10: Ensure single-use by immediate deletion
- * 6. CS-5, CS-8: Automatic cleanup of expired CODEs
+ * 1. Generate and store authorization CODE after OAuth authentication
+ * 2. Store CODE with user info and provider tokens in memory
+ * 3. Set 60-second expiration (configurable via CF-9)
+ * 4. Retrieve and delete CODE when exchanging for tokens
+ * 5. Ensure single-use by immediate deletion
+ * 6. Automatic cleanup of expired CODEs
  *
  * Security Features:
- * - SC-9: Cryptographically secure random CODE generation (crypto.randomBytes)
- * - SC-10: Single-use enforcement (delete immediately after retrieval)
- * - SC-11: Automatic cleanup of expired CODEs
- * - CS-7: Validation before allowing token exchange
- *
- * Requirements: PR-10, PR-11, CS-1 through CS-8, SC-9, SC-10, SC-11, EP-11, EP-12, CF-9
+ * - Cryptographically secure random CODE generation (crypto.randomBytes)
+ * - Single-use enforcement (delete immediately after retrieval)
+ * - Automatic cleanup of expired CODEs
+ * - Validation before allowing token exchange
  */
 
 /**
  * Generate a cryptographically secure authorization code
- * CS-3: Generate cryptographically secure random CODE value
- * SC-9: Use cryptographically secure random number generation
  *
  * @returns A base64url-encoded random authorization code
  *
@@ -58,10 +54,10 @@ export function generateAuthCode(): string {
 
 /**
  * Store authorization code with associated user and provider data
- * CS-1: Server-side in-memory key-value store for temporary authorization CODE storage
- * CS-2: Associate CODE with user information and provider tokens
- * CS-4: Set expiration time of 60 seconds
- * PR-11: Store CODE in server-side in-memory key-value store
+ * Server-side in-memory key-value store for temporary authorization CODE storage
+ * Associate CODE with user information and provider tokens
+ * Set expiration time of 60 seconds
+ * Store CODE in server-side in-memory key-value store
  *
  * @param code - The authorization code to store
  * @param providerUserInfo - Complete OAuth provider user data
@@ -120,7 +116,6 @@ export async function storeAuthCode(
 
 /**
  * Validate that an authorization code exists and has not expired
- * CS-7: Validate that CODE exists in store before allowing token exchange
  *
  * @param code - The authorization code to validate
  * @returns The auth code data if valid, null if invalid or expired
@@ -167,10 +162,10 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
 
 /**
  * Retrieve and delete authorization code in a single atomic operation
- * CS-6: Immediately delete CODE after successful exchange for single-use enforcement
- * CS-7: Prevent CODE reuse by validating existence before deletion
- * SC-10: Ensure single-use only
- * EP-12: Delete CODE from store after validation
+ * Immediately delete CODE after successful exchange for single-use enforcement
+ * Prevent CODE reuse by validating existence before deletion
+ * Ensure single-use only
+ * Delete CODE from store after validation
  *
  * @param code - The authorization code to retrieve and delete
  * @returns The auth code data if valid, null if invalid, expired, or already used
@@ -218,9 +213,9 @@ export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeD
 
 /**
  * Clean up expired authorization codes from storage
- * CS-5: Automatically remove expired CODEs
- * CS-8: Support automatic cleanup without blocking requests
- * SC-11: Automatic cleanup of expired CODEs
+ * Automatically remove expired CODEs
+ * Support automatic cleanup without blocking requests
+ * Automatic cleanup of expired CODEs
  *
  * This function should be called periodically to prevent memory buildup
  * from expired codes that were never exchanged.

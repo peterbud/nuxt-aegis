@@ -5,7 +5,6 @@
 
 /**
  * Authorization code data stored in the key-value store
- * CS-2: Associates CODE with user information and provider tokens
  */
 export interface AuthCodeData {
   /** Complete OAuth provider user data (NOT the JWT payload) - used for custom claims generation */
@@ -42,7 +41,7 @@ export interface TokenExchangeRequest {
 
 /**
  * Response from token exchange endpoint
- * EP-15: Server returns access token in JSON response body
+ * Server returns access token in JSON response body
  */
 export interface TokenExchangeResponse {
   /** JWT access token for API authentication */
@@ -55,7 +54,6 @@ export interface TokenExchangeResponse {
 
 /**
  * Configuration for authorization code flow
- * CF-9: Configurable authorization CODE expiration time
  */
 export interface AuthCodeConfig {
   /**

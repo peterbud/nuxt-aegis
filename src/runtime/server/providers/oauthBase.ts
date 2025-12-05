@@ -129,22 +129,19 @@ function getOAuthRedirectUri(event: H3Event): string {
  * Handles the complete OAuth 2.0 authorization code flow with CODE-based token delivery:
  *
  * Initial Request (no code parameter):
- * - PR-5: Redirect user to provider's authorization page
- * - EP-2: Initiate OAuth flow
+ * - Redirect user to provider's authorization page
+ * - Initiate OAuth flow
  *
  * Callback Request (with code parameter from provider):
- * 1. PR-6, EP-4: Exchange authorization code for provider tokens
- * 2. PR-8, PR-9, EP-5: Validate tokens and extract user information
- * 3. PR-10, PR-11, CS-3: Generate cryptographically secure authorization CODE
- * 4. CS-2, CS-4, CF-9: Store CODE with user data (60s expiration, configurable)
- * 5. PR-13, EP-7: Redirect to /auth/callback with CODE as query parameter
+ * 1. Exchange authorization code for provider tokens
+ * 2. Validate tokens and extract user information
+ * 3. Generate cryptographically secure authorization CODE
+ * 4. Store CODE with user data (60s expiration, configurable)
+ * 5. Redirect to /auth/callback with CODE as query parameter
  *
  * Error Handling:
- * - PR-14, EP-8, EH-4: Generic error redirect to prevent information leakage
+ * - Generic error redirect to prevent information leakage
  * - Security event logging for all failures
- *
- * Requirements: PR-5, PR-6, PR-8, PR-9, PR-10, PR-11, PR-13, PR-14,
- *               EP-2, EP-4, EP-5, EP-7, EP-8, CS-2, CS-3, CS-4, CF-9, EH-4
  */
 export function defineOAuthEventHandler<
   TKey extends ProviderKey,

@@ -8,7 +8,7 @@ import { createLogger } from './logger'
 const logger = createLogger('CustomClaims')
 
 /**
- * JT-11, JT-11a, JT-11b, JT-14, JT-15: Process custom claims configuration
+ * Process custom claims configuration
  * Supports both static claim objects and callback functions (sync/async)
  * The same function is used for both initial authentication and token refresh
  *
@@ -64,7 +64,7 @@ export async function processCustomClaims(
 }
 
 /**
- * JT-12: Validate that custom claims don't override reserved JWT claims
+ * Validate that custom claims don't override reserved JWT claims
  * @param claims - Custom claims to validate
  * @returns Filtered claims with reserved claims removed
  */
@@ -85,7 +85,7 @@ export function filterReservedClaims(claims: Record<string, unknown>): Record<st
 }
 
 /**
- * JT-13: Validate that custom claim values are of supported types
+ * Validate that custom claim values are of supported types
  * @param claims - Custom claims to validate
  * @returns Filtered claims with only supported value types
  */

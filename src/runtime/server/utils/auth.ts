@@ -9,8 +9,6 @@ import { generateToken } from './jwt'
  * Generate authentication tokens from user data with optional custom claims
  * This is the recommended way to generate tokens after successful OAuth authentication
  *
- * EP-13, EP-14, EP-14a: Generates access token and refresh token, storing complete user object
- *
  * @param event - H3Event object
  * @param providerUserInfo - Complete user object from the OAuth provider (will be stored with refresh token)
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')

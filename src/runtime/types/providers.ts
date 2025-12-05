@@ -189,7 +189,6 @@ export interface MockProviderConfig extends Partial<OAuthProviderConfig> {
   enableInProduction?: boolean
 }
 
-// TODO:
 /**
  * Custom OAuth provider configuration
  */

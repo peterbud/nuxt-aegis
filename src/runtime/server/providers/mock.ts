@@ -16,33 +16,27 @@ let hasLoggedWarning = false
  * DEVELOPMENT/TEST ONLY - Provides a complete OAuth flow without external dependencies.
  *
  * This provider simulates an OAuth 2.0 provider locally, enabling:
- * - Testing OAuth flows without real provider credentials (PR-3.1)
- * - Multiple user personas for different test scenarios (PR-3.2)
- * - Error simulation for testing error handling (PR-3.3)
- * - Deterministic behavior for reliable tests (PR-3.1)
+ * - Testing OAuth flows without real provider credentials
+ * - Multiple user personas for different test scenarios
+ * - Error simulation for testing error handling
+ * - Deterministic behavior for reliable tests
  *
  * Key Features:
  * - Dynamic URL resolution (points to local /auth/mock/* endpoints)
- * - User persona selection via ?user= query parameter (PR-3.2)
- * - OAuth error simulation via ?mock_error= query parameter (PR-3.3)
- * - Generates valid JWTs with 'nuxt-aegis-mock' issuer (PR-3.4)
- * - Single-use authorization codes with 60s expiration (CS-3, CS-4, CS-6)
+ * - User persona selection via ?user= query parameter
+ * - OAuth error simulation via ?mock_error= query parameter
+ * - Generates valid JWTs with 'nuxt-aegis-mock' issuer
+ * - Single-use authorization codes with 60s expiration
  *
  * Security:
- * - Blocked in production by default (requires enableInProduction: true) (PR-3.5)
- * - Logs prominent warnings when active (PR-3.6)
- * - Never use in production environments (PR-3.5)
- *
- * Requirements: PR-2, PR-3.1, PR-3.2, PR-3.3, PR-3.4, PR-3.5, PR-3.6, PR-3.7, PR-3.8
- *
- * @see https://github.com/peterbud/nuxt-aegis#mock-provider
+ * - Blocked in production by default (requires enableInProduction: true)
+ * - Logs prominent warnings when active
+ * - Never use in production environments
  */
 
 /**
  * Check if mock provider is allowed to run
  * Throws error in production unless explicitly enabled or in test environment
- *
- * Requirements: PR-3.5, PR-3.6 - Production blocking and warning logs
  */
 function checkMockProviderAllowed(config: MockProviderConfig): void {
   const isProduction = process.env.NODE_ENV === 'production'
@@ -87,8 +81,6 @@ function checkMockProviderAllowed(config: MockProviderConfig): void {
 /**
  * Validate mock provider configuration
  * Ensures required fields are present and valid
- *
- * Requirements: PR-3.2, PR-3.8 - Mock users configuration and required fields
  */
 function validateMockConfig(config: Partial<MockProviderConfig>): void {
   // PR-3.8: Require at least one mock user persona
@@ -139,8 +131,6 @@ function validateMockConfig(config: Partial<MockProviderConfig>): void {
 /**
  * Mock OAuth provider implementation
  * Uses dynamic URLs that point to local mock endpoints
- *
- * Requirements: PR-3.7 - Uses same authentication flow as real providers
  */
 const mockImplementation: OAuthProviderImplementation = defineOAuthProvider({
   runtimeConfigKey: 'mock',
@@ -183,12 +173,10 @@ const mockImplementation: OAuthProviderImplementation = defineOAuthProvider({
  * Create a Mock OAuth event handler
  *
  * Wraps the OAuth handler to:
- * 1. Check if mock provider is allowed (blocks production) (PR-3.5, PR-3.6)
- * 2. Validate configuration (PR-3.8)
- * 3. Dynamically set base URL for mock endpoints (PR-3.1)
- * 4. Pass through user selection and error simulation parameters (PR-3.2, PR-3.3)
- *
- * Requirements: PR-3.1, PR-3.2, PR-3.3, PR-3.5, PR-3.6, PR-3.7, PR-3.8
+ * 1. Check if mock provider is allowed (blocks production)
+ * 2. Validate configuration
+ * 3. Dynamically set base URL for mock endpoints
+ * 4. Pass through user selection and error simulation parameters
  *
  * Usage:
  * ```typescript

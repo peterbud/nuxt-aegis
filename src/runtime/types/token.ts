@@ -42,7 +42,7 @@ export interface ImpersonationContext {
  * This is what gets stored in the JWT and attached to event.context.user
  */
 export interface TokenPayload {
-  /** JT-6: Subject identifier (user ID) - required claim */
+  /** Subject identifier (user ID) - required claim */
   sub: string
   /** User email address */
   email?: string
@@ -56,17 +56,17 @@ export interface TokenPayload {
   picture?: string
   /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0', 'password', 'mock') */
   provider?: string
-  /** JT-5: Issuer claim - identifies who issued the token */
+  /** Issuer claim - identifies who issued the token */
   iss?: string
-  /** JT-9: Audience claim - identifies the recipients of the token */
+  /** Audience claim - identifies the recipients of the token */
   aud?: string | string[]
-  /** JT-8: Issued at timestamp - when the token was created */
+  /** Issued at timestamp - when the token was created */
   iat?: number
-  /** JT-7: Expiration timestamp - when the token expires */
+  /** Expiration timestamp - when the token expires */
   exp?: number
   /** Impersonation context if this token represents an impersonated session */
   impersonation?: ImpersonationContext
-  /** JT-10, JT-11, JT-13: Additional custom claims */
+  /** Additional custom claims */
   [key: string]: unknown
 }
 
@@ -76,15 +76,15 @@ export interface TokenPayload {
  * on the server side for validation and management
  */
 export interface RefreshTokenData {
-  /** RS-4: Subject identifier, links the token back to the specific user account */
+  /** Subject identifier, links the token back to the specific user account */
   sub: string
-  /** RS-4: Timestamp when the refresh token expires */
+  /** Timestamp when the refresh token expires */
   expiresAt: number
-  /** RS-4: Allows for immediate revocation if the user logs out, changes a password, or a security event occurs */
+  /** Allows for immediate revocation if the user logs out, changes a password, or a security event occurs */
   isRevoked: boolean
-  /** RS-8: Hash of the previous refresh token for rotation tracking */
+  /** Hash of the previous refresh token for rotation tracking */
   previousTokenHash?: string
-  /** RS-2, RS-3: Complete OAuth provider user data - NOT the JWT payload. This is the full user object from the provider (Google, GitHub, etc.) */
+  /** Complete OAuth provider user data - NOT the JWT payload. This is the full user object from the provider (Google, GitHub, etc.) */
   providerUserInfo: Record<string, unknown>
   /** Provider name for dynamic custom claims generation during refresh (e.g., 'google', 'github', 'microsoft', 'auth0') */
   provider: string

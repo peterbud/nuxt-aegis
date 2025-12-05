@@ -124,7 +124,6 @@ export interface ModuleOptions {
 
   /**
    * Authorization code configuration (CODE-based flow)
-   * CS-4, CF-9, PR-12: Configure authorization CODE expiration time
    * Default: 60 seconds (recommended for security)
    */
   authCode?: AuthCodeConfig

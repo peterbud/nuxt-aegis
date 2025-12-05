@@ -56,8 +56,8 @@ export interface TokenRefreshConfig {
   automaticRefresh?: boolean
   /** Refresh token cookie configuration */
   cookie?: CookieConfig
-  /** CF-10, CF-11: Encryption configuration for stored user data */
+  /** Encryption configuration for stored user data */
   encryption?: EncryptionConfig
-  /** RS-10: Storage configuration */
+  /** Storage configuration */
   storage?: StorageConfig
 }
