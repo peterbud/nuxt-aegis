@@ -62,7 +62,10 @@ export default defineNuxtModule<ModuleOptions>({
     },
     endpoints: {
       authPath: '/auth',
+      loginPath: '/auth',
       callbackPath: '/auth/callback',
+      logoutPath: '/auth/logout',
+      refreshPath: '/auth/refresh',
     },
     logging: {
       level: 'info',
@@ -75,7 +78,10 @@ export default defineNuxtModule<ModuleOptions>({
       public: {
         nuxtAegis: {
           authPath: options.endpoints?.authPath || '/auth',
+          loginPath: options.endpoints?.loginPath || options.endpoints?.authPath || '/auth',
           callbackPath: options.endpoints?.callbackPath || '/auth/callback',
+          logoutPath: options.endpoints?.logoutPath || '/auth/logout',
+          refreshPath: options.endpoints?.refreshPath || '/auth/refresh',
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
           routeProtection: options.routeProtection,

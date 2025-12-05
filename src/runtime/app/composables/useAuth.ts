@@ -117,6 +117,9 @@ export function useAuth(): UseAuthReturn {
   const config = useRuntimeConfig()
   const publicConfig = config.public
   const authPath = publicConfig.nuxtAegis?.authPath
+  const loginPath = publicConfig.nuxtAegis?.loginPath || authPath
+  const logoutPath = publicConfig.nuxtAegis?.logoutPath
+  const refreshPath = publicConfig.nuxtAegis?.refreshPath
 
   /**
    * Refresh the authentication state by obtaining a new access token
@@ -145,7 +148,7 @@ export function useAuth(): UseAuthReturn {
       // RS-1: No old access token needed - server uses stored user object
       // IMPORTANT: Use $fetch directly instead of $api to avoid triggering the 401 interceptor
       // which would cause an infinite refresh loop
-      const response = await $fetch<{ accessToken: string }>(`${authPath}/refresh`, {
+      const response = await $fetch<{ accessToken: string }>(`${refreshPath}`, {
         method: 'POST',
       })
 
@@ -209,7 +212,7 @@ export function useAuth(): UseAuthReturn {
       }
 
       // Build login URL with optional redirect
-      await navigateTo(`${authPath}/${provider}`, { external: true })
+      await navigateTo(`${loginPath}/${provider}`, { external: true })
     }
     catch (error) {
       authState.value.error = 'Failed to initiate login'
@@ -229,7 +232,7 @@ export function useAuth(): UseAuthReturn {
 
       // Call logout endpoint - this will delete the httpOnly cookie
       // Use $fetch directly to avoid triggering interceptors
-      await $fetch(`${authPath}/logout`, { method: 'POST' })
+      await $fetch(`${logoutPath}`, { method: 'POST' })
 
       // Clear local auth state
       authState.value.user = null

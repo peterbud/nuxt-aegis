@@ -72,7 +72,12 @@ export default defineNuxtConfig({
     
     // API Endpoint Configuration
     endpoints: {
-      authPath: '/auth',
+      authPath: '/auth',           // Base path for auth routes
+      loginPath: '/auth',          // Base path for login (login URLs: [loginPath]/[provider])
+      callbackPath: '/auth/callback', // OAuth callback path
+      logoutPath: '/auth/logout',  // Logout endpoint path
+      refreshPath: '/auth/refresh', // Token refresh endpoint path
+      userInfoPath: '/api/user/me', // User info endpoint path (for future use)
     },
     
     // OAuth Providers
@@ -172,6 +177,31 @@ Configure which routes require authentication.
 Use glob patterns for route matching:
 - `/dashboard/**` matches all routes under `/dashboard`
 - `/api/user/*` matches direct children of `/api/user`
+:::
+
+## Endpoint Configuration
+
+Customize the API endpoint paths used by Nuxt Aegis.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `authPath` | `string` | `'/auth'` | Base path for authentication routes |
+| `loginPath` | `string` | `'/auth'` | Base path for login endpoints (provider appended as `[loginPath]/[provider]`) |
+| `callbackPath` | `string` | `'/auth/callback'` | OAuth callback endpoint path |
+| `logoutPath` | `string` | `'/auth/logout'` | Logout endpoint path |
+| `refreshPath` | `string` | `'/auth/refresh'` | Token refresh endpoint path |
+| `userInfoPath` | `string` | `'/api/user/me'` | User info endpoint path |
+
+::: tip Custom Paths
+You can customize these paths to match your application's routing structure. For example:
+
+```typescript
+endpoints: {
+  loginPath: '/api/login',      // Login URLs become /api/login/google, /api/login/github, etc.
+  logoutPath: '/api/logout',
+  refreshPath: '/api/token/refresh',
+}
+```
 :::
 
 ## Impersonation Configuration

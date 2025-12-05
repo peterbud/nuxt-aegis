@@ -34,13 +34,13 @@ export interface RedirectConfig {
 export interface EndpointConfig {
   /** Base path for authentication API routes (default: '/auth') */
   authPath?: string
-  /** Path for login endpoints (default: '[authPath]/[provider]') */
+  /** Base path for login endpoints without provider (default: '/auth'). Login URLs are constructed as '[loginPath]/[provider]' */
   loginPath?: string
-  /** Path for callback endpoints (default: '[authPath]/callback') */
+  /** Path for callback endpoints (default: '/auth/callback') */
   callbackPath?: string
-  /** Path for logout endpoint (default: '[authPath]/logout') */
+  /** Path for logout endpoint (default: '/auth/logout') */
   logoutPath?: string
-  /** Path for token refresh endpoint (default: '[authPath]/refresh') */
+  /** Path for token refresh endpoint (default: '/auth/refresh') */
   refreshPath?: string
   /** Path for user info endpoint (default: '/api/user/me') */
   userInfoPath?: string

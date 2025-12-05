@@ -143,6 +143,34 @@ interface RouteProtectionConfig {
 }
 ```
 
+### `EndpointConfig`
+
+API endpoint path configuration.
+
+```typescript
+interface EndpointConfig {
+  authPath?: string                   // Base path for auth routes (default: '/auth')
+  loginPath?: string                  // Base path for login endpoints (default: '/auth')
+                                      // Login URLs constructed as: [loginPath]/[provider]
+  callbackPath?: string               // OAuth callback path (default: '/auth/callback')
+  logoutPath?: string                 // Logout endpoint path (default: '/auth/logout')
+  refreshPath?: string                // Token refresh path (default: '/auth/refresh')
+  userInfoPath?: string               // User info endpoint (default: '/api/user/me')
+}
+```
+
+::: tip Custom Endpoint Paths
+Customize endpoint paths to match your application's routing:
+
+```typescript
+endpoints: {
+  loginPath: '/api/login',      // Login: /api/login/google
+  logoutPath: '/api/logout',
+  refreshPath: '/api/token/refresh',
+}
+```
+:::
+
 ### `ProvidersConfig`
 
 OAuth providers configuration.
