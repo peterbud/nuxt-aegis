@@ -66,6 +66,7 @@ export default defineNuxtModule<ModuleOptions>({
       callbackPath: '/auth/callback',
       logoutPath: '/auth/logout',
       refreshPath: '/auth/refresh',
+      userInfoPath: '/api/user/me',
     },
     logging: {
       level: 'info',
@@ -82,6 +83,7 @@ export default defineNuxtModule<ModuleOptions>({
           callbackPath: options.endpoints?.callbackPath || '/auth/callback',
           logoutPath: options.endpoints?.logoutPath || '/auth/logout',
           refreshPath: options.endpoints?.refreshPath || '/auth/refresh',
+          userInfoPath: options.endpoints?.userInfoPath || '/api/user/me',
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
           routeProtection: options.routeProtection,
@@ -168,7 +170,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // EP-15, EP-16, EP-17, EP-18: User info endpoint
     addServerHandler({
-      route: `/api/user/me`,
+      route: runtimeConfig.public.nuxtAegis.userInfoPath,
       handler: resolver.resolve('./runtime/server/routes/me.get'),
       method: 'get',
     })

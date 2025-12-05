@@ -3,8 +3,6 @@ import { defineEventHandler, createError } from 'h3'
 /**
  * GET /api/user/me
  * Returns the current authenticated user's information
- * EP-16: Return decoded user data from JWT when valid
- * EP-17: Return 401 when no valid JWT
  */
 export default defineEventHandler(async (event) => {
   // EP-16: Return the user context if it exists (set by auth middleware)

@@ -20,6 +20,7 @@ declare module '@nuxt/schema' {
       callbackPath: string
       logoutPath: string
       refreshPath: string
+      userInfoPath: string
       redirect: RedirectConfig
       tokenRefresh: TokenRefreshConfig
       routeProtection: RouteProtectionConfig
