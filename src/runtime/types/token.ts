@@ -137,6 +137,6 @@ export interface ClaimsValidationConfig {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CustomClaimsCallback<TProviderUserInfo = any, TTokens = any> = (
   providerUserInfo: TProviderUserInfo,
-  tokens: TTokens
+  tokens: TTokens,
 ) => Record<string, string | number | boolean | Array<string | number | boolean> | null>
   | Promise<Record<string, string | number | boolean | Array<string | number | boolean> | null>>
