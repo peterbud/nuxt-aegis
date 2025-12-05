@@ -296,8 +296,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (!nuxt.options.nitro.scheduledTasks) {
       nuxt.options.nitro.scheduledTasks = {}
     }
-    // 0 2 * * *
-    nuxt.options.nitro.scheduledTasks['*/5 * * * *'] = [
+    nuxt.options.nitro.scheduledTasks['0 2 * * *'] = [
       'cleanup:refresh-tokens',
       'cleanup:magic-codes',
       'cleanup:reset-sessions',
