@@ -161,17 +161,48 @@ export async function validateAccessToken(token: string) {
 
 ## Refresh Token Utilities
 
-### `storeRefreshToken(token, userData, expiresIn)`
+### `hashRefreshToken(token)`
 
-Store a refresh token with user data.
+Hash a refresh token using SHA-256. Used with `revokeRefreshToken()` and `deleteUserRefreshTokens()`.
 
 **Type Signature:**
 
 ```typescript
-async function storeRefreshToken(
-  token: string,
-  userData: Record<string, unknown>,
-  expiresIn: number
+function hashRefreshToken(token: string): string
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | `string` | Refresh token to hash |
+
+**Returns:** `string` - Hashed token as hex string
+
+**Example:**
+
+```typescript
+// server/routes/admin/revoke-token.post.ts
+export default defineEventHandler(async (event) => {
+  const { refreshToken } = await readBody(event)
+  
+  const tokenHash = hashRefreshToken(refreshToken)
+  await revokeRefreshToken(tokenHash, event)
+  
+  return { success: true }
+})
+```
+
+### `revokeRefreshToken(tokenHash, event?)`
+
+Revoke a refresh token by marking it as revoked without deleting it. This preserves the token data for audit purposes while preventing its use.
+
+**Type Signature:**
+
+```typescript
+async function revokeRefreshToken(
+  tokenHash: string,
+  event?: H3Event
 ): Promise<void>
 ```
 
@@ -179,93 +210,90 @@ async function storeRefreshToken(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `token` | `string` | Refresh token |
-| `userData` | `Record<string, unknown>` | User data to store |
-| `expiresIn` | `number` | Expiration time in seconds |
+| `tokenHash` | `string` | Hashed refresh token (use `hashRefreshToken()`) |
+| `event` | `H3Event` | Optional H3 event for runtime config |
 
 **Example:**
 
 ```typescript
-// server/utils/customRefresh.ts
-export async function createRefreshToken(user: User) {
-  const token = generateRandomToken()
-  
-  await storeRefreshToken(token, user, 60 * 60 * 24 * 7) // 7 days
-  
-  return token
-}
-```
-
-### `getRefreshTokenData(token)`
-
-Retrieve user data associated with a refresh token.
-
-**Type Signature:**
-
-```typescript
-async function getRefreshTokenData(
-  token: string
-): Promise<Record<string, unknown> | null>
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `token` | `string` | Refresh token |
-
-**Returns:** `Promise<Record<string, unknown> | null>` - User data or `null` if not found
-
-**Example:**
-
-```typescript
-// server/routes/custom-refresh.post.ts
+// server/routes/admin/revoke-session.post.ts
 export default defineEventHandler(async (event) => {
+  const user = await requireAuth(event)
+  
+  // Check admin permissions
+  if (user.role !== 'admin') {
+    throw createError({ statusCode: 403, message: 'Admin access required' })
+  }
+  
   const { refreshToken } = await readBody(event)
+  const tokenHash = hashRefreshToken(refreshToken)
   
-  const userData = await getRefreshTokenData(refreshToken)
+  // Revoke the token (marks as revoked, preserves for audit)
+  await revokeRefreshToken(tokenHash, event)
   
-  if (!userData) {
-    throw createError({ statusCode: 401, message: 'Invalid refresh token' })
+  return { 
+    success: true,
+    message: 'Token revoked successfully' 
   }
-  
-  const newToken = await generateAccessToken(userData)
-  
-  return { token: newToken }
 })
 ```
 
-### `deleteRefreshToken(token)`
+::: tip Audit Trail
+Revoked tokens remain in storage with an `isRevoked` flag, maintaining an audit trail while preventing their use.
+:::
 
-Delete a refresh token from storage.
+### `deleteUserRefreshTokens(email, exceptTokenHash?, event?)`
+
+Delete all refresh tokens for a specific user. Useful for security operations like password changes or account deletion.
 
 **Type Signature:**
 
 ```typescript
-async function deleteRefreshToken(token: string): Promise<void>
+async function deleteUserRefreshTokens(
+  email: string,
+  exceptTokenHash?: string,
+  event?: H3Event
+): Promise<void>
 ```
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `token` | `string` | Refresh token to delete |
+| `email` | `string` | User email to match |
+| `exceptTokenHash` | `string` | Optional token hash to preserve (e.g., current session) |
+| `event` | `H3Event` | Optional H3 event for runtime config |
 
 **Example:**
 
 ```typescript
-// server/routes/logout.post.ts
+// server/routes/auth/password/change.post.ts
 export default defineEventHandler(async (event) => {
-  const refreshToken = getCookie(event, 'nuxt-aegis-refresh')
+  const user = await requireAuth(event)
+  const { oldPassword, newPassword } = await readBody(event)
   
-  if (refreshToken) {
-    await deleteRefreshToken(refreshToken)
-    deleteCookie(event, 'nuxt-aegis-refresh')
+  // Verify old password and update to new password
+  await updateUserPassword(user.email, oldPassword, newPassword)
+  
+  // Get current refresh token hash to preserve current session
+  const currentRefreshToken = getRefreshTokenFromCookie(event)
+  const currentTokenHash = currentRefreshToken 
+    ? hashRefreshToken(currentRefreshToken) 
+    : undefined
+  
+  // Revoke all other sessions for security
+  await deleteUserRefreshTokens(user.email, currentTokenHash, event)
+  
+  return { 
+    success: true,
+    message: 'Password changed, other sessions revoked' 
   }
-  
-  return { success: true }
 })
 ```
+
+::: warning Security Best Practice
+Always call `deleteUserRefreshTokens()` when users change their password or when accounts are deleted to prevent unauthorized access through old refresh tokens.
+:::
 
 ## Cookie Utilities
 

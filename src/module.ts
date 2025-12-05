@@ -2,6 +2,7 @@ import {
   addImports,
   addPlugin,
   addServerHandler,
+  addServerImports,
   addServerImportsDir,
   createResolver,
   defineNuxtModule,
@@ -130,9 +131,34 @@ export default defineNuxtModule<ModuleOptions>({
       })
     })
 
-    // Server imports
+    // Server imports - providers are all public
     addServerImportsDir(resolver.resolve('./runtime/server/providers'))
-    addServerImportsDir(resolver.resolve('./runtime/server/utils'))
+
+    // Server imports - only expose public API utilities
+    addServerImports([
+      // Authentication utilities (from auth.ts)
+      { name: 'requireAuth', from: resolver.resolve('./runtime/server/utils/auth') },
+      { name: 'getAuthUser', from: resolver.resolve('./runtime/server/utils/auth') },
+      { name: 'generateAccessToken', from: resolver.resolve('./runtime/server/utils/auth') },
+      { name: 'verifyToken', from: resolver.resolve('./runtime/server/utils/auth') },
+      { name: 'generateAuthTokens', from: resolver.resolve('./runtime/server/utils/auth') },
+
+      // Refresh token management utilities (from refreshToken.ts)
+      { name: 'revokeRefreshToken', from: resolver.resolve('./runtime/server/utils/refreshToken') },
+      { name: 'deleteUserRefreshTokens', from: resolver.resolve('./runtime/server/utils/refreshToken') },
+      { name: 'hashRefreshToken', from: resolver.resolve('./runtime/server/utils/refreshToken') },
+
+      // Cookie utilities (from cookies.ts)
+      { name: 'setRefreshTokenCookie', from: resolver.resolve('./runtime/server/utils/cookies') },
+      { name: 'getRefreshTokenFromCookie', from: resolver.resolve('./runtime/server/utils/cookies') },
+
+      // Custom claims utilities (from customClaims.ts)
+      { name: 'applyCustomClaims', from: resolver.resolve('./runtime/server/utils/customClaims') },
+
+      // Handler utilities (from handler.ts)
+      { name: 'defineAegisHandler', from: resolver.resolve('./runtime/server/utils/handler') },
+      { name: 'useAegisHandler', from: resolver.resolve('./runtime/server/utils/handler') },
+    ])
 
     // EP-15, EP-16, EP-17, EP-18: User info endpoint
     addServerHandler({
