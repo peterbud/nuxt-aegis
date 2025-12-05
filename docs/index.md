@@ -20,9 +20,15 @@ features:
   - icon: 🔐
     title: OAuth 2.0 & OpenID Connect
     details: Support for Google, Microsoft Entra ID, GitHub, and Auth0 providers
+  - icon: 🔑
+    title: Username/Password Authentication
+    details: Built-in password provider with magic link support for passwordless authentication
   - icon: 🎫
     title: JWT Token Management
     details: Automatic generation and validation of JSON Web Tokens (RFC 7519)
+  - icon: 🧪
+    title: Complete Testing Support
+    details: Built-in mock provider for effortless testing - no external dependencies or configuration needed
   - icon: 🔄
     title: Automatic Token Refresh
     details: Built-in token refresh with configurable expiration times
