@@ -232,32 +232,77 @@ export default defineNuxtConfig({
 Ensure your storage driver supports TTL. Redis handles this automatically, but filesystem storage requires manual cleanup.
 :::
 
-## Manual Cleanup
+## Automatic Cleanup Tasks
 
-For filesystem storage, implement manual cleanup:
+Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired data from storage. These tasks run daily at 2:00 AM by default (configurable via Nitro's `scheduledTasks`).
+
+### Cleanup Tasks
+
+**Refresh Token Cleanup** (`cleanup:refresh-tokens`)
+- Removes expired and revoked refresh tokens from storage
+- Prevents storage buildup from old sessions
+- Reports expired vs revoked token counts
+
+**Magic Code Cleanup** (`cleanup:magic-codes`)
+- Removes expired magic codes for passwordless authentication
+- Cleans up associated lookup keys
+- Removes orphaned lookup keys pointing to non-existent codes
+
+**Reset Session Cleanup** (`cleanup:reset-sessions`)
+- Removes expired password reset sessions
+- Ensures reset links expire properly
+
+### Task Configuration
+
+The cleanup schedule is configured in `nuxt.config.ts`:
 
 ```typescript
-// server/plugins/cleanup-tokens.ts
-export default defineNitroPlugin(() => {
-  // Run cleanup every hour
-  setInterval(async () => {
-    const storage = useStorage('refreshTokenStore')
-    const keys = await storage.getKeys('refresh:')
-    
-    for (const key of keys) {
-      const data = await storage.getItem(key)
-      
-      // Remove if expired
-      if (data && isExpired(data.expiresAt)) {
-        await storage.removeItem(key)
-      }
-    }
-  }, 60 * 60 * 1000) // 1 hour
+export default defineNuxtConfig({
+  nitro: {
+    scheduledTasks: {
+      // Run cleanup tasks daily at 2:00 AM (cron format)
+      '0 2 * * *': [
+        'cleanup:refresh-tokens',
+        'cleanup:magic-codes',
+        'cleanup:reset-sessions',
+      ],
+    },
+  },
 })
+```
 
-function isExpired(expiresAt: number): boolean {
-  return Date.now() > expiresAt
-}
+::: tip Task Scheduling
+Use standard cron syntax to customize the schedule:
+- `0 2 * * *` - Daily at 2:00 AM
+- `0 */6 * * *` - Every 6 hours
+- `0 0 * * 0` - Weekly on Sunday at midnight
+:::
+
+### Manual Cleanup
+
+You can also trigger cleanup tasks manually using Nitro's task API:
+
+```typescript
+// server/api/admin/cleanup.post.ts
+export default defineEventHandler(async (event) => {
+  // Ensure user is admin
+  const user = await requireUser(event)
+  if (!user.isAdmin) {
+    throw createError({ statusCode: 403, message: 'Forbidden' })
+  }
+
+  // Run cleanup tasks
+  const results = await Promise.all([
+    runTask('cleanup:refresh-tokens'),
+    runTask('cleanup:magic-codes'),
+    runTask('cleanup:reset-sessions'),
+  ])
+
+  return {
+    success: true,
+    results,
+  }
+})
 ```
 
 ## Production Best Practices
@@ -286,7 +331,12 @@ function isExpired(expiresAt: number): boolean {
 | **Performance** | ⚡⚡⚡ Fastest | 🔶 Medium | ⚡⚡ Fast |
 | **Setup** | ✅ None | ✅ Simple | 🔶 Requires Redis |
 | **TTL Support** | ❌ Manual | ❌ Manual | ✅ Built-in |
+| **Auto Cleanup** | ✅ Scheduled Tasks | ✅ Scheduled Tasks | ✅ TTL + Tasks |
 | **Production** | ❌ Never | ❌ No | ✅ Recommended |
+
+::: info Automatic Cleanup
+Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired tokens, magic codes, and reset sessions regardless of storage driver. Redis additionally supports native TTL for automatic expiration.
+:::
 
 ## Next Steps
 

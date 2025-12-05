@@ -279,6 +279,30 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.nitro = {}
     }
 
+    // Enable experimental tasks feature for cleanup tasks
+    if (!nuxt.options.nitro.experimental) {
+      nuxt.options.nitro.experimental = {}
+    }
+    nuxt.options.nitro.experimental.tasks = true
+
+    // Configure Nitro to include tasks from the module
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.scanDirs = nitroConfig.scanDirs || []
+      nitroConfig.scanDirs.push(resolver.resolve('./runtime'))
+    })
+
+    // Configure scheduled cleanup tasks
+    // Run cleanup tasks daily at 2:00 AM
+    if (!nuxt.options.nitro.scheduledTasks) {
+      nuxt.options.nitro.scheduledTasks = {}
+    }
+    // 0 2 * * *
+    nuxt.options.nitro.scheduledTasks['*/5 * * * *'] = [
+      'cleanup:refresh-tokens',
+      'cleanup:magic-codes',
+      'cleanup:reset-sessions',
+    ]
+
     // Ensure the storage configuration object exists within nitro
     if (!nuxt.options.nitro.storage) {
       nuxt.options.nitro.storage = {}
