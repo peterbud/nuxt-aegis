@@ -16,19 +16,17 @@ const logger = createLogger('TokenExchange')
  * It exchanges a short-lived authorization CODE for application-specific JWT tokens.
  *
  * Flow:
- * 1. EP-10: Accept authorization CODE from request body
- * 2. EP-11, CS-7: Validate CODE exists in server-side key-value store
- * 3. EP-12, CS-6, SC-10: Retrieve and delete CODE atomically (single-use enforcement)
- * 4. EP-13, EP-14, JT-1: Generate JWT access token and refresh token
- * 5. EP-15: Return access token in JSON response body
- * 6. EP-16, SC-3, SC-4, SC-5, SC-8: Set refresh token as HttpOnly, Secure cookie
+ * 1. Accept authorization CODE from request body
+ * 2. Validate CODE exists in server-side key-value store
+ * 3. Retrieve and delete CODE atomically (single-use enforcement)
+ * 4. Generate JWT access token and refresh token
+ * 5. Return access token in JSON response body
+ * 6. Set refresh token as HttpOnly, Secure cookie
  *
  * Security:
- * - CS-6, SC-10: Single-use CODE enforcement via immediate deletion
- * - EP-17, EP-18, EH-4: Generic 401 error for invalid/expired/reused CODEs
+ * - Single-use CODE enforcement via immediate deletion
+ * - Generic 401 error for invalid/expired/reused CODEs
  * - No specific failure reasons revealed to prevent information leakage
- *
- * Requirements: EP-10 through EP-18, CS-6, CS-7, SC-3, SC-4, SC-5, SC-8, SC-10, JT-1, EH-4
  *
  * @returns TokenExchangeResponse with access token and metadata
  * @throws 400 Bad Request if CODE is missing from request body

@@ -10,9 +10,6 @@ const logger = createLogger('Logout')
 /**
  * POST /auth/logout
  * Ends the user session by clearing authentication cookies and revoking refresh token
- * EP-20: Clear refresh token cookie
- * EP-21: Return success response
- * RS-7, SC-15: Revoke refresh token to prevent further use
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)

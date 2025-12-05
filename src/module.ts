@@ -176,7 +176,7 @@ export default defineNuxtModule<ModuleOptions>({
     // EP-11, EP-12, EP-13: Logout endpoint
 
     addServerHandler({
-      route: `${runtimeConfig.public.nuxtAegis.authPath}/logout`,
+      route: runtimeConfig.public.nuxtAegis.logoutPath,
       handler: resolver.resolve('./runtime/server/routes/logout.post'),
       method: 'post',
     })
@@ -192,7 +192,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // EP-19, EP-20, EP-21: Token refresh endpoint
     addServerHandler({
-      route: `${runtimeConfig.public.nuxtAegis.authPath}/refresh`,
+      route: runtimeConfig.public.nuxtAegis.refreshPath,
       handler: resolver.resolve('./runtime/server/routes/refresh.post'),
       method: 'post',
     })

@@ -13,10 +13,7 @@ import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRef
 
 /**
  * POST /auth/refresh
- * EP-27: Refresh endpoint to obtain new access tokens
- * EP-28, EP-28a, EP-28b: Generate new JWT using stored user object (no dependency on old access token)
- * EP-29: Return 401 when refresh token is invalid or expired
- * EP-30: Rotate refresh token and set new cookie
+ * Refresh endpoint to obtain new access tokens
  * Rejects refresh requests for impersonated sessions
  */
 export default defineEventHandler(async (event) => {
