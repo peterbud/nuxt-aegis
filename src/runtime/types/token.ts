@@ -4,20 +4,6 @@
  */
 
 /**
- * Minimal user interface contract
- * All user objects must conform to this shape at minimum
- * Providers can extend with additional provider-specific fields
- */
-export interface BaseUser {
-  /** User identifier - required */
-  id: string
-  /** User display name - optional but recommended */
-  name?: string
-  /** Additional provider-specific or custom fields */
-  [key: string]: unknown
-}
-
-/**
  * Impersonation context stored in JWT
  * Contains essential information about the original user when impersonating
  */
