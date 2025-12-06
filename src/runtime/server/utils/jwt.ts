@@ -6,6 +6,29 @@ import { createLogger } from './logger'
 const logger = createLogger('JWT')
 
 /**
+ * Validate token payload size and log warning if too large
+ * @param payload - Token payload to validate
+ */
+function validateTokenSize(payload: TokenPayload): void {
+  // Only check in development mode
+  if (process.env.NODE_ENV === 'production') {
+    return
+  }
+
+  const payloadString = JSON.stringify(payload)
+  const sizeInBytes = payloadString.length
+  const thresholdBytes = 1024 // 1KB
+
+  if (sizeInBytes > thresholdBytes) {
+    logger.warn(
+      `Token payload size (${sizeInBytes} bytes) exceeds recommended threshold (${thresholdBytes} bytes). `
+      + `Consider reducing the payload size by removing unnecessary claims or using references instead of large values. `
+      + `Large tokens can impact performance and may be rejected by some systems.`,
+    )
+  }
+}
+
+/**
  * Generate a JWT token with the given payload and custom claims
  * @param payload - Base token payload containing user information
  * @param config - Token configuration including secret and expiration
@@ -31,8 +54,14 @@ export async function generateToken(
     safeClaims = validateClaimTypes(filtered)
   }
 
+  // Merge payload with custom claims
+  const finalPayload = { ...payload, ...safeClaims }
+
+  // Validate token size in development
+  validateTokenSize(finalPayload as TokenPayload)
+
   // Create JWT with standard claims
-  let jwt = new SignJWT({ ...payload, ...safeClaims })
+  let jwt = new SignJWT(finalPayload)
     .setProtectedHeader({ alg: config.algorithm || 'HS256' })
     .setIssuedAt() // JT-8: Include iat (issued at) claim
     .setSubject(payload.sub) // JT-6: Include sub (subject) claim

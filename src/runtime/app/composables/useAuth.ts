@@ -21,14 +21,15 @@ interface AuthState {
 
 /**
  * Return type for the useAuth composable
+ * @template T - Token payload type extending TokenPayload (defaults to TokenPayload)
  */
-interface UseAuthReturn {
+interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
   /** Reactive property indicating whether a user is logged in */
   isLoggedIn: ComputedRef<boolean>
   /** Reactive property indicating the authentication state is being initialized */
   isLoading: ComputedRef<boolean>
   /** Reactive property containing the current user's data */
-  user: ComputedRef<TokenPayload | null>
+  user: ComputedRef<T | null>
   /** Error state for authentication operations */
   error: ComputedRef<string | null>
   /** Reactive property indicating if currently impersonating another user */
@@ -78,9 +79,28 @@ interface UseAuthReturn {
  * Requirements: CL-2 through CL-13, CL-18, CL-19, CL-20, CL-22,
  *               PR-5, PR-10, PR-11, EP-16, SC-3, SC-4, SC-5, SC-7
  *
- * @returns {UseAuthReturn} Authentication state and methods
+ * @template T - Custom token payload type extending TokenPayload
+ * @returns {UseAuthReturn<T>} Authentication state and methods
+ *
+ * @example
+ * ```typescript
+ * // Without custom claims (default)
+ * const { user, login, logout } = useAuth()
+ *
+ * // With custom claims
+ * import type { CustomTokenClaims } from '#nuxt-aegis'
+ *
+ * type AppTokenPayload = CustomTokenClaims<{
+ *   role: string
+ *   permissions: string[]
+ *   organizationId: string
+ * }>
+ *
+ * const { user, login, logout } = useAuth<AppTokenPayload>()
+ * // user.value?.role is now type-safe
+ * ```
  */
-export function useAuth(): UseAuthReturn {
+export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<T> {
   // Global auth state
   const authState = useState<AuthState>(
     'auth-state',
@@ -386,7 +406,7 @@ export function useAuth(): UseAuthReturn {
   return {
     isLoggedIn,
     isLoading: computed(() => authState.value.isLoading),
-    user: computed(() => authState.value.user),
+    user: computed(() => authState.value.user as T | null),
     error: computed(() => authState.value.error),
     isImpersonating,
     originalUser,

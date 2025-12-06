@@ -90,6 +90,15 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Type Safety',
+        items: [
+          { text: 'Overview', link: '/guides/types/' },
+          { text: 'Token Types', link: '/guides/types/token-types' },
+          { text: 'Server Types', link: '/guides/types/server-types' },
+          { text: 'Database Types', link: '/guides/types/database-types' },
+        ],
+      },
+      {
         text: 'API Reference',
         items: [
           { text: 'Composables', link: '/api/composables' },

@@ -15,6 +15,8 @@ export type {
   ClaimsValidationConfig,
   CustomClaimsCallback,
   ImpersonationContext,
+  CustomTokenClaims,
+  ExtractClaims,
 } from './token'
 
 // Provider types

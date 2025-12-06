@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { AppTokenPayload } from '~~/shared/types/token'
 import { useAuth } from '#imports'
 
-const { user, login, logout } = useAuth()
+const { user, login, logout } = useAuth<AppTokenPayload>()
 </script>
 
 <template>

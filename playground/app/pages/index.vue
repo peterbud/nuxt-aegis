@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AppTokenPayload } from '~~/shared/types/token'
 import { useAuth, useNuxtApp } from '#imports'
 
 const apiResponse = ref()
@@ -10,7 +11,7 @@ const publicApiResponse = ref()
 const publicApiError = ref<string | null>(null)
 const unauthApiResponse = ref()
 const unauthApiError = ref<string | null>(null)
-const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation } = useAuth()
+const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation } = useAuth<AppTokenPayload>()
 
 // Password authentication state
 const passwordMode = ref<'login' | 'register' | 'reset' | null>(null)

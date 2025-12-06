@@ -19,8 +19,8 @@ const { user, isAuthenticated, login, logout } = useAuth()
 ## Type Signature
 
 ```typescript
-function useAuth<TUser = User>(): {
-  user: Ref<TUser | null>
+function useAuth<T extends TokenPayload = TokenPayload>(): {
+  user: Ref<T | null>
   isAuthenticated: Ref<boolean>
   isLoading: Ref<boolean>
   isImpersonating: Ref<boolean>
@@ -33,11 +33,15 @@ function useAuth<TUser = User>(): {
 }
 ```
 
+::: tip Type-Safe Custom Claims
+Use the generic parameter to get type-safe access to custom claims. See [Token Types guide](/guides/types/token-types.md) for details.
+:::
+
 ## Return Value
 
 ### `user`
 
-**Type:** `Ref<TUser | null>`
+**Type:** `Ref<T | null>`
 
 Current authenticated user object, or `null` if not authenticated.
 
@@ -49,10 +53,10 @@ console.log(user.value?.email)  // User's email address
 console.log(user.value?.sub)    // Unique user identifier
 ```
 
-**User Interface:**
+**Default User Interface:**
 
 ```typescript
-interface User {
+interface TokenPayload {
   sub: string          // Unique user ID
   name: string         // Display name
   email: string        // Email address
@@ -60,12 +64,35 @@ interface User {
   provider: string     // OAuth provider
   iat: number          // Token issued at (Unix timestamp)
   exp: number          // Token expires at (Unix timestamp)
-  // ... custom claims
+}
+```
+
+**With Custom Claims:**
+
+```typescript
+import type { CustomTokenClaims } from '#nuxt-aegis'
+
+// Define your token type
+type AppTokenPayload = CustomTokenClaims<{
+  role: 'admin' | 'user'
+  permissions: string[]
+}>
+
+// Use with type parameter
+const { user } = useAuth<AppTokenPayload>()
+
+// Type-safe access to custom claims
+if (user.value?.role === 'admin') {
+  console.log('Admin permissions:', user.value.permissions)
 }
 ```
 
 ::: tip Reactive
 `user` is reactive and automatically updates when authentication state changes.
+:::
+
+::: tip Type Safety
+See [Token Types guide](/guides/types/) for comprehensive examples of type-safe custom claims.
 :::
 
 ### `isAuthenticated`

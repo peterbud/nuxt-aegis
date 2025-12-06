@@ -21,6 +21,91 @@ interface User {
 }
 ```
 
+### `CustomTokenClaims<T>`
+
+Helper type for creating type-safe custom token payloads.
+
+```typescript
+type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
+```
+
+**Usage:**
+
+```typescript
+import type { CustomTokenClaims } from '#nuxt-aegis'
+
+// Define your app's token type
+export type AppTokenPayload = CustomTokenClaims<{
+  role: 'admin' | 'user' | 'guest'
+  permissions: string[]
+  organizationId: string
+}>
+
+// Use in components
+const { user } = useAuth<AppTokenPayload>()
+console.log(user.value?.role)  // Type-safe access
+
+// Use in server handlers
+const user = getAuthUser<AppTokenPayload>(event)
+if (user.role === 'admin') {
+  // Admin logic
+}
+```
+
+**Type constraint:** `T` must only contain JSON-serializable values (strings, numbers, booleans, arrays, or one-level objects).
+
+::: tip Complete Guide
+See the [Token Types guide](/guides/types/token-types.md) for comprehensive examples and best practices.
+:::
+
+### `ExtractClaims<T>`
+
+Utility type to extract only custom claims from a token payload.
+
+```typescript
+type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
+```
+
+**Usage:**
+
+```typescript
+import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis'
+
+type AppTokenPayload = CustomTokenClaims<{
+  role: string
+  permissions: string[]
+}>
+
+// Extract only custom claims
+type CustomClaims = ExtractClaims<AppTokenPayload>
+// Result: { role: string; permissions: string[] }
+
+// Use in database operations
+function updateUserClaims(userId: string, claims: ExtractClaims<AppTokenPayload>) {
+  // Only accepts custom claims, not standard JWT fields
+  await db.update({ role: claims.role, permissions: claims.permissions })
+}
+```
+
+### `JSONValue`
+
+Type representing JSON-serializable values for token payloads.
+
+```typescript
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue }
+```
+
+::: warning Token Size
+JWT tokens are sent with every request. Keep custom claims small (< 1KB recommended).
+Nuxt Aegis will warn in development mode if token payload exceeds 1KB.
+:::
+
 ## Configuration Types
 
 ### `NuxtAegisConfig`

@@ -1,8 +1,8 @@
 import userDatabase from '../db/users.json'
-import type { User, Provider } from '~~/shared/types/user'
+import type { DatabaseUser, Provider } from '~~/shared/types/database'
 
 interface UserDatabase {
-  users: User[]
+  users: DatabaseUser[]
 }
 
 // Load initial data from JSON file into memory
@@ -16,8 +16,8 @@ const userDb: UserDatabase = {
  * @param email - The email address of the user to find
  * @returns The user profile object or null if not found
  */
-export function dbGetUserProfile(email: string): User | null {
-  const user = userDb.users.find(u => u.email.toLowerCase() === email.toLowerCase())
+export function dbGetUserProfile(email: string): DatabaseUser | null {
+  const user = userDb.users.find(u => u.email?.toLowerCase() === email.toLowerCase())
   return user || null
 }
 
@@ -26,7 +26,7 @@ export function dbGetUserProfile(email: string): User | null {
  * @param id - The ID of the user to find
  * @returns The user profile object or null if not found
  */
-export function dbGetUserById(id: string): User | null {
+export function dbGetUserById(id: string): DatabaseUser | null {
   const user = userDb.users.find(u => u.id === id)
   return user || null
 }
@@ -35,7 +35,7 @@ export function dbGetUserById(id: string): User | null {
  * Mock database function to get all users
  * @returns Array of all users
  */
-export function dbGetAllUsers(): User[] {
+export function dbGetAllUsers(): DatabaseUser[] {
   return userDb.users
 }
 
@@ -44,13 +44,14 @@ export function dbGetAllUsers(): User[] {
  * @param user - The user to add
  * @returns The added user
  */
-export function dbAddUser(user: Omit<User, 'id' | 'createdAt' | 'lastLogin'> & { providers: Provider[] }): User {
-  const newUser: User = {
-    ...user,
+export function dbAddUser(user: Omit<DatabaseUser, 'id' | 'createdAt' | 'lastLogin' | 'sub'>): DatabaseUser {
+  const newUser = {
     id: String(userDb.users.length + 1),
+    sub: String(userDb.users.length + 1), // Use id as sub for simplicity
     createdAt: new Date().toISOString(),
     lastLogin: new Date().toISOString(),
-  }
+    ...user,
+  } as DatabaseUser
   userDb.users.push(newUser)
   return newUser
 }
@@ -61,7 +62,7 @@ export function dbAddUser(user: Omit<User, 'id' | 'createdAt' | 'lastLogin'> & {
  * @param data - The data to update
  * @returns The updated user or null if not found
  */
-export function dbUpdateUser(id: string, data: Partial<User>): User | null {
+export function dbUpdateUser(id: string, data: Partial<DatabaseUser>): DatabaseUser | null {
   const userIndex = userDb.users.findIndex(u => u.id === id)
   if (userIndex === -1) {
     return null
@@ -91,7 +92,7 @@ export function dbDeleteUser(id: string): boolean {
  * @param providerId - The user's ID from the provider
  * @returns The user profile object or null if not found
  */
-export function dbFindUserByProvider(providerName: string, providerId: string): User | null {
+export function dbFindUserByProvider(providerName: string, providerId: string): DatabaseUser | null {
   const user = userDb.users.find(u =>
     u.providers?.some(p => p.name === providerName && p.id === providerId),
   )
@@ -104,7 +105,7 @@ export function dbFindUserByProvider(providerName: string, providerId: string): 
  * @param provider - The provider to link
  * @returns The updated user or null if not found
  */
-export function dbLinkProviderToUser(userId: string, provider: Provider): User | null {
+export function dbLinkProviderToUser(userId: string, provider: Provider): DatabaseUser | null {
   const userIndex = userDb.users.findIndex(u => u.id === userId)
   if (userIndex === -1) {
     return null
@@ -130,7 +131,7 @@ export function dbLinkProviderToUser(userId: string, provider: Provider): User |
  * @param email - The email address to search for
  * @returns The user or null if not found
  */
-export function dbGetUserByEmail(email: string): User | null {
+export function dbGetUserByEmail(email: string): DatabaseUser | null {
   return dbGetUserProfile(email)
 }
 
@@ -140,7 +141,7 @@ export function dbGetUserByEmail(email: string): User | null {
  * @param hashedPassword - The hashed password
  * @returns The created or updated user
  */
-export function dbCreateOrUpdatePasswordUser(email: string, hashedPassword: string): User {
+export function dbCreateOrUpdatePasswordUser(email: string, hashedPassword: string): DatabaseUser {
   const normalizedEmail = email.toLowerCase().trim()
   const existingUser = dbGetUserByEmail(normalizedEmail)
 

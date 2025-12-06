@@ -126,6 +126,81 @@ export interface ClaimsValidationConfig {
 }
 
 /**
+ * JSON-compatible value type for JWT custom claims
+ * Supports primitives, arrays, and one level of object nesting
+ */
+export type JSONValue
+  = | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | string[]
+    | number[]
+    | { [key: string]: string | number | boolean | null | undefined | string[] | number[] }
+
+/**
+ * Helper type for creating custom token payloads with type safety
+ *
+ * Extends TokenPayload with custom claims while ensuring type safety.
+ * Prevents overriding standard JWT claims and ensures all custom claims
+ * are JSON-serializable.
+ *
+ * @template T - Record of custom claims to add to the token payload
+ *
+ * @example
+ * ```typescript
+ * // Define your custom claims
+ * type AppTokenPayload = CustomTokenClaims<{
+ *   role: string
+ *   permissions: string[]
+ *   organizationId: string
+ * }>
+ *
+ * // Use with useAuth
+ * const { user } = useAuth<AppTokenPayload>()
+ * console.log(user.value?.role) // Type-safe access
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With nested objects (one level)
+ * type AppTokenPayload = CustomTokenClaims<{
+ *   role: string
+ *   metadata: {
+ *     tenantId: string
+ *     plan: string
+ *   }
+ * }>
+ * ```
+ *
+ * @warning Never include sensitive data like passwords, API keys, or secrets in JWT tokens
+ * @warning Keep token payloads small (< 1KB recommended) for performance
+ */
+export type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
+
+/**
+ * Utility type to extract only custom claims from a token payload
+ *
+ * Removes all standard TokenPayload fields, leaving only your custom claims.
+ * Useful for type composition and claim validation.
+ *
+ * @template T - A token payload type extending TokenPayload
+ *
+ * @example
+ * ```typescript
+ * type AppTokenPayload = CustomTokenClaims<{
+ *   role: string
+ *   permissions: string[]
+ * }>
+ *
+ * type CustomClaims = ExtractClaims<AppTokenPayload>
+ * // Result: { role: string, permissions: string[] }
+ * ```
+ */
+export type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
+
+/**
  * Custom claims callback function
  * Receives the full OAuth provider user data and tokens
  * Returns claims to add to the JWT (must be JWT-compatible types)
