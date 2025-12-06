@@ -1,39 +1,52 @@
 # Route Protection
 
-Protect your routes from unauthorized access using middleware and server-side validation.
+Protect your routes from unauthorized access using Nitro route rules and client-side middleware.
 
 ## Server-Side Route Protection
 
-The most secure way to protect routes is using server-side middleware.
+The most secure way to protect routes is using server-side middleware configured via Nitro route rules.
 
 ### Automatic Route Protection
 
-Configure protected routes in `nuxt.config.ts`:
+Configure protected routes using Nitro's `routeRules` in `nuxt.config.ts`:
 
 ```typescript
 export default defineNuxtConfig({
   nuxtAegis: {
-    routeProtection: {
-      protectedRoutes: [
-        '/dashboard/**',
-        '/admin/**',
-        '/api/user/**',
-      ],
-      publicRoutes: [
-        '/login',
-        '/about',
-        '/api/public/**',
-      ],
+    // ... provider configuration
+  },
+  
+  nitro: {
+    routeRules: {
+      // Protect API routes
+      '/api/**': { nuxtAegis: { auth: true } },
+      '/api/admin/**': { nuxtAegis: { auth: 'required' } },
+      
+      // Public API routes (override)
+      '/api/public/**': { nuxtAegis: { auth: false } },
+      '/api/health': { nuxtAegis: { auth: 'skip' } },
     },
   },
 })
 ```
 
-::: tip Glob Patterns
-Use glob patterns for flexible route matching:
-- `/**` matches all routes
-- `/dashboard/**` matches all routes under `/dashboard`
-- `/api/user/*` matches direct children only
+::: tip Authentication Values
+The `nuxtAegis.auth` property supports the following values:
+- `true` | `'required'` | `'protected'` - Route requires authentication
+- `false` | `'public'` | `'skip'` - Route is public and skips authentication
+- `undefined` - Route is not protected (opt-in behavior)
+:::
+
+::: info Route Matching Precedence
+Nitro matches routes by specificity. More specific patterns take precedence:
+```typescript
+nitro: {
+  routeRules: {
+    '/api/**': { nuxtAegis: { auth: true } },        // All API routes protected
+    '/api/public/**': { nuxtAegis: { auth: false } }, // Except /api/public/*
+  }
+}
+```
 :::
 
 ### Server Middleware
@@ -82,36 +95,44 @@ export default defineEventHandler(async (event) => {
 
 ## Client-Side Route Protection
 
-Protect client-side routes using navigation guards.
+Protect client-side routes using built-in or custom navigation guards.
 
-### Page-Level Middleware
+::: warning Client-Side Only
+Client-side middleware can be bypassed. Always validate authentication on the server for API routes using Nitro routeRules.
+:::
 
-Create a middleware file:
+### Built-in Middleware
+
+Nuxt Aegis provides two built-in client middlewares: `auth-logged-in` and `auth-logged-out`.
+
+### Configuration Scenarios
+
+#### Scenario A: Manual Per-Page Protection (Recommended)
+
+Most flexible approach with explicit control over which pages are protected.
 
 ```typescript
-// middleware/auth.ts
-export default defineNuxtRouteMiddleware((to, from) => {
-  const { isAuthenticated, isLoading } = useAuth()
-  
-  // Wait for auth to load
-  if (isLoading.value) {
-    return
-  }
-  
-  // Redirect to login if not authenticated
-  if (!isAuthenticated.value) {
-    return navigateTo('/login')
-  }
+export default defineNuxtConfig({
+  nuxtAegis: {
+    clientMiddleware: {
+      enabled: true,
+      global: false, // Per-page control (default)
+      redirectTo: '/login',
+      loggedOutRedirectTo: '/',
+      // publicRoutes not needed - middleware only runs where you add it
+    },
+  },
 })
 ```
 
-Apply to specific pages:
+Apply middleware to specific pages:
 
-```vue
-<!-- pages/dashboard.vue -->
+::: code-group
+
+```vue [pages/dashboard.vue - Protected]
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth'
+  middleware: ['auth-logged-in'] // Requires authentication
 })
 </script>
 
@@ -123,17 +144,231 @@ definePageMeta({
 </template>
 ```
 
-### Global Middleware
+```vue [pages/login.vue - Login Page]
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth-logged-out'] // Redirects if already logged in
+})
+</script>
 
-Create a global middleware:
+<template>
+  <div>
+    <h1>Login</h1>
+    <!-- Login form -->
+  </div>
+</template>
+```
+
+```vue [pages/index.vue - Public]
+<template>
+  <div>
+    <h1>Welcome</h1>
+    <p>No middleware = public page accessible to everyone</p>
+  </div>
+</template>
+```
+
+:::
+
+::: tip Why Per-Page?
+- **Explicit**: Clear which pages are protected by looking at `definePageMeta`
+- **Flexible**: Easy to add custom middleware chains
+- **No configuration overhead**: No need to maintain a `publicRoutes` list
+:::
+
+#### Scenario B: Global Protection with Public Routes
+
+Protect all pages by default, except specified public routes.
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    clientMiddleware: {
+      enabled: true,
+      global: true, // Protect ALL pages by default
+      redirectTo: '/login',
+      loggedOutRedirectTo: '/',
+      publicRoutes: [
+        '/', // Home page
+        '/about',
+        '/contact',
+        '/terms',
+        // Note: '/login' and '/' are automatically included
+      ],
+    },
+  },
+})
+```
+
+::: info Automatic Public Routes
+When `global: true`, the module **automatically adds** `redirectTo` and `loggedOutRedirectTo` to `publicRoutes` to prevent infinite redirect loops. You don't need to manually include them.
+:::
+
+With global protection:
+
+```vue
+<!-- pages/dashboard.vue - Protected (no middleware needed) -->
+<template>
+  <div>
+    <h1>Dashboard</h1>
+    <p>Protected automatically by global middleware</p>
+  </div>
+</template>
+```
+
+```vue
+<!-- pages/login.vue - Still needs auth-logged-out -->
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth-logged-out'] // Redirect authenticated users
+})
+</script>
+
+<template>
+  <div>
+    <h1>Login</h1>
+  </div>
+</template>
+```
+
+::: warning Global Mode Considerations
+- You must maintain a `publicRoutes` list as your app grows
+- Login/register pages still need `auth-logged-out` middleware
+- Public pages (like terms of service) must be explicitly listed
+:::
+
+### `auth-logged-in` Middleware
+
+Redirects unauthenticated users to the configured `redirectTo` destination.
+
+**Behavior:**
+- When `global: true`: Runs on all routes, checks `publicRoutes` to skip protection
+- When `global: false`: Only runs on pages with `definePageMeta({ middleware: ['auth-logged-in'] })`
+
+### `auth-logged-out` Middleware
+
+Redirects authenticated users away from pages that should only be accessible when logged out (e.g., login, register, forgot-password).
+
+**Behavior:**
+- Always per-page only (never global)
+- Does NOT check `publicRoutes`
+- Redirects to `loggedOutRedirectTo` if user is authenticated
+
+**Usage:**
+
+```vue
+<!-- pages/login.vue -->
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth-logged-out']
+})
+</script>
+```
+
+```vue
+<!-- pages/register.vue -->
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth-logged-out']
+})
+</script>
+```
+
+### Public Routes Pattern Matching
+
+The `publicRoutes` array supports glob patterns:
+
+```typescript
+publicRoutes: [
+  '/',              // Exact match
+  '/about',         // Exact match
+  '/blog/*',        // Matches /blog/post-1, /blog/post-2 (single level)
+  '/docs/**',       // Matches /docs/guide/intro, /docs/api/config (multi-level)
+  '/api/public/*',  // Matches /api/public/status, etc.
+]
+```
+
+### Configuration Validation
+
+The module validates your configuration at build time:
+
+::: danger Error Conditions
+- **`global: true` with empty `publicRoutes`**: Throws an error (even redirect routes need to be accessible)
+:::
+
+::: warning Warning Conditions
+- **`global: false` with non-empty `publicRoutes`**: Warns that `publicRoutes` will be ignored since middleware is per-page only
+:::
+
+### Custom Page-Level Middleware
+
+Create custom middleware for additional logic (e.g., role-based access):
+
+```typescript
+// middleware/admin.ts
+export default defineNuxtRouteMiddleware((to, from) => {
+  const { user, isLoggedIn, isLoading } = useAuth()
+  
+  // Wait for auth to load
+  if (isLoading.value) {
+    return
+  }
+  
+  // Redirect to login if not authenticated
+  if (!isLoggedIn.value) {
+    return navigateTo('/login')
+  }
+  
+  // Check for admin role
+  if (user.value?.role !== 'admin') {
+    return navigateTo('/')
+  }
+})
+```
+
+Apply to specific pages:
+
+```vue
+<!-- pages/admin/dashboard.vue -->
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['admin'] // Custom middleware with role check
+})
+</script>
+```
+
+::: tip Middleware Chains
+You can combine multiple middlewares:
+```typescript
+definePageMeta({
+  middleware: ['auth-logged-in', 'admin', 'verify-email']
+})
+```
+They run in the order specified.
+:::
+
+### Comparison: Global vs Per-Page
+
+| Aspect | `global: false` (Per-Page) | `global: true` (Global) |
+|--------|----------------------------|-------------------------|
+| **Default behavior** | Pages are public unless middleware added | All pages protected unless in `publicRoutes` |
+| **Configuration** | Simple - no `publicRoutes` needed | Requires maintaining `publicRoutes` list |
+| **Clarity** | Explicit - see protection in page code | Implicit - must check config |
+| **Maintenance** | Add middleware to new protected pages | Add new public pages to config |
+| **Redirect routes** | No special handling needed | Auto-included in `publicRoutes` |
+| **Best for** | Most apps, explicit control | Apps with mostly protected pages |
+
+### Custom Global Middleware
+
+If you need custom global protection logic, create your own global middleware instead of using the built-in one:
 
 ```typescript
 // middleware/auth.global.ts
 export default defineNuxtRouteMiddleware((to, from) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isLoggedIn, isLoading } = useAuth()
   
-  // Public routes
-  const publicRoutes = ['/login', '/about', '/']
+  // Public routes - customize as needed
+  const publicRoutes = ['/login', '/register', '/about', '/']
   if (publicRoutes.includes(to.path)) {
     return
   }
@@ -144,14 +379,27 @@ export default defineNuxtRouteMiddleware((to, from) => {
   }
   
   // Protect all other routes
-  if (!isAuthenticated.value) {
+  if (!isLoggedIn.value) {
     return navigateTo('/login')
   }
 })
 ```
 
-::: warning Client-Side Only
-Client-side middleware can be bypassed. Always validate authentication on the server for API routes.
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    clientMiddleware: {
+      enabled: false, // Disable built-in middleware
+    },
+  },
+})
+```
+
+::: tip When to Use Custom Global Middleware
+- You need custom logic (e.g., checking subscription status)
+- You want different behavior for different route patterns
+- You need to integrate with other middleware or plugins
 :::
 
 ## Role-Based Access Control (RBAC)

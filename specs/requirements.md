@@ -203,13 +203,14 @@ This document specifies the functional and non-functional requirements for a Nux
 
 ### 5.4 Route Protection
 
-**MW-12:** WHERE route protection is configured, the module SHALL allow developers to specify protected route patterns.
+**MW-12:** WHERE route protection is configured via Nitro routeRules, the module SHALL allow developers to specify authentication requirements using the `nuxtAegis.auth` property.
 
-**MW-13:** WHERE route protection is configured, the module SHALL allow developers to specify public route patterns that bypass authentication.
+**MW-13:** The module SHALL support the following `nuxtAegis.auth` values: `true`, `'required'`, `'protected'` (route requires authentication), and `false`, `'public'`, `'skip'` (route is public).
 
-**MW-14:** IF a route pattern matches both protected and public patterns, THEN the module SHALL treat the route as public.
+**MW-14:** IF a route has `nuxtAegis.auth` set to `false`, `'public'`, or `'skip'`, THEN the module SHALL skip authentication for that route regardless of other patterns.
 
-**MW-15:** WHEN no route patterns are configured, the module SHALL protect all routes by default.
+**MW-15:** WHEN `nuxtAegis.auth` is undefined for a route, the module SHALL NOT protect that route, requiring explicit opt-in via Nitro routeRules for server-side route protection.
+
 
 ## 6. Client-Side Requirements
 
@@ -276,6 +277,30 @@ This document specifies the functional and non-functional requirements for a Nux
 **CL-23:** WHEN the token exchange is successful, the module SHALL store the access token in memory and update the authentication state.
 
 **CL-24:** IF the token exchange fails, the module SHALL redirect to a configurable error URL or display an error message.
+
+### 6.8 Client-Side Route Protection
+
+**CL-25:** The module SHALL provide optional client-side route protection middleware to improve user experience by redirecting unauthenticated users before server API calls.
+
+**CL-26:** WHERE client-side middleware is enabled (`clientMiddleware.enabled: true`), the module SHALL register two built-in middlewares: `auth-logged-in` and `auth-logged-out`.
+
+**CL-27:** WHERE `clientMiddleware.global` is set to `true`, the module SHALL register the `auth-logged-in` middleware globally to protect all client-side routes by default.
+
+**CL-28:** WHERE `clientMiddleware.global` is set to `true`, the module SHALL require `publicRoutes` to be configured with at least one route to prevent infinite redirect loops.
+
+**CL-29:** WHERE `clientMiddleware.global` is set to `true`, the module SHALL automatically include `redirectTo` and `loggedOutRedirectTo` in the `publicRoutes` array to prevent redirect loops.
+
+**CL-30:** WHERE `clientMiddleware.global` is set to `false`, the module SHALL register the `auth-logged-in` middleware as a named middleware that can be applied per-page via `definePageMeta`.
+
+**CL-31:** WHERE `clientMiddleware.global` is set to `false`, the `auth-logged-in` middleware SHALL NOT check `publicRoutes` since the developer explicitly controls which pages use the middleware.
+
+**CL-32:** WHERE `clientMiddleware.global` is set to `false` and `publicRoutes` is configured with a non-empty array, the module SHALL log a warning at build time that `publicRoutes` will be ignored.
+
+**CL-33:** The `auth-logged-out` middleware SHALL always be registered as a named (non-global) middleware that redirects authenticated users away from login/register pages.
+
+**CL-34:** The `auth-logged-out` middleware SHALL NOT check `publicRoutes` and SHALL only use the `loggedOutRedirectTo` configuration for redirection.
+
+**CL-35:** Client-side middleware SHALL NOT enforce security and SHALL be considered a user experience enhancement complementary to server-side Nitro route rules.
 
 ## 7.Storage Requirements
 

@@ -109,7 +109,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
         // Check if current route is public - skip refresh if it is
         if (typeof window !== 'undefined') {
-          const publicRoutes = nuxtApp.$config.public.nuxtAegis?.routeProtection?.publicRoutes || []
+          const publicRoutes = nuxtApp.$config.public.nuxtAegis?.clientMiddleware?.publicRoutes || []
           const currentPath = window.location.pathname
 
           if (isRouteMatch(currentPath, publicRoutes)) {

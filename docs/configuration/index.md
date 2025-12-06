@@ -58,10 +58,13 @@ export default defineNuxtConfig({
       error: '/',
     },
     
-    // Route Protection
-    routeProtection: {
-      protectedRoutes: ['/dashboard/**', '/admin/**'],
-      publicRoutes: ['/login', '/about'],
+    // Client-Side Middleware Configuration
+    clientMiddleware: {
+      enabled: true,                 // Enable built-in client middleware
+      global: false,                 // Apply globally to all pages
+      redirectTo: '/login',          // Redirect for unauthenticated users
+      loggedOutRedirectTo: '/',      // Redirect for authenticated users on logged-out pages
+      publicRoutes: ['/', '/about'], // Routes to exclude from protection
     },
 
     // Impersonation Configuration
@@ -91,8 +94,15 @@ export default defineNuxtConfig({
     },
   },
   
-  // Configure Nitro storage for persistent refresh tokens
+  // Server-Side Route Protection via Nitro Route Rules
   nitro: {
+    routeRules: {
+      // Protect all API routes
+      '/api/**': { nuxtAegis: { auth: true } },
+      // Public API routes (override)
+      '/api/public/**': { nuxtAegis: { auth: false } },
+    },
+    // Configure storage for persistent refresh tokens
     storage: {
       refreshTokenStore: {
         driver: 'fs',
@@ -166,17 +176,50 @@ All redirect URLs must be relative paths starting with `/` to prevent open redir
 
 ## Route Protection Configuration
 
-Configure which routes require authentication.
+Configure server-side and client-side route protection.
+
+### Server-Side Protection (Nitro Route Rules)
+
+Use Nitro's `routeRules` to protect server API routes:
+
+```typescript
+export default defineNuxtConfig({
+  nitro: {
+    routeRules: {
+      '/api/**': { nuxtAegis: { auth: true } },
+      '/api/public/**': { nuxtAegis: { auth: false } },
+    },
+  },
+})
+```
+
+**Authentication Values:**
+- `true` | `'required'` | `'protected'` - Route requires authentication
+- `false` | `'public'` | `'skip'` - Route is public and skips authentication
+- `undefined` - Route is not protected (opt-in behavior)
+
+::: tip Route Matching Precedence
+Nitro matches routes by specificity. More specific patterns take precedence over less specific ones.
+:::
+
+### Client-Side Protection (Middleware)
+
+Enable built-in client-side middleware for page protection:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `protectedRoutes` | `string[]` | `[]` | Routes that require authentication |
-| `publicRoutes` | `string[]` | `[]` | Routes that bypass authentication |
+| `enabled` | `boolean` | `false` | Enable built-in client middleware |
+| `global` | `boolean` | `false` | Apply `auth-logged-in` middleware globally |
+| `redirectTo` | `string` | `'/login'` | Redirect destination for unauthenticated users |
+| `loggedOutRedirectTo` | `string` | `'/'` | Redirect destination for authenticated users on logged-out pages |
+| `publicRoutes` | `string[]` | `[]` | Routes to exclude from protection (glob patterns supported) |
 
-::: tip Pattern Matching
-Use glob patterns for route matching:
-- `/dashboard/**` matches all routes under `/dashboard`
-- `/api/user/*` matches direct children of `/api/user`
+**Built-in Middlewares:**
+- `auth-logged-in` - Redirects unauthenticated users
+- `auth-logged-out` - Redirects authenticated users (for login/register pages)
+
+::: warning Security Notice
+Client-side middleware improves UX but can be bypassed. Always use server-side protection via Nitro routeRules for API routes.
 :::
 
 ## Endpoint Configuration

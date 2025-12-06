@@ -6,6 +6,10 @@ const error = ref<string | null>(null)
 const impersonateTargetUserId = ref('')
 const impersonateReason = ref('')
 const demoResponse = ref()
+const publicApiResponse = ref()
+const publicApiError = ref<string | null>(null)
+const unauthApiResponse = ref()
+const unauthApiError = ref<string | null>(null)
 const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation } = useAuth()
 
 // Password authentication state
@@ -308,6 +312,34 @@ const resetPasswordMode = () => {
   passwordSuccess.value = null
   pendingVerification.value = false
   resetSessionId.value = null
+}
+
+// Public API test functions
+const testPublicApi = async () => {
+  publicApiResponse.value = null
+  publicApiError.value = null
+
+  try {
+    const data = await $fetch('/api/public')
+    publicApiResponse.value = data || null
+  }
+  catch (err: unknown) {
+    publicApiError.value = (err as Error).message || 'Failed to fetch public endpoint'
+  }
+}
+
+const testUnauthenticatedProtectedApi = async () => {
+  unauthApiResponse.value = null
+  unauthApiError.value = null
+
+  try {
+    // Try to call protected route without authentication
+    const data = await $fetch('/api/user/profile')
+    unauthApiResponse.value = data || null
+  }
+  catch (err: unknown) {
+    unauthApiError.value = (err as { statusCode?: number, statusMessage?: string, message?: string }).statusMessage || (err as Error).message || 'Failed to fetch protected route'
+  }
 }
 </script>
 
@@ -797,6 +829,114 @@ const resetPasswordMode = () => {
           </div>
         </div>
 
+        <!-- Public API Demonstrations -->
+        <div class="card">
+          <h2 class="card-title">
+            Public API Demonstrations
+          </h2>
+          <p class="section-description">
+            These endpoints demonstrate authentication requirements.
+          </p>
+
+          <!-- Test Public Endpoint -->
+          <div class="section-mock">
+            <h3 class="section-title">
+              ✅ Public Endpoint (No Auth Required)
+            </h3>
+            <p class="section-description">
+              This endpoint can be called by anyone, logged in or not.
+            </p>
+
+            <button
+              class="btn btn-success btn-block"
+              @click="testPublicApi"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Call Public API (/api/public)
+            </button>
+
+            <div
+              v-if="publicApiResponse"
+              class="response-box"
+            >
+              <h4>API Response:</h4>
+              <pre>{{ JSON.stringify(publicApiResponse, null, 2) }}</pre>
+            </div>
+
+            <div
+              v-if="publicApiError"
+              class="alert alert-error"
+            >
+              <h4>Error:</h4>
+              <pre>{{ publicApiError }}</pre>
+            </div>
+          </div>
+
+          <!-- Test Protected Endpoint Without Auth -->
+          <div
+            v-if="!isLoggedIn"
+            class="section-mock"
+          >
+            <h3 class="section-title">
+              ❌ Protected Endpoint (Auth Required)
+            </h3>
+            <p class="section-description">
+              This demonstrates that protected endpoints fail without authentication.
+            </p>
+
+            <button
+              class="btn btn-warning btn-block"
+              @click="testUnauthenticatedProtectedApi"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect
+                  x="3"
+                  y="11"
+                  width="18"
+                  height="11"
+                  rx="2"
+                  ry="2"
+                />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+              Try Protected API Without Login
+            </button>
+
+            <div
+              v-if="unauthApiResponse"
+              class="response-box"
+            >
+              <h4>API Response:</h4>
+              <pre>{{ JSON.stringify(unauthApiResponse, null, 2) }}</pre>
+            </div>
+
+            <div
+              v-if="unauthApiError"
+              class="alert alert-error"
+            >
+              <h4>Expected Error (401 Unauthorized):</h4>
+              <pre>{{ unauthApiError }}</pre>
+            </div>
+          </div>
+        </div>
+
         <!-- Admin Actions -->
         <div
           v-if="user?.role === 'admin' && !isImpersonating"
@@ -972,6 +1112,50 @@ const resetPasswordMode = () => {
 
       <!-- Column 3: Session Data -->
       <div class="column column-session">
+        <!-- Page Navigation -->
+        <div class="card">
+          <h2 class="card-title">
+            📄 Page Examples
+          </h2>
+          <p class="section-description">
+            Explore different page protection levels
+          </p>
+
+          <div class="page-links">
+            <NuxtLink
+              to="/public-page"
+              class="page-link public-link"
+            >
+              <div class="page-link-icon">
+                🌐
+              </div>
+              <div class="page-link-content">
+                <h4>Public Page</h4>
+                <p>Accessible to everyone</p>
+              </div>
+              <div class="page-link-arrow">
+                →
+              </div>
+            </NuxtLink>
+
+            <NuxtLink
+              to="/protected-page"
+              class="page-link protected-link"
+            >
+              <div class="page-link-icon">
+                🔐
+              </div>
+              <div class="page-link-content">
+                <h4>Protected Page</h4>
+                <p>Requires authentication</p>
+              </div>
+              <div class="page-link-arrow">
+                →
+              </div>
+            </NuxtLink>
+          </div>
+        </div>
+
         <div class="card">
           <h2 class="card-title">
             Current Session Data
@@ -1034,6 +1218,7 @@ const resetPasswordMode = () => {
   --color-danger: #f56565;
   --color-danger-dark: #c53030;
   --color-secondary: #718096;
+  --color-info: #4299e1;
 
   /* Status colors */
   --status-success-bg: #c6f6d5;
@@ -1638,5 +1823,83 @@ const resetPasswordMode = () => {
   font-size: 1rem;
   color: var(--color-success);
   font-weight: 500;
+}
+
+/* Page Links */
+.page-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.page-link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--bg-tertiary);
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.page-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.public-link {
+  border-color: var(--color-info);
+}
+
+.public-link:hover {
+  background: var(--status-info-bg);
+  border-color: var(--color-primary);
+}
+
+.protected-link {
+  border-color: var(--color-success);
+}
+
+.protected-link:hover {
+  background: var(--status-success-bg);
+  border-color: var(--color-success-dark);
+}
+
+.page-link-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.page-link-content {
+  flex: 1;
+}
+
+.page-link-content h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.page-link-content p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.page-link-arrow {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.page-link:hover .page-link-arrow {
+  color: var(--text-primary);
+  transform: translateX(4px);
 }
 </style>

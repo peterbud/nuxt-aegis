@@ -1,15 +1,14 @@
 import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { getRouteRules, useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
-import type { TokenConfig } from '../../types'
-import { isRouteMatch } from '../../app/utils/routeMatching'
+import type { TokenConfig, NuxtAegisRouteRules } from '../../types'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('Middleware')
 
 /**
  * Authentication middleware for Nuxt Aegis
- * Validates JWT tokens and protects routes according to configuration
+ * Validates JWT tokens and protects routes according to Nitro route rules
  */
 
 export default defineEventHandler(async (event) => {
@@ -18,8 +17,6 @@ export default defineEventHandler(async (event) => {
 
   // Get configuration with proper defaults
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
-  const protectedRoutes = config.nuxtAegis?.routeProtection?.protectedRoutes as string[] || []
-  const publicRoutes = config.nuxtAegis?.routeProtection?.publicRoutes as string[] || []
   const authPath = config.public.nuxtAegis.authPath
 
   // Skip authentication for auth routes (login, callback, etc.)
@@ -27,24 +24,24 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // Skip authentication for static assets and API routes that shouldn't be protected
+  // Skip authentication for static assets and internal API routes
   if (requestURL.pathname.startsWith('/_nuxt/') || requestURL.pathname.startsWith('/api/_')) {
     return
   }
 
-  // Check if route should be protected or public
-  const isPublicRoute = isRouteMatch(requestURL.pathname, publicRoutes)
+  // Get route rules for this request
+  const routeRules = (await getRouteRules(event)) as Record<string, unknown> & { nuxtAegis?: NuxtAegisRouteRules }
+  const authConfig = routeRules.nuxtAegis?.auth
 
-  // MW-14: If route is explicitly public, skip authentication
-  if (isPublicRoute) {
-    return
-  }
+  // Normalize auth value
+  // true | 'required' | 'protected' => protect route
+  // false | 'public' | 'skip' => skip authentication
+  // undefined => skip (opt-in behavior)
+  const shouldProtect = authConfig === true || authConfig === 'required' || authConfig === 'protected'
+  const shouldSkip = authConfig === false || authConfig === 'public' || authConfig === 'skip'
 
-  // Check if route should be protected
-  const isProtectedRoute = isRouteMatch(requestURL.pathname, protectedRoutes)
-
-  // MW-15: If route is not explicitly protected, skip
-  if (!isProtectedRoute) {
+  // MW-15: If route is not explicitly protected, skip (opt-in behavior)
+  if (!shouldProtect || shouldSkip) {
     return
   }
 

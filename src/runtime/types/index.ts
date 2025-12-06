@@ -47,7 +47,9 @@ export type {
 
 // Route types
 export type {
-  RouteProtectionConfig,
+  NitroAegisAuth,
+  NuxtAegisRouteRules,
+  ClientMiddlewareConfig,
 } from './routes'
 
 // Callback types

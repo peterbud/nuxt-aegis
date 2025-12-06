@@ -5,6 +5,15 @@ export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: true },
   compatibilityDate: '2025-10-04',
+  // Server-side route protection via Nitro route rules
+  nitro: {
+    routeRules: {
+      // Protect all API routes (server-side)
+      '/api/**': { nuxtAegis: { auth: true } },
+      // Public API routes override
+      '/api/public/**': { nuxtAegis: { auth: false } },
+    },
+  },
   nuxtAegis: {
     providers: {
       google: {
@@ -86,6 +95,13 @@ export default defineNuxtConfig({
       logout: '/logout-success',
       error: '/auth-failed',
     },
+    // Client-side middleware for route protection (optional)
+    clientMiddleware: {
+      enabled: true,
+      global: false, // Don't protect all pages by default
+      redirectTo: '/login',
+      loggedOutRedirectTo: '/',
+    },
     // Logging configuration (optional)
     // logging: {
     //   Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info')
@@ -93,15 +109,5 @@ export default defineNuxtConfig({
     //   Enable security event logging (default: false, auto-enabled at debug level)
     //   security: true,
     // },
-    routeProtection: {
-      // Configure routes that should automatically get the bearer token
-      protectedRoutes: [
-        '/api/**',
-      ],
-      publicRoutes: [
-        '/',
-        '/public/**',
-      ],
-    },
   },
 })

@@ -9,7 +9,7 @@ import type {
 } from './providers'
 import type { TokenConfig, ClaimsValidationConfig } from './token'
 import type { TokenRefreshConfig } from './refresh'
-import type { RouteProtectionConfig } from './routes'
+import type { ClientMiddlewareConfig } from './routes'
 import type { AuthCodeConfig } from './authCode'
 
 /**
@@ -73,7 +73,6 @@ export interface NuxtAegisRuntimeConfig {
   token?: TokenConfig
   tokenRefresh?: TokenRefreshConfig
   authCode?: AuthCodeConfig
-  routeProtection?: RouteProtectionConfig
   endpoints?: EndpointConfig
   authPath?: string
   logging?: LoggingConfig
@@ -131,8 +130,8 @@ export interface ModuleOptions {
   /** Redirect URL configuration */
   redirect?: RedirectConfig
 
-  /** Route protection configuration */
-  routeProtection?: RouteProtectionConfig
+  /** Client-side middleware configuration for route protection */
+  clientMiddleware?: ClientMiddlewareConfig
 
   /** Claims validation configuration */
   claimsValidation?: ClaimsValidationConfig

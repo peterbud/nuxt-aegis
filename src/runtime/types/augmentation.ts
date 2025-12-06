@@ -1,7 +1,7 @@
 import type { NuxtAegisRuntimeConfig, RedirectConfig, LoggingConfig } from './config'
 import type { TokenRefreshConfig } from './refresh'
 import type { TokenPayload } from './token'
-import type { RouteProtectionConfig } from './routes'
+import type { ClientMiddlewareConfig } from './routes'
 import type { SuccessHookPayload } from './hooks'
 
 /**
@@ -23,7 +23,7 @@ declare module '@nuxt/schema' {
       userInfoPath: string
       redirect: RedirectConfig
       tokenRefresh: TokenRefreshConfig
-      routeProtection: RouteProtectionConfig
+      clientMiddleware?: ClientMiddlewareConfig
       logging: LoggingConfig
     }
   }
@@ -46,6 +46,15 @@ declare module 'h3' {
      * Available when request is authenticated via the auth middleware
      */
     user?: TokenPayload
+    /**
+     * Original user data before impersonation
+     * Available when impersonation is active
+     */
+    originalUser?: {
+      sub: string
+      email?: string
+      name?: string
+    }
   }
 }
 

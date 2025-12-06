@@ -1,13 +1,16 @@
 import {
   addImports,
   addPlugin,
+  addRouteMiddleware,
   addServerHandler,
   addServerImports,
   addServerImportsDir,
+  addTypeTemplate,
   createResolver,
   defineNuxtModule,
   extendPages,
   updateRuntimeConfig,
+  useLogger,
 } from '@nuxt/kit'
 import type { ModuleOptions } from './runtime/types'
 import { defu } from 'defu'
@@ -56,8 +59,11 @@ export default defineNuxtModule<ModuleOptions>({
       success: '/',
       error: '/',
     },
-    routeProtection: {
-      protectedRoutes: [],
+    clientMiddleware: {
+      enabled: false,
+      global: false,
+      redirectTo: '/login',
+      loggedOutRedirectTo: '/',
       publicRoutes: [],
     },
     endpoints: {
@@ -86,7 +92,7 @@ export default defineNuxtModule<ModuleOptions>({
           userInfoPath: options.endpoints?.userInfoPath || '/api/user/me',
           redirect: options.redirect,
           tokenRefresh: options.tokenRefresh,
-          routeProtection: options.routeProtection,
+          clientMiddleware: options.clientMiddleware,
           logging: options.logging,
         },
       },
@@ -242,6 +248,60 @@ export default defineNuxtModule<ModuleOptions>({
       middleware: true,
     })
 
+    // Get logger for validation warnings/errors
+    const logger = useLogger('nuxt-aegis')
+
+    // Register client-side route middlewares if enabled
+    if (options.clientMiddleware?.enabled) {
+      const cm = options.clientMiddleware
+
+      // Validate and normalize configuration
+      if (cm.global) {
+        // CL-28: When global protection is enabled, ensure publicRoutes is configured
+        const userPublicRoutes = cm.publicRoutes || []
+
+        // CL-29: Automatically include redirect destinations in publicRoutes to prevent loops
+        const redirectRoutes = [cm.redirectTo, cm.loggedOutRedirectTo]
+        const allPublicRoutes = [...new Set([...userPublicRoutes, ...redirectRoutes])]
+
+        // Update the config with normalized publicRoutes
+        options.clientMiddleware.publicRoutes = allPublicRoutes
+
+        // CL-28: Throw error if no public routes are configured (even after auto-inclusion)
+        if (allPublicRoutes.length === 0) {
+          throw new Error(
+            '[nuxt-aegis] clientMiddleware.global is enabled but no publicRoutes are configured. '
+            + 'At minimum, the redirectTo and loggedOutRedirectTo routes will be automatically included.',
+          )
+        }
+      }
+      else {
+        // CL-32: Warn if publicRoutes is configured but will be ignored
+        const userPublicRoutes = cm.publicRoutes || []
+        if (userPublicRoutes.length > 0) {
+          logger.warn(
+            '[nuxt-aegis] clientMiddleware.publicRoutes is configured but will be ignored '
+            + 'because clientMiddleware.global is false. The auth-logged-in middleware will only run '
+            + 'on pages where you explicitly add it via definePageMeta({ middleware: [\'auth-logged-in\'] }).',
+          )
+        }
+      }
+
+      // Register auth-logged-in middleware
+      addRouteMiddleware({
+        name: 'auth-logged-in',
+        path: resolver.resolve('./runtime/app/middleware/auth-logged-in'),
+        global: options.clientMiddleware.global === true,
+      })
+
+      // Register auth-logged-out middleware (always non-global, per-page only)
+      addRouteMiddleware({
+        name: 'auth-logged-out',
+        path: resolver.resolve('./runtime/app/middleware/auth-logged-out'),
+        global: false,
+      })
+    }
+
     // MOCK PROVIDER: Register mock OAuth server routes (development/test only)
     // Only available when NODE_ENV !== 'production'
     const isProduction = process.env.NODE_ENV === 'production'
@@ -338,5 +398,44 @@ export default defineNuxtModule<ModuleOptions>({
         path: resolver.resolve('./runtime/app/router.options.ts'),
       })
     })
+
+    // Register type augmentations for Nitro route rules
+    const typesPath = resolver.resolve('./runtime/types')
+    addTypeTemplate({
+      filename: 'types/nuxt-aegis.d.ts',
+      getContents: () => {
+        return `import type { NitroAegisAuth } from ${JSON.stringify(typesPath)}
+
+type NuxtAegisRouteRules = {
+  /**
+   * Authentication requirement for this route
+   * - true | 'required' | 'protected': Route requires authentication
+   * - false | 'public' | 'skip': Route is public and skips authentication
+   * - undefined: Route is not protected (opt-in behavior)
+   */
+  auth?: NitroAegisAuth
+}
+
+declare module 'nitropack/types' {
+  interface NitroRouteRules {
+    nuxtAegis?: NuxtAegisRouteRules
+  }
+  interface NitroRouteConfig {
+    nuxtAegis?: NuxtAegisRouteRules
+  }
+}
+
+declare module 'nitropack' {
+  interface NitroRouteRules {
+    nuxtAegis?: NuxtAegisRouteRules
+  }
+  interface NitroRouteConfig {
+    nuxtAegis?: NuxtAegisRouteRules
+  }
+}
+
+export {}`
+      },
+    }, { nitro: true, nuxt: true, node: true })
   },
 })
