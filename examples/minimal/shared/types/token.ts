@@ -12,4 +12,4 @@ import type { CustomTokenClaims } from 'nuxt-aegis'
  * console.log(user.value?.email) // Standard JWT claims are fully typed
  * ```
  */
-export type AppTokenPayload = CustomTokenClaims
+export type AppTokenPayload = CustomTokenClaims<Record<string, never>>

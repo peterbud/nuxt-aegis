@@ -395,11 +395,11 @@ export default defineNuxtModule<ModuleOptions>({
     // to prevent Vue Router warnings about invalid hash
     nuxt.hook('pages:routerOptions', (routerOptions) => {
       routerOptions.files.push({
-        path: resolver.resolve('./runtime/app/router.options.ts'),
+        path: resolver.resolve('./runtime/app/router.options'),
       })
     })
 
-    // Register type augmentations for Nitro route rules
+    // Register type augmentations for Nitro route rules and export user-facing types
     const typesPath = resolver.resolve('./runtime/types')
     addTypeTemplate({
       filename: 'types/nuxt-aegis.d.ts',
@@ -439,3 +439,28 @@ export {}`
     }, { nitro: true, nuxt: true, node: true })
   },
 })
+
+// Export user-facing types for direct import from 'nuxt-aegis'
+export type {
+  // Token types - for defining custom token payloads
+  TokenPayload,
+  CustomTokenClaims,
+  ExtractClaims,
+  ImpersonationContext,
+
+  // Callback types - for custom handlers
+  CustomClaimsCallback,
+  OnError,
+  OnUserInfo,
+  OnSuccess,
+  OnSuccessParams,
+
+  // Provider config types - for custom providers
+  OAuthProviderConfig,
+  GoogleProviderConfig,
+  MicrosoftProviderConfig,
+  GithubProviderConfig,
+  Auth0ProviderConfig,
+  MockProviderConfig,
+  CustomProviderConfig,
+} from './runtime/types'

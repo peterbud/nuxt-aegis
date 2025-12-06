@@ -1,4 +1,4 @@
-import { defineOAuthGoogleEventHandler } from '#build/types/nitro-imports'
+import { defineOAuthGoogleEventHandler } from '#imports'
 
 export default defineOAuthGoogleEventHandler({
   onUserInfo: (providerUserInfo, _tokens, _event) => {
