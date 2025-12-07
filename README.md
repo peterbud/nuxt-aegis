@@ -7,35 +7,38 @@
 
 **OAuth-based authentication with JWT token management for Nuxt 3/4**
 
-A comprehensive authentication module providing OAuth 2.0, JWT tokens, automatic token refresh, and flexible route protection.
+Nuxt Aegis is a comprehensive authentication module that orchestrates the flow between external providers (Google, GitHub, Auth0, etc.) and your application. It handles the complexity of OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
 
----
 
-## 📖 Documentation
+## Why Nuxt Aegis?
 
-**[View Full Documentation →](./docs/)**
+Unlike cookie-based solutions that lock your API to the browser, Nuxt Aegis uses **industry-standard JWT bearer tokens**. This means your API is ready for:
+- 📱 Mobile applications
+- 🖥️ CLI tools
+- 🌐 Third-party integrations
+- ⚡ Universal access across platforms
 
-- [Getting Started](./docs/getting-started/installation.md)
-- [Providers](./docs/providers/) - Google, Auth0, GitHub, Mock
-- [Configuration](./docs/configuration/)
-- [Usage Guides](./docs/guides/)
-- [API Reference](./docs/api/)
-- [Security Best Practices](./docs/security/best-practices.md)
+### How It Works
 
----
+1. **Authentication Provider** (e.g., Google) authenticates the user.
+2. **Nuxt Aegis** verifies the identity and issues a JWT.
+3. **Your App** receives the token and uses it for authorization.
 
-## ✨ Features
+You get full control over user data persistence while Aegis handles the security lifecycle.
 
-- 🔐 **OAuth 2.0** - Google, Auth0, GitHub providers with extensible architecture
-- 🎫 **JWT Tokens** - Automatic generation, validation, signing (HS256/RS256)
-- 🔄 **Token Refresh** - Seamless automatic refresh with server-side storage
-- 🛡️ **Route Protection** - Declarative middleware for server and client routes
-- 🎨 **Custom Claims** - Add application-specific data to tokens
-- 🍪 **Secure Cookies** - HttpOnly, secure, SameSite cookies for refresh tokens
-- 🔌 **Extensible** - Easy to add custom OAuth providers
-- 🥽 **Type Safe** - Full TypeScript support
+## ✨ Key Features
 
-## Quick Start
+- 🔐 **OAuth 2.0 & OpenID Connect** - Built-in support for Google, GitHub, Auth0, and Microsoft Entra ID.
+- 🔑 **Password Authentication** - Secure username/password flow with magic link verification.
+- 🎫 **JWT Management** - Automatic token generation, validation, and signing (HS256/RS256).
+- 🔄 **Auto-Refresh** - Seamless background token refresh with secure HTTP-only cookies.
+- 🛡️ **Route Protection** - Declarative middleware for both server API routes and client-side pages.
+- 🧪 **Mock Provider** - Built-in testing provider to simulate auth flows without external services.
+- 🎨 **Custom Claims** - Easily inject application-specific data (roles, permissions or similar) into tokens.
+  🎭 **Impersonation** - Support for user impersonation with full audit logging
+- 🥽 **Type Safe** - Written in TypeScript with full type definitions for a great developer experience.
+
+## 🚀 Quick Start
 
 ### 1. Install
 
@@ -45,8 +48,9 @@ npx nuxi module add nuxt-aegis
 
 ### 2. Configure
 
+Add the module and provider configuration to `nuxt.config.ts`:
+
 ```typescript
-// nuxt.config.ts
 export default defineNuxtConfig({
   modules: ['nuxt-aegis'],
   
@@ -64,86 +68,52 @@ export default defineNuxtConfig({
 })
 ```
 
-### 3. Environment Variables
+### 3. Create Auth Route
 
-```bash
-# .env
-NUXT_AEGIS_TOKEN_SECRET=your-32-character-secret-key-here
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-your-google-client-secret
-```
-
-### 4. Create OAuth Route
+Create a server route handler to initialize the provider:
 
 ```typescript
 // server/routes/auth/google.get.ts
 export default defineOAuthGoogleEventHandler({
-  config: {
-    scope: ['openid', 'email', 'profile'],
+  onUserInfo: (providerUserInfo, _tokens, _event) => {
+    return {
+      id: providerUserInfo.sub as string,
+      email: providerUserInfo.email,
+      name: providerUserInfo.name,
+    }
   },
 })
 ```
 
-### 5. Use in Components
+### 4. Use in Components
+
+Access authentication state anywhere in your app:
 
 ```vue
 <script setup lang="ts">
-const { user, isAuthenticated, login, logout } = useAuth()
+const { user, isLoggedIn, login, logout } = useAuth()
 </script>
 
 <template>
-  <div>
-    <button v-if="!isAuthenticated" @click="login('google')">
-      Login with Google
-    </button>
-    <div v-else>
-      <p>Welcome, {{ user?.name }}!</p>
-      <button @click="logout()">Logout</button>
-    </div>
+  <div v-if="isLoggedIn">
+    <h1>Welcome, {{ user?.name }}!</h1>
+    <button @click="logout()">Logout</button>
   </div>
+  <button v-else @click="login('google')">
+    Login with Google
+  </button>
 </template>
 ```
 
-That's it! ✨
+## 📖 Documentation
 
-## Documentation Overview
+Ready to dive deeper? Check out the full documentation:
 
-### Getting Started
-- [Installation](./docs/getting-started/installation.md)
-- [Quick Start Guide](./docs/getting-started/quick-start.md)
-
-### Providers
-- [Provider Overview](./docs/providers/)
-- [Google OAuth](./docs/providers/google.md)
-- [Auth0](./docs/providers/auth0.md)
-- [GitHub](./docs/providers/github.md)
-- [Mock Provider](./docs/providers/mock.md) (Development/Testing)
-- [Custom Providers](./docs/providers/custom.md)
-
-### Configuration
-- [Configuration Reference](./docs/configuration/)
-- [Environment Variables](./docs/configuration/environment.md)
-- [Storage Backends](./docs/configuration/storage.md)
-
-### Usage Guides
-- [Client-Side Authentication](./docs/guides/client-auth.md)
-- [Route Protection](./docs/guides/route-protection.md)
-- [Custom Claims](./docs/guides/custom-claims.md)
-- [Authentication Hooks](./docs/guides/hooks.md)
-- [Token Refresh](./docs/guides/token-refresh.md)
-- [Authorization CODE Flow](./docs/guides/authorization-code.md)
-
-### API Reference
-- [useAuth() Composable](./docs/api/composables.md)
-- [HTTP Endpoints](./docs/api/endpoints.md)
-- [Server Utilities](./docs/api/server-utils.md)
-- [Event Handlers](./docs/api/event-handlers.md)
-- [TypeScript Types](./docs/api/types.md)
-
-### Architecture & Security
-- [Architecture Overview](./docs/architecture/)
-- [Security Overview](./docs/security/)
-- [Security Best Practices](./docs/security/best-practices.md)
+- **[Getting Started](./docs/getting-started/installation.md)** - Installation and setup guides.
+- **[Providers](./docs/providers/)** - Configure Google, GitHub, Auth0, Password, and Mock providers.
+- **[Route Protection](./docs/guides/route-protection.md)** - Learn how to protect your pages and API routes.
+- **[Custom Claims](./docs/guides/custom-claims.md)** - Add custom data to your JWTs.
+- **[API Reference](./docs/api/)** - Detailed API documentation.
 
 ## Contributing
 
@@ -163,21 +133,17 @@ pnpm test
 
 # Lint & type check
 pnpm lint
-pnpm typecheck
 ```
 
 ## License
 
 [MIT License](./LICENSE)
 
----
+## Acknowledgments
 
-- ✨ [Release Notes](/CHANGELOG.md)
-- 📖 [Full Documentation](./docs/)
-- 📋 [Requirements Specification](/specs/requirements.md)
-- 🐛 [Issue Tracker](https://github.com/peterbud/nuxt-aegis/issues)
-
----
+- Built with [Nuxt Module Builder](https://github.com/nuxt/module-builder)
+- JWT handling powered by [jose](https://github.com/panva/jose)
+- Heavily inspired by the [nuxt-auth-utils](https://github.com/atinux/nuxt-auth-utils) and  Nuxt community
 
 Made with ❤️ for the Nuxt community
 
