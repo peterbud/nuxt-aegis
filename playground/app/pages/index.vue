@@ -1154,6 +1154,21 @@ const testUnauthenticatedProtectedApi = async () => {
                 →
               </div>
             </NuxtLink>
+
+            <NuxtLink
+              to="ssr-demo"
+              class="page-link protected-link"
+            >
+              <div class="page-link-icon">
+                🔐
+              </div>
+              <div class="page-link-content">
+                <h4>SSR Demo</h4>
+              </div>
+              <div class="page-link-arrow">
+                →
+              </div>
+            </NuxtLink>
           </div>
         </div>
 

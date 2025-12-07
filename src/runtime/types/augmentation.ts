@@ -25,6 +25,7 @@ declare module '@nuxt/schema' {
       tokenRefresh: TokenRefreshConfig
       clientMiddleware?: ClientMiddlewareConfig
       logging: LoggingConfig
+      enableSSR: boolean
     }
   }
 }

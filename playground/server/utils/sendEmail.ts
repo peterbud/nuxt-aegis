@@ -23,9 +23,9 @@ export async function sendMagicCodeEmail(
     reset: 'reset-verify',
   }
 
-  // In development, use localhost. In production, use actual domain
-  const baseUrl = 'http://localhost:3000'
-  const verifyLink = `${baseUrl}/auth/password/${endpoints[type]}?code=${code}`
+  // Note: In a real application with server-side email sending,
+  // you should pass the origin from the request headers or use runtime config
+  const verifyLink = `/auth/password/${endpoints[type]}?code=${code}`
 
   console.log('\n' + '='.repeat(60))
   console.log(`📧 MOCK EMAIL - ${typeLabels[type]}`)

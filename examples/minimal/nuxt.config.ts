@@ -1,6 +1,5 @@
 export default defineNuxtConfig({
   modules: ['nuxt-aegis'],
-  ssr: false,
   devtools: { enabled: true },
   compatibilityDate: '2024-11-01',
 

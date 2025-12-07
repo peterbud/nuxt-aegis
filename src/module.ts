@@ -23,6 +23,7 @@ export default defineNuxtModule<ModuleOptions>({
   // Default configuration options of the Nuxt module
   defaults: {
     devtools: true,
+    enableSSR: true,
     token: {
       secret: '', // Must be provided by user or generated
       expiresIn: '1h', // Access token expiry
@@ -94,6 +95,7 @@ export default defineNuxtModule<ModuleOptions>({
           tokenRefresh: options.tokenRefresh,
           clientMiddleware: options.clientMiddleware,
           logging: options.logging,
+          enableSSR: options.enableSSR ?? true,
         },
       },
       nuxtAegis: options,
@@ -127,7 +129,7 @@ export default defineNuxtModule<ModuleOptions>({
       runtimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
     }
 
-    addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))
+    addPlugin(resolver.resolve('./runtime/app/plugins/api'))
 
     // CL-1: Client imports - useAuth composable
     addImports([

@@ -87,6 +87,7 @@ export default defineConfig({
           { text: 'Authorization CODE Flow', link: '/guides/authorization-code' },
           { text: 'Impersonation', link: '/guides/impersonation' },
           { text: 'Password Authentication', link: '/guides/password-auth' },
+          { text: 'SSR Support', link: '/guides/ssr-support' },
         ],
       },
       {

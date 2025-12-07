@@ -144,4 +144,12 @@ export interface ModuleOptions {
 
   /** Impersonation configuration (opt-in feature) */
   impersonation?: ImpersonationConfig
+
+  /**
+   * Enable SSR-compatible authentication state restoration
+   * When true (default), authentication state will be restored on client after SSR hydration
+   * When false, plugin skips execution after server-side rendering (backward compatibility)
+   * @default true
+   */
+  enableSSR?: boolean
 }
