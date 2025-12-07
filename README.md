@@ -35,7 +35,7 @@ You get full control over user data persistence while Aegis handles the security
 - 🛡️ **Route Protection** - Declarative middleware for both server API routes and client-side pages.
 - 🧪 **Mock Provider** - Built-in testing provider to simulate auth flows without external services.
 - 🎨 **Custom Claims** - Easily inject application-specific data (roles, permissions or similar) into tokens.
-  🎭 **Impersonation** - Support for user impersonation with full audit logging
+- 🎭 **Impersonation** - Support for user impersonation with full audit logging
 - 🥽 **Type Safe** - Written in TypeScript with full type definitions for a great developer experience.
 
 ## 🚀 Quick Start
