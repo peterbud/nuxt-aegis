@@ -199,6 +199,8 @@ const apiLoading = ref(false)
 const apiData = ref<Record<string, unknown> | null>(null)
 const apiError = ref<string | null>(null)
 
+apiData.value = await $api('/api/user/me')
+
 async function fetchUserData() {
   apiLoading.value = true
   apiData.value = null

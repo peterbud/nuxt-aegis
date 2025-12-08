@@ -1,7 +1,7 @@
 import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { getRouteRules, useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
-import type { TokenConfig, NuxtAegisRouteRules } from '../../types'
+import type { TokenConfig, NuxtAegisRouteRules, TokenPayload } from '../../types'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('Middleware')
@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const requestURL = getRequestURL(event)
 
+  logger.debug('Auth middleware triggered for URL:', requestURL.pathname)
   // Get configuration with proper defaults
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const authPath = config.public.nuxtAegis.authPath
@@ -117,7 +118,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // MW-9, MW-10, MW-11: Inject decoded user data into request context
-  event.context.user = payload
+  // Filter JWT metadata claims (iat, exp, iss, aud) to prevent hydration mismatches
+  // These are token metadata, not user properties
+  const { iat, exp, iss, aud, ...userData } = payload
+  event.context.user = userData as TokenPayload
 
   // If impersonating, also inject original user data for audit trails and permission checks
   if (payload.impersonation) {

@@ -60,4 +60,6 @@ export interface TokenRefreshConfig {
   encryption?: EncryptionConfig
   /** Storage configuration */
   storage?: StorageConfig
+  /** Token lifetime for server-generated access tokens during SSR (default: '5m') */
+  ssrTokenExpiry?: string
 }

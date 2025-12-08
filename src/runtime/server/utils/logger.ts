@@ -21,16 +21,17 @@ export interface Logger {
  */
 export function createLogger(context: string): Logger {
   const prefix = `[Nuxt Aegis][${context}]`
+  const config = useRuntimeConfig()
+  const loggingConfig = config.nuxtAegis?.logging
+  const level = loggingConfig?.level || 'info'
+
+  if (level === 'debug') {
+    consola.level = 4 // Set consola to debug level for maximum verbosity
+  }
 
   return {
     debug: (message: string, ...args: unknown[]) => {
-      const config = useRuntimeConfig()
-      const loggingConfig = config.nuxtAegis?.logging
-      const level = loggingConfig?.level || 'info'
-
-      if (level === 'debug') {
-        consola.debug(prefix, message, ...args)
-      }
+      consola.debug(prefix, message, ...args)
     },
 
     info: (message: string, ...args: unknown[]) => {

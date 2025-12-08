@@ -5,6 +5,7 @@ import {
   addServerHandler,
   addServerImports,
   addServerImportsDir,
+  addServerPlugin,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -23,7 +24,6 @@ export default defineNuxtModule<ModuleOptions>({
   // Default configuration options of the Nuxt module
   defaults: {
     devtools: true,
-    enableSSR: true,
     token: {
       secret: '', // Must be provided by user or generated
       expiresIn: '1h', // Access token expiry
@@ -48,9 +48,10 @@ export default defineNuxtModule<ModuleOptions>({
       },
       storage: {
         driver: 'fs', // RS-10: Default to filesystem storage
-        prefix: 'refresh:', // Default key prefix
-        base: './.data/refresh-tokens', // Default filesystem path
+        prefix: 'refresh:',
+        base: './.data/refresh-tokens',
       },
+      ssrTokenExpiry: '5m', // SSR token expiry (short-lived)
     },
     authCode: {
       expiresIn: 60, // CS-4, CF-9: Authorization code expiry in seconds (default 60s)
@@ -82,6 +83,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   setup(options, nuxt) {
     // Runtime Config
+    options.enableSSR = options.enableSSR ?? (nuxt.options.ssr === true ? true : false)
     updateRuntimeConfig({
       public: {
         nuxtAegis: {
@@ -95,13 +97,22 @@ export default defineNuxtModule<ModuleOptions>({
           tokenRefresh: options.tokenRefresh,
           clientMiddleware: options.clientMiddleware,
           logging: options.logging,
-          enableSSR: options.enableSSR ?? true,
+          enableSSR: options.enableSSR,
         },
       },
       nuxtAegis: options,
     })
 
     const runtimeConfig = nuxt.options.runtimeConfig
+
+    // Validate SSR configuration
+    if (options.enableSSR && nuxt.options.ssr === false) {
+      const logger = useLogger('nuxt-aegis')
+      logger.warn(
+        'nuxtAegis.enableSSR is true but Nuxt SSR is disabled. '
+        + 'SSR authentication will not work. Set ssr: true in nuxt.config.ts or disable enableSSR.',
+      )
+    }
 
     const resolver = createResolver(import.meta.url)
 
@@ -129,7 +140,7 @@ export default defineNuxtModule<ModuleOptions>({
       runtimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
     }
 
-    addPlugin(resolver.resolve('./runtime/app/plugins/api'))
+    addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))
 
     // CL-1: Client imports - useAuth composable
     addImports([
@@ -249,6 +260,13 @@ export default defineNuxtModule<ModuleOptions>({
       handler: resolver.resolve('./runtime/server/middleware/auth'),
       middleware: true,
     })
+
+    // Register Nitro server and app plugins for SSR authentication (if enabled)
+    if (options.enableSSR) {
+      addServerPlugin(resolver.resolve('./runtime/server/plugins/ssr-auth'))
+      addPlugin(resolver.resolve('./runtime/app/plugins/api.server'))
+      addPlugin(resolver.resolve('./runtime/app/plugins/ssr-state.server'))
+    }
 
     // Get logger for validation warnings/errors
     const logger = useLogger('nuxt-aegis')

@@ -1,37 +1,61 @@
 # SSR Support
 
-Nuxt Aegis supports Server-Side Rendering (SSR) with automatic authentication state restoration on the client after hydration.
+Nuxt Aegis provides full Server-Side Rendering (SSR) support with **authenticated SSR enabled by default** when Nuxt SSR is enabled. The module automatically detects your Nuxt SSR configuration and adjusts accordingly.
 
-## How It Works
+## Default Behavior
 
-The SSR implementation follows a secure, client-side token restoration pattern:
+**When Nuxt SSR is enabled (`ssr: true`):**
+- Authenticated SSR is automatically enabled (`enableSSR: true` by default)
+- Pages can render with authenticated user data during SSR
+- `useAsyncData` and `useFetch` work with authenticated endpoints on the server
+- Access tokens are **never** sent to the client in the HTML payload
 
-1. **Server-Side Rendering**
-   - Server renders the page without authentication tokens
-   - No tokens are exposed in the HTML payload (secure by design)
-   - The `$api` instance is available on the server but doesn't include bearer tokens
-   - Server routes should use `event.context.user` from middleware for authentication
+**When Nuxt SSR is disabled (`ssr: false`):**
+- Client-side rendering only
+- Token refresh happens after app hydration on the client
+- Standard SPA authentication flow
 
-2. **Client-Side Hydration**
-   - After the page hydrates in the browser, the plugin runs automatically
-   - Plugin calls `/auth/refresh` endpoint using the httpOnly refresh cookie
-   - Access token is stored in memory and authentication state becomes reactive
+## How Authenticated SSR Works
 
-3. **User Experience**
-   - Authentication state is available ~200-500ms after page load
-   - Components can show loading states during token refresh
-   - Once authenticated, all `$api` calls include the bearer token
+1. **Server-Side Authentication (During SSR)**
+   - Nitro plugin validates the httpOnly refresh cookie
+   - Generates a short-lived access token (5 minutes by default)
+   - Token is stored in `event.context.ssrAccessToken`
+   - `$api` instance on server includes this token in Authorization headers
+   - `event.context.user` is populated for middleware and server routes
+
+2. **Client-Side Hydration (After SSR)**
+   - Client calls `/auth/refresh` to get its own long-lived access token (1 hour by default)
+   - Refresh token is rotated by the client (not during SSR)
+   - Client token is used for all subsequent requests
+   - Authentication state becomes reactive
+
+3. **Security**
+   - SSR tokens are never sent to the client (stay in `event.context`)
+   - Refresh token is NOT rotated on server (avoids client/server conflicts)
+   - Client handles token rotation after hydration
 
 ## Configuration
 
-SSR support is **enabled by default**. You can opt-out if needed:
+Authenticated SSR is **enabled by default** when Nuxt SSR is enabled. You can explicitly control this behavior:
 
 ```typescript
 export default defineNuxtConfig({
+  ssr: true, // Nuxt SSR must be enabled
+  
   nuxtAegis: {
-    enableSSR: true, // Default: true
+    // Option 1: Use default (automatic based on Nuxt SSR)
+    // enableSSR: undefined (defaults to true when ssr: true)
+    
+    // Option 2: Explicitly enable authenticated SSR
+    enableSSR: true,
+    
+    // Option 3: Disable authenticated SSR (client-only token refresh)
+    // enableSSR: false,
+    
     tokenRefresh: {
-      automaticRefresh: true, // Recommended for SSR
+      automaticRefresh: true, // Recommended
+      ssrTokenExpiry: '5m', // SSR token lifetime (default: '5m')
     }
   }
 })
@@ -41,60 +65,95 @@ export default defineNuxtConfig({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enableSSR` | `boolean` | `true` | Enable SSR-compatible authentication state restoration |
-| `tokenRefresh.automaticRefresh` | `boolean` | `true` | Required for optimal SSR experience |
+| `enableSSR` | `boolean` | `true` when `ssr: true` | Enable authenticated SSR mode |
+| `tokenRefresh.automaticRefresh` | `boolean` | `true` | Required for SSR experience |
+| `tokenRefresh.ssrTokenExpiry` | `string` | `'5m'` | Token lifetime for SSR-generated access tokens |
 
-## Best Practices
+**Important:** If you set `enableSSR: true` but have `ssr: false` in your Nuxt config, the module will log a warning and SSR authentication will not work.
 
-### 1. Handle Loading States
+### Using Authenticated SSR
 
-Always account for the brief delay during token refresh after SSR:
+With authenticated SSR enabled (default), you can fetch authenticated data during SSR:
 
 ```vue
 <template>
   <div>
-    <p v-if="isLoading">Loading...</p>
-    <p v-else-if="user">Hello, {{ user.name }}!</p>
-    <p v-else>Please log in</p>
+    <div v-if="pending">Loading...</div>
+    <div v-else-if="error">{{ error }}</div>
+    <div v-else>
+      <h1>Hello, {{ user?.name }}</h1>
+      <ul>
+        <li v-for="item in data" :key="item.id">
+          {{ item.title }}
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
 <script setup>
-const { user, isLoading } = useAuth()
+const { user } = useAuth()
+
+// This works on both server and client with authenticated SSR!
+const { data, pending, error } = await useAsyncData(
+  'user-items',
+  () => $api('/api/user/items'),
+  {
+    server: true, // Enable server-side data fetching
+  }
+)
 </script>
 ```
 
-### 2. Server Routes: Use `event.context.user`, Not `$api`
+### Benefits of Authenticated SSR
 
-**❌ DON'T** use `$api` with authentication in server routes:
+✅ **True SSR** - Pages render with user data on server  
+✅ **Faster initial render** - No loading states for authenticated data  
+✅ **Secure** - Access tokens never in HTML payload  
+✅ **Works with all Nuxt patterns** - `useAsyncData`, `useFetch`, `$fetch`
+
+### Performance Considerations
+
+Authenticated SSR adds token validation and generation overhead (~10-50ms per request). The impact is logged in debug mode:
 
 ```typescript
-// ❌ Wrong: Server-side $api doesn't include bearer tokens
-export default defineEventHandler(async (event) => {
-  const data = await useNuxtApp().$api('/api/protected')
-  return data
+export default defineNuxtConfig({
+  nuxtAegis: {
+    logging: {
+      level: 'debug', // See SSR auth timing logs
+    }
+  }
 })
 ```
 
-**✅ DO** use `event.context.user` from middleware:
+## Best Practices
+
+### 1. Server Routes with Authenticated SSR
+
+With authenticated SSR enabled (default), server routes have access to both `event.context.user` and the `$api` instance with SSR tokens:
 
 ```typescript
-// ✅ Correct: Use event.context.user set by auth middleware
-export default defineEventHandler((event) => {
-  const user = event.context.user // Set by auth middleware
+// server/routes/api/items.get.ts
+export default defineEventHandler(async (event) => {
+  // Option 1: Use event.context.user (set by SSR plugin or auth middleware)
+  const user = event.context.user
   if (!user) {
     throw createError({ statusCode: 401, message: 'Unauthorized' })
   }
   
-  return { data: getUserData(user.sub) }
+  // Option 2: Use $api with SSR token (available during SSR)
+  const { $api } = useNuxtApp()
+  const items = await $api('/api/external/items') // Works during SSR!
+  
+  return { user, items }
 })
 ```
 
-The server-side `$api` instance is provided for consistency but **does not include authentication headers**. Authentication in server routes happens via Nitro middleware which populates `event.context.user` after validating bearer tokens.
+**Recommended:** Use `event.context.user` from middleware for most cases. Only use `$api` when you need to call external authenticated endpoints during SSR.
 
-### 3. Client-Side Data Fetching
+### 2. Client-Side Data Fetching
 
-When fetching data during SSR that requires authentication, handle the loading state:
+When fetching authenticated data, `useAsyncData` will work on both server and client with authenticated SSR:
 
 ```vue
 <template>
@@ -111,43 +170,67 @@ When fetching data during SSR that requires authentication, handle the loading s
 <script setup>
 const { $api } = useNuxtApp()
 
-// useAsyncData will call this on server (will fail) and retry on client after token refresh
+// Works on server (with SSR token) and client (with client token)
 const { data: items, pending, error } = await useAsyncData('dashboard-items', 
   () => $api<Item[]>('/api/items'),
   {
-    // Don't fetch on server - wait for client-side token
-    server: false,
+    server: true, // Fetch during SSR
   }
 )
 </script>
 ```
 
-### 4. Protected Pages with SSR
+If you want to skip SSR and fetch only on the client:
 
-Protected pages will render during SSR, but authentication state appears after hydration:
+```typescript
+const { data: items, pending, error } = await useAsyncData('dashboard-items', 
+  () => $api<Item[]>('/api/items'),
+  {
+    server: false, // Skip server-side fetching
+  }
+)
+```
+
+### 3. Protected Pages with Authenticated SSR
+
+With authenticated SSR enabled (default), you can render protected content on the server:
 
 ```vue
 <template>
   <div>
     <h1>Protected Page</h1>
-    <div v-if="isLoading">Verifying authentication...</div>
-    <div v-else-if="!user">
+    <div v-if="!user">
       <p>You must be logged in to view this page.</p>
-      <button @click="login">Log In</button>
+      <NuxtLink to="/auth/google">Log In</NuxtLink>
     </div>
     <div v-else>
       <p>Welcome back, {{ user.name }}!</p>
-      <!-- Protected content here -->
+      <!-- Fetch and display user data during SSR -->
+      <div v-if="pending">Loading your data...</div>
+      <ul v-else>
+        <li v-for="item in items?.data" :key="item.id">
+          {{ item.title }}
+        </li>
+      </ul>
     </div>
   </div>
 </template>
 
 <script setup>
-const { user, isLoading, login } = useAuth()
+const { user } = useAuth()
+
+// Fetches on server with SSR token AND on client after hydration
+const { data: items, pending } = await useAsyncData(
+  'protected-items',
+  () => $api('/api/protected/items'),
+  {
+    server: true, // Works with authenticated SSR!
+  }
+)
 </script>
 ```
 
-### 5. Public Routes
+### 4. Public Routes
 
 Public routes work seamlessly with SSR - no special handling needed:
 
@@ -165,6 +248,24 @@ const { user } = useAuth()
 </script>
 ```
 
+### 5. Handling Loading States
+
+Even with authenticated SSR, you may want to show loading states for better UX during client-side navigation:
+
+```vue
+<template>
+  <div>
+    <p v-if="isLoading">Loading...</p>
+    <p v-else-if="user">Hello, {{ user.name }}!</p>
+    <p v-else>Please log in</p>
+  </div>
+</template>
+
+<script setup>
+const { user, isLoading } = useAuth()
+</script>
+```
+
 ## Security
 
 Nuxt Aegis SSR implementation maintains strong security:
@@ -174,8 +275,6 @@ Nuxt Aegis SSR implementation maintains strong security:
 - ✅ **In-memory tokens**: Access tokens stored in memory only (cleared on refresh)
 - ✅ **HTTPS required**: TLS encryption protects all token exchanges
 - ✅ **No XSS exposure**: Tokens not accessible via JavaScript in HTML payload
-
-This approach is more secure than alternatives that inject tokens into the HTML payload.
 
 ## Trade-offs
 
@@ -190,26 +289,36 @@ This approach is more secure than alternatives that inject tokens into the HTML 
 - 📱 **Loading states**: Components should handle loading period gracefully
 - 🔄 **Client-side data**: Authenticated API calls happen after hydration
 
-## Disabling SSR
+## Disabling SSR or Authenticated SSR
+
+### Disable Nuxt SSR Completely
 
 If your application doesn't need SSR, you can disable it:
 
 ```typescript
 export default defineNuxtConfig({
-  ssr: false, // Disable SSR entirely
+  ssr: false, // Disable SSR entirely (SPA mode)
   nuxtAegis: {
     // enableSSR is ignored when ssr: false
   }
 })
 ```
 
-Or keep SSR enabled but opt-out of authentication state restoration:
+### Disable Only Authenticated SSR
+
+Keep Nuxt SSR enabled but opt out of authenticated SSR (client-only token refresh):
 
 ```typescript
 export default defineNuxtConfig({
-  ssr: true,
+  ssr: true, // Nuxt SSR enabled
   nuxtAegis: {
-    enableSSR: false, // Skip token refresh after SSR
+    enableSSR: false, // Disable authenticated SSR
   }
 })
 ```
+
+With this configuration:
+- Pages still render on the server
+- Authentication state is restored on the client after hydration
+- No SSR access tokens are generated
+- `useAsyncData` with `server: true` will not have auth tokens during SSR

@@ -5,31 +5,14 @@ import { isRouteMatch } from '../utils/routeMatching'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
 
-const logger = createLogger('API')
+const logger = createLogger('API:Client')
 
 /**
- * Nuxt Aegis plugin - Universal (runs on server and client)
- * CL-17: Intercepts API calls and attaches authorization bearer token from memory (client-side only)
+ * Client-side api plugin
+ * Intercepts API calls and attaches authorization bearer token from memory
  * See: https://nuxt.com/docs/4.x/guide/recipes/custom-usefetch
  */
 export default defineNuxtPlugin(async (nuxtApp) => {
-  const enableSSR = nuxtApp.$config.public.nuxtAegis.enableSSR ?? true
-
-  // Server-side: Only provide $api instance without authentication
-  // Server routes should use event.context.user from middleware, not bearer tokens
-  if (import.meta.server) {
-    const api = $fetch.create({
-      // No auth headers on server - use event.context.user in server routes
-    })
-
-    return {
-      provide: {
-        api,
-      },
-    }
-  }
-
-  // Client-side: Full token management logic
   let isRefreshing = false
   let refreshPromise: Promise<string | null> | null = null
   let isInitialized = false
@@ -67,7 +50,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       const token = getAccessToken()
 
       if (token) {
-        // note that this relies on ofetch >= 1.4.0 - you may need to refresh your lockfile
         options.headers.set('Authorization', `Bearer ${token}`)
       }
     },
@@ -112,12 +94,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     // Use app:mounted to ensure the plugin is fully initialized
     nuxtApp.hook('app:mounted', async () => {
       await nuxtApp.runWithContext(async () => {
-        // Skip refresh if SSR is disabled and page was server-rendered
-        if (!enableSSR && nuxtApp.payload.serverRendered) {
-          logger.debug('SSR disabled, skipping refresh after server render')
-          return
-        }
-
         // Skip refresh if we're on the auth callback page
         // The callback page will handle setting up auth state after token exchange
         const callbackPath = nuxtApp.$config.public.nuxtAegis.callbackPath

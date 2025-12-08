@@ -4,6 +4,7 @@ import type { TokenPayload } from '../../types'
 import { clearAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
+import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
 
 const logger = createLogger('Auth')
 
@@ -54,30 +55,27 @@ interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
  * This composable provides methods for OAuth authentication using a CODE-based flow:
  *
  * Authentication Flow:
- * 1. CL-7, PR-5: login() redirects to OAuth provider authentication page
- * 2. PR-10, PR-11: Provider redirects back with short-lived authorization CODE (60s)
- * 3. CL-10, CL-22: AuthCallback page exchanges CODE for JWT tokens via /auth/token
- * 4. CL-18, SC-7: Access token stored in memory (reactive ref, cleared on refresh)
- * 5. EP-16, SC-3, SC-4, SC-5: Refresh token stored as HttpOnly, Secure cookie
+ * 1. login() redirects to OAuth provider authentication page
+ * 2. Provider redirects back with short-lived authorization CODE (60s)
+ * 3. AuthCallback page exchanges CODE for JWT tokens via /auth/token
+ * 4. Access token stored in memory (reactive ref, cleared on refresh)
+ * 5. Refresh token stored as HttpOnly, Secure cookie
  *
  * Token Storage:
- * - CL-18: Access token in memory only (NOT sessionStorage)
- * - CL-19, SC-7: Automatically cleared on page refresh/window close
- * - CL-20: Refresh token cookie used to obtain new access token after refresh
+ * - Access token in memory only (NOT sessionStorage)
+ * - Automatically cleared on page refresh/window close
+ * - Refresh token cookie used to obtain new access token after refresh
  *
  * State Management:
- * - CL-2: isLoggedIn reactive property (true when user authenticated)
- * - CL-3: isLoading reactive property (true during state initialization)
- * - CL-4, CL-5, CL-6: user reactive property (null when not authenticated)
- * - CL-11: State synchronized reactively across all components
+ * - isLoggedIn reactive property (true when user authenticated)
+ * - isLoading reactive property (true during state initialization)
+ * - user reactive property (null when not authenticated)
+ * - State synchronized reactively across all components
  *
  * Methods:
- * - CL-7: login(provider) - Initiate OAuth flow
- * - CL-8: logout() - End user session
- * - CL-12, CL-13: refresh() - Restore authentication state
- *
- * Requirements: CL-2 through CL-13, CL-18, CL-19, CL-20, CL-22,
- *               PR-5, PR-10, PR-11, EP-16, SC-3, SC-4, SC-5, SC-7
+ * - login(provider) - Initiate OAuth flow
+ * - logout() - End user session
+ * - refresh() - Restore authentication state
  *
  * @template T - Custom token payload type extending TokenPayload
  * @returns {UseAuthReturn<T>} Authentication state and methods
@@ -144,9 +142,9 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
   /**
    * Refresh the authentication state by obtaining a new access token
    *
-   * CL-12, CL-13, CL-20: Restores authentication state using refresh token cookie
-   * EP-27, EP-28: Calls /auth/refresh endpoint to obtain new access token
-   * RS-1, RS-2: Server reconstructs token from stored user object (no old token needed)
+   * Restores authentication state using refresh token cookie
+   * Calls /auth/refresh endpoint to obtain new access token
+   * Server reconstructs token from stored user object (no old token needed)
    *
    * Flow:
    * 1. Call /auth/refresh endpoint (refresh token sent via httpOnly cookie)
@@ -181,7 +179,8 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
           const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
-          authState.value.user = payload
+          // Filter time-sensitive JWT metadata to prevent hydration mismatches
+          authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null
 
           logger.debug('Auth state refreshed successfully')
@@ -219,8 +218,6 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
    * @param {string} provider - OAuth provider name (e.g., 'google', 'github', 'auth0')
    * @param {string} _redirectTo - Reserved for future use; redirect path after authentication
    * @throws {Error} If provider is invalid
-   *
-   * @see Requirements: PR-10, PR-11, CS-1, CL-21
    */
   async function login(provider = 'google', _redirectTo?: string): Promise<void> {
     try {
@@ -322,7 +319,8 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
           const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
-          authState.value.user = payload
+          // Filter time-sensitive JWT metadata to prevent hydration mismatches
+          authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null
 
           logger.debug('Impersonation started successfully', {
@@ -383,7 +381,8 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
           const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
-          authState.value.user = payload
+          // Filter time-sensitive JWT metadata to prevent hydration mismatches
+          authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null
 
           logger.debug('Impersonation stopped, original session restored', {

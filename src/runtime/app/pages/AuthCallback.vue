@@ -24,6 +24,8 @@ import { ref, onMounted } from 'vue'
 import { setAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
+import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
+import type { TokenPayload } from '../../types'
 
 const logger = createLogger('Callback')
 const config = useRuntimeConfig()
@@ -96,11 +98,12 @@ onMounted(async () => {
     // We already have a fresh access token from the exchange
     const tokenParts = response.accessToken.split('.')
     if (tokenParts[1]) {
-      const payload = JSON.parse(atob(tokenParts[1]))
+      const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
       // Update the auth state by accessing the useState directly
       const { useState } = await import('#app')
       const authState = useState('auth-state')
-      authState.value = { user: payload, isLoading: false, error: null }
+      // Filter time-sensitive JWT metadata to prevent hydration mismatches
+      authState.value = { user: filterTimeSensitiveClaims(payload), isLoading: false, error: null }
     }
 
     // Clear the code from URL to prevent reuse

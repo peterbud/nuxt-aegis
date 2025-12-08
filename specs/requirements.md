@@ -782,3 +782,62 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **IM-50:** WHERE impersonation is enabled, the module SHALL prevent impersonation chains by checking for existing impersonation context in the requester's token.
 
+## 14. Server-Side Rendering (SSR) Requirements
+
+### 14.1 SSR Configuration
+
+**SSR-1:** WHEN Nuxt SSR is enabled (`ssr: true`), the module SHALL default `enableSSR` to `true` to enable authenticated SSR automatically.
+
+**SSR-2:** WHEN Nuxt SSR is disabled (`ssr: false`), the module SHALL ignore the `enableSSR` configuration and operate in client-only mode.
+
+**SSR-3:** WHERE `enableSSR` is explicitly set to `true` but Nuxt SSR is disabled, the module SHALL log a warning indicating SSR authentication will not work.
+
+**SSR-4:** WHERE authenticated SSR is enabled, developers SHALL be able to configure the SSR token expiration time via `tokenRefresh.ssrTokenExpiry` (default: `'5m'`).
+
+### 14.2 SSR Authentication Flow
+
+**SSR-5:** WHEN a server-side render occurs with `enableSSR: true`, the module SHALL validate the httpOnly refresh token cookie if present.
+
+**SSR-6:** WHERE a valid refresh token is found during SSR, the module SHALL generate a short-lived access token using the configured `ssrTokenExpiry`.
+
+**SSR-7:** WHERE an SSR access token is generated, the module SHALL store it in `event.context.ssrAccessToken` for use during the render.
+
+**SSR-8:** WHERE an SSR access token is generated, the module SHALL populate `event.context.user` with the user's token payload.
+
+**SSR-9:** WHEN generating SSR access tokens, the module SHALL process custom claims using the same logic as token refresh to ensure consistency.
+
+**SSR-10:** WHERE the refresh token is invalid, expired, or revoked during SSR, the module SHALL skip authentication and allow unauthenticated SSR to proceed.
+
+### 14.3 SSR Security Requirements
+
+**SSR-11:** WHEN rendering pages with authenticated SSR, the module SHALL NOT include access tokens in the HTML payload or `__NUXT__` state.
+
+**SSR-12:** WHERE SSR access tokens are generated, they SHALL remain in server-side `event.context` only and never be transmitted to the client.
+
+**SSR-13:** WHEN generating SSR access tokens, the module SHALL NOT rotate the refresh token to avoid client/server conflicts.
+
+**SSR-14:** WHERE authenticated SSR is enabled, the module SHALL still require client-side token refresh after hydration to obtain a long-lived client access token.
+
+### 14.4 Server-Side API Plugin
+
+**SSR-15:** WHERE `enableSSR` is `true`, the module SHALL register a server-side `$api` plugin that intercepts requests and attaches the SSR access token from `event.context.ssrAccessToken`.
+
+**SSR-16:** WHEN the server-side `$api` plugin is used during SSR, it SHALL automatically include the `Authorization: Bearer {ssrAccessToken}` header.
+
+**SSR-17:** WHERE the server-side `$api` plugin is invoked but no SSR access token exists, it SHALL make the request without authentication headers.
+
+### 14.5 Data Fetching with SSR
+
+**SSR-18:** WHERE authenticated SSR is enabled, `useAsyncData` and `useFetch` with `server: true` SHALL be able to call authenticated API routes during SSR.
+
+**SSR-19:** WHEN using `useAsyncData` with authenticated endpoints, the module SHALL support both server-side (with SSR token) and client-side (with client token) data fetching.
+
+**SSR-20:** WHERE developers want to skip SSR data fetching, they SHALL be able to set `ssr: false` in the Nuxt options.
+
+### 14.6 Nitro Plugin Registration
+
+**SSR-21:** WHERE `enableSSR` is `true`, the module SHALL register a Nitro server plugin that hooks into the `request` event to perform SSR authentication.
+
+**SSR-22:** WHEN the SSR authentication plugin runs, it SHALL check if `event.context.user` is already set by auth middleware and skip processing to avoid duplication.
+
+**SSR-23:** WHERE the SSR authentication plugin runs, it SHALL process authentication before the request reaches route handlers.
