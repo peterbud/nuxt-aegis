@@ -1,6 +1,8 @@
 import MyModule from '../../../src/module'
+import { testViteConfig } from '../test.config'
 
 export default defineNuxtConfig({
+  ...testViteConfig,
   modules: [
     MyModule,
   ],

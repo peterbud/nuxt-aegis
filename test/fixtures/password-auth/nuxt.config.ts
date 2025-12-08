@@ -1,4 +1,7 @@
+import { testViteConfig } from '../test.config'
+
 export default defineNuxtConfig({
+  ...testViteConfig,
   modules: ['../../../src/module.ts'],
   nuxtAegis: {
     token: {
