@@ -7,6 +7,7 @@ import { useNitroApp, useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { createLogger } from '../utils/logger'
+import { useAegisHandler } from '../utils/handler'
 
 const logger = createLogger('OAuth')
 
@@ -159,7 +160,7 @@ export function defineOAuthEventHandler<
   return eventHandler(async (event: H3Event) => {
     try {
       // Merge configuration with runtime config and defaults
-      const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
+      const runtimeConfig = useRuntimeConfig(event).nuxtAegis
       const providerRuntimeConfig = (runtimeConfig.providers?.[implementation.runtimeConfigKey] || {}) as Partial<TConfig>
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 

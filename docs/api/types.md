@@ -32,7 +32,7 @@ type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
 
 // Define your app's token type
 export type AppTokenPayload = CustomTokenClaims<{

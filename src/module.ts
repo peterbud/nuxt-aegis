@@ -6,7 +6,7 @@ import {
   addServerImports,
   addServerImportsDir,
   addServerPlugin,
-  addTypeTemplate,
+  addTemplate,
   createResolver,
   defineNuxtModule,
   extendPages,
@@ -421,10 +421,11 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Register type augmentations for Nitro route rules and export user-facing types
     const typesPath = resolver.resolve('./runtime/types')
-    addTypeTemplate({
+    addTemplate({
       filename: 'types/nuxt-aegis.d.ts',
+      write: true,
       getContents: () => {
-        return `import type { NitroAegisAuth } from ${JSON.stringify(typesPath)}
+        return `import type { NitroAegisAuth, CustomTokenClaims } from ${JSON.stringify(typesPath)}
 
 type NuxtAegisRouteRules = {
   /**
@@ -454,33 +455,9 @@ declare module 'nitropack' {
   }
 }
 
-export {}`
+// Export user-facing types for direct import
+export { type CustomTokenClaims }`
       },
-    }, { nitro: true, nuxt: true, node: true })
+    })
   },
 })
-
-// Export user-facing types for direct import from 'nuxt-aegis'
-export type {
-  // Token types - for defining custom token payloads
-  TokenPayload,
-  CustomTokenClaims,
-  ExtractClaims,
-  ImpersonationContext,
-
-  // Callback types - for custom handlers
-  CustomClaimsCallback,
-  OnError,
-  OnUserInfo,
-  OnSuccess,
-  OnSuccessParams,
-
-  // Provider config types - for custom providers
-  OAuthProviderConfig,
-  GoogleProviderConfig,
-  MicrosoftProviderConfig,
-  GithubProviderConfig,
-  Auth0ProviderConfig,
-  MockProviderConfig,
-  CustomProviderConfig,
-} from './runtime/types'

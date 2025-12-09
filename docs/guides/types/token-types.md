@@ -7,7 +7,7 @@ Define type-safe custom JWT token payloads for your application.
 The `CustomTokenClaims<T>` helper type extends `TokenPayload` with your custom claims while ensuring type safety and JSON-serializability.
 
 ```typescript
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
 
 type AppTokenPayload = CustomTokenClaims<{
   role: string
@@ -140,7 +140,7 @@ Keep tokens small for:
 
 ```typescript
 // ~/types/token.ts
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
 
 /**
  * Application JWT token payload
