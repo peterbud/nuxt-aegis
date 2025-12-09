@@ -175,27 +175,6 @@ The Auth0 provider returns user information in this format:
 }
 ```
 
-## Troubleshooting
-
-::: details Error: invalid_request - Missing required parameter: nonce
-This error occurs with certain Auth0 configurations requiring a nonce parameter.
-
-**Solution**: Auth0's nonce requirement is handled automatically by Nuxt Aegis. If you encounter this error, ensure you're using the latest version.
-:::
-
-::: details Custom claims not appearing
-Auth0 requires namespaced claim names for custom claims in ID tokens.
-
-**Solution**: Configure Auth0 Rules or Actions to add custom claims:
-```javascript
-function addCustomClaims(user, context, callback) {
-  const namespace = 'https://myapp.com/';
-  context.idToken[namespace + 'roles'] = user.app_metadata.roles;
-  callback(null, user, context);
-}
-```
-:::
-
 ## Next Steps
 
 - [Configure custom claims](/guides/custom-claims)
