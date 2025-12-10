@@ -7,7 +7,7 @@
 
 **OAuth-based authentication with JWT token management for Nuxt 3/4**
 
-Nuxt Aegis is a comprehensive authentication module that orchestrates the flow between external providers (Google, GitHub, Auth0, etc.) and your application. It handles the complexity of OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
+Nuxt Aegis is a a Nuxt module that orchestrates the authentication flow between external identity providers (Google, GitHub, Auth0, etc.) and your application. It handles the complexity of OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
 
 
 ## Why Nuxt Aegis?
@@ -20,9 +20,9 @@ Unlike cookie-based solutions that lock your API to the browser, Nuxt Aegis uses
 
 ### How It Works
 
-1. **Authentication Provider** (e.g., Google) authenticates the user.
-2. **Nuxt Aegis** verifies the identity and issues a JWT.
-3. **Your App** receives the token and uses it for authorization.
+1. **Authentication (Identity) Provider** (e.g., Google) authenticates the user.
+2. **Nuxt Aegis** verifies the identity retrieves the user information, and issues it's own application specific JWT.
+3. **Your App** receives the JWT token and uses it for authorization.
 
 You get full control over user data persistence while Aegis handles the security lifecycle.
 
@@ -36,6 +36,7 @@ You get full control over user data persistence while Aegis handles the security
 - 🧪 **Mock Provider** - Built-in testing provider to simulate auth flows without external services.
 - 🎨 **Custom Claims** - Easily inject application-specific data (roles, permissions or similar) into tokens.
 - 🎭 **Impersonation** - Support for user impersonation with full audit logging
+- ⚙️ **SSR Friendly** - Works seamlessly with Nuxt's server-side rendering.
 - 🥽 **Type Safe** - Written in TypeScript with full type definitions for a great developer experience.
 
 ## 🚀 Quick Start
