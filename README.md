@@ -1,5 +1,6 @@
 # Nuxt Aegis
 
+[![Build](https://github.com/peterbud/nuxt-aegis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peterbud/nuxt-aegis/actions/workflows/ci.yml)
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
