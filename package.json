@@ -2,7 +2,13 @@
   "name": "nuxt-aegis",
   "version": "1.0.0",
   "description": "Aegis module for Nuxt.js",
-  "repository": "your-org/nuxt-aegis",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peterbud/nuxt-aegis.git"
+  },
   "author": "Peter Budai",
   "license": "MIT",
   "type": "module",
@@ -12,6 +18,13 @@
       "import": "./dist/module.mjs"
     }
   },
+  "keywords": [
+    "vue",
+    "nuxt",
+    "authentication",
+    "nuxt-module",
+    "oauth"
+  ],
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
