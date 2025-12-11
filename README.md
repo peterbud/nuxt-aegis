@@ -7,6 +7,9 @@
 
 **OAuth-based authentication with JWT token management for Nuxt 3/4**
 
+> [!WARNING]
+> **Experimental Module**: Nuxt Aegis is currently in active development and should be considered as work in progress. It is **not recommended for production use** at this time. APIs and features may change without notice.
+
 Nuxt Aegis is a a Nuxt module that orchestrates the authentication flow between external identity providers (Google, GitHub, Auth0, etc.) and your application. It handles the complexity of OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
 
 
@@ -150,13 +153,13 @@ Made with ❤️ for the Nuxt community
 
 <!-- Badges -->
 [npm-version-src]: https://img.shields.io/npm/v/nuxt-aegis/latest.svg\?style\=flat\&colorA\=020420\&colorB\=00DC82
-[npm-version-href]: https://npmjs.com/package/nuxt-aegis
+[npm-version-href]: https://npmjs.com/package/@peterbud/nuxt-aegis
 
 [npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-aegis.svg\?style\=flat\&colorA\=020420\&colorB\=00DC82
-[npm-downloads-href]: https://npm.chart.dev/nuxt-aegis
+[npm-downloads-href]: https://npm.chart.dev/@peterbud/nuxt-aegis
 
 [license-src]: https://img.shields.io/npm/l/nuxt-aegis.svg\?style\=flat\&colorA\=020420\&colorB\=00DC82
-[license-href]: https://npmjs.com/package/nuxt-aegis
+[license-href]: https://npmjs.com/package/@peterbud/nuxt-aegis
 
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420\?logo\=nuxt.js
 [nuxt-href]: https://nuxt.com

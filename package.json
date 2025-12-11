@@ -1,7 +1,7 @@
 {
-  "name": "nuxt-aegis",
+  "name": "@peterbud/nuxt-aegis",
   "version": "1.0.0",
-  "description": "Aegis module for Nuxt.js",
+  "description": "Nuxt module for authentication with JWT token generation and session management.",
   "publishConfig": {
     "access": "public"
   },
