@@ -118,9 +118,11 @@ interface NuxtAegisConfig {
   tokenRefresh?: TokenRefreshConfig
   authCode?: AuthCodeConfig
   redirect?: RedirectConfig
-  routeProtection?: RouteProtectionConfig
+  clientMiddleware?: ClientMiddlewareConfig
   endpoints?: EndpointsConfig
   providers?: ProvidersConfig
+  logging?: LoggingConfig
+  impersonation?: ImpersonationConfig
 }
 ```
 
@@ -217,14 +219,55 @@ interface RedirectConfig {
 All redirect URLs must be relative paths (e.g., `/dashboard`) to prevent open redirect attacks.
 :::
 
-### `RouteProtectionConfig`
+### `ClientMiddlewareConfig`
 
-Route protection configuration.
+Client-side middleware configuration for route protection.
 
 ```typescript
-interface RouteProtectionConfig {
-  protectedRoutes?: string[]          // Routes requiring authentication (default: [])
-  publicRoutes?: string[]             // Routes bypassing authentication (default: [])
+interface ClientMiddlewareConfig {
+  enabled: boolean                    // Enable client-side route protection (default: false)
+  global?: boolean                    // Register globally for all routes (default: false)
+  redirectTo: string                  // Redirect for unauthenticated users (required when enabled)
+  loggedOutRedirectTo: string         // Redirect for authenticated users on logged-out pages (required)
+  publicRoutes?: string[]             // Route patterns excluded from auth (glob patterns supported)
+}
+```
+
+::: tip Route Protection
+For server-side route protection, use Nitro route rules with the `auth` property:
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nitro: {
+    routeRules: {
+      '/admin/**': { nuxtAegis: { auth: true } },
+      '/api/public/**': { nuxtAegis: { auth: false } },
+    }
+  }
+})
+```
+:::
+
+### `NitroAegisAuth`
+
+Authentication requirement for Nitro route rules.
+
+```typescript
+type NitroAegisAuth = boolean | 'required' | 'protected' | 'public' | 'skip'
+```
+
+**Values:**
+- `true`, `'required'`, or `'protected'`: Route requires authentication
+- `false`, `'public'`, or `'skip'`: Route is public and skips authentication
+
+### `NuxtAegisRouteRules`
+
+Nuxt Aegis route rules configuration.
+
+```typescript
+interface NuxtAegisRouteRules {
+  auth?: NitroAegisAuth
 }
 ```
 
@@ -255,6 +298,28 @@ endpoints: {
 }
 ```
 :::
+
+### `LoggingConfig`
+
+Logging configuration.
+
+```typescript
+interface LoggingConfig {
+  level?: 'silent' | 'error' | 'warn' | 'info' | 'debug'  // Log level (default: 'info')
+  security?: boolean                  // Enable security event logging (default: false)
+}
+```
+
+### `ImpersonationConfig`
+
+Impersonation configuration.
+
+```typescript
+interface ImpersonationConfig {
+  enabled?: boolean                   // Enable user impersonation (default: false, opt-in)
+  tokenExpiration?: number            // Token expiration for impersonated sessions in seconds (default: 900)
+}
+```
 
 ### `ProvidersConfig`
 

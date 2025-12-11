@@ -60,7 +60,7 @@ const testProtectedRoute = async () => {
 
   try {
     // This will automatically include the bearer token
-    // because /api/user/** is in protectedRoutes
+    // because /api/user/** is configure to be protected in nitro.routeRules
     const data = await useNuxtApp().$api('/api/user/profile')
     apiResponse.value = data || null
     // convert expiresAt to readable date
