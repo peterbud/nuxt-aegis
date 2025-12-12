@@ -7,6 +7,8 @@ export default defineConfig({
   description: 'OAuth-based authentication with JWT token management for Nuxt 3/4',
   head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
 
+  base: '/nuxt-aegis/',
+
   vite: {
     ssr: {
       noExternal: ['mermaid'],
