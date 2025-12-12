@@ -46,8 +46,10 @@ jobs:
       - name: 📦 Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: 🚧 Set up project
+        run: pnpm dev:prepare
+
       - name: ⚒️ Build with VitePress
-        working-directory: docs
         run: pnpm run docs:build
 
       - name: ⬆️ Upload artifact
