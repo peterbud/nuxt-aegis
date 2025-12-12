@@ -1,4 +1,4 @@
-name: ci
+name: Build
 
 on:
   push:
@@ -23,10 +23,10 @@ jobs:
           npm install -g --force corepack@latest
           corepack enable
 
-      - name: 💾 Setup Node.js 20
-        uses: actions/setup-node@v5
+      - name: 💾 Setup Node
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: 📦 Install dependencies
@@ -35,7 +35,7 @@ jobs:
       - name: 🚧 Set up project
         run: pnpm dev:prepare
 
-      - name: 🛠 Build project
+      - name: ⚒️ Build project
         run: pnpm build
 
       - name: 🛝 Build playground
