@@ -163,7 +163,7 @@ Add the password provider configuration to your `nuxt.config.ts`:
 ```typescript
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   
   nuxtAegis: {
     providers: {

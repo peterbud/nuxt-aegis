@@ -8,7 +8,7 @@ Add the Nuxt Aegis configuration to your `nuxt.config.ts`:
 
 ```typescript
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   
   nuxtAegis: {
     token: {

@@ -48,7 +48,7 @@ You get full control over user data persistence while Aegis handles the security
 ### 1. Install
 
 ```bash
-npx nuxi module add nuxt-aegis
+npx nuxi module add @peterbud/nuxt-aegis
 ```
 
 ### 2. Configure
@@ -57,7 +57,7 @@ Add the module and provider configuration to `nuxt.config.ts`:
 
 ```typescript
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   
   nuxtAegis: {
     token: {
@@ -114,17 +114,20 @@ const { user, isLoggedIn, login, logout } = useAuth()
 
 Ready to dive deeper? Check out the full documentation:
 
-- **[Getting Started](./docs/getting-started/installation.md)** - Installation and setup guides.
-- **[Providers](./docs/providers/)** - Configure Google, GitHub, Auth0, Password, and Mock providers.
-- **[Route Protection](./docs/guides/route-protection.md)** - Learn how to protect your pages and API routes.
-- **[Custom Claims](./docs/guides/custom-claims.md)** - Add custom data to your JWTs.
-- **[API Reference](./docs/api/)** - Detailed API documentation.
+- **[Getting Started](https://peterbud.github.io/nuxt-aegis/getting-started/installation)** - Installation and setup guides.
+- **[Architecture](https://peterbud.github.io/nuxt-aegis/architecture/)** - Overview of the system architecture.
+- **[Providers](https://peterbud.github.io/nuxt-aegis/providers/)** - Configure Google, GitHub, Auth0, Password, and Mock providers.
+- **[Configuration](https://peterbud.github.io/nuxt-aegis/configuration/)** - Detailed configuration options.
+- **[Route Protection](https://peterbud.github.io/nuxt-aegis/guides/route-protection)** - Learn how to protect your pages and API routes.
+- **[Custom Claims](https://peterbud.github.io/nuxt-aegis/guides/custom-claims)** - Add custom data to your JWTs.
+- **[API Reference](https://peterbud.github.io/nuxt-aegis/api/)** - Detailed API documentation.
 
 ## Contributing
 
 Contributions are welcome! Please see the [Requirements Specification](/specs/requirements.md) for detailed technical requirements.
 
-## Development
+<details>
+<summary>Local development</summary>
 
 ```bash
 # Install dependencies
@@ -139,6 +142,10 @@ pnpm test
 # Lint & type check
 pnpm lint
 ```
+</details>
+
+If you want to report a bug, please make sure you have a minimal reproduction of the issue. You can use the [minimal example](https://stackblitz.com/github/peterbud/nuxt-aegis/tree/main/examples/minimal?title=Nuxt-Aegis%20Minimal%20Example) to create a reproduction.
+
 
 ## License
 

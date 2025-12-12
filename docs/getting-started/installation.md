@@ -7,11 +7,11 @@ Get started with Nuxt Aegis in just a few steps.
 Install Nuxt Aegis to your Nuxt application using the Nuxt CLI:
 
 ```bash
-npx nuxi module add nuxt-aegis
+npx nuxi module add @peterbud/nuxt-aegis
 ```
 
 This command will:
-1. Install the `nuxt-aegis` package
+1. Install the `@peterbud/nuxt-aegis` package
 2. Add it to your `nuxt.config.ts` modules array
 
 ## Environment Variables

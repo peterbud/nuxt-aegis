@@ -18,7 +18,7 @@ Enable impersonation in your `nuxt.config.ts`:
 
 ```typescript
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   
   nuxtAegis: {
     impersonation: {

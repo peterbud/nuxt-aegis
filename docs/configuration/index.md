@@ -8,7 +8,7 @@ Here's a comprehensive configuration showing all available options:
 
 ```typescript
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   
   nuxtAegis: {
     // JWT Token Configuration

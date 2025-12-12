@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['nuxt-aegis'],
+  modules: ['@peterbud/nuxt-aegis'],
   devtools: { enabled: true },
   compatibilityDate: '2024-11-01',
 
