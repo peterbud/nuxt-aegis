@@ -6,7 +6,7 @@ import {
   addServerImports,
   addServerImportsDir,
   addServerPlugin,
-  addTemplate,
+  addTypeTemplate,
   createResolver,
   defineNuxtModule,
   extendPages,
@@ -166,7 +166,6 @@ export default defineNuxtModule<ModuleOptions>({
       // Authentication utilities (from auth.ts)
       { name: 'requireAuth', from: resolver.resolve('./runtime/server/utils/auth') },
       { name: 'getAuthUser', from: resolver.resolve('./runtime/server/utils/auth') },
-      { name: 'generateAccessToken', from: resolver.resolve('./runtime/server/utils/auth') },
       { name: 'verifyToken', from: resolver.resolve('./runtime/server/utils/auth') },
       { name: 'generateAuthTokens', from: resolver.resolve('./runtime/server/utils/auth') },
 
@@ -177,10 +176,6 @@ export default defineNuxtModule<ModuleOptions>({
 
       // Cookie utilities (from cookies.ts)
       { name: 'setRefreshTokenCookie', from: resolver.resolve('./runtime/server/utils/cookies') },
-      { name: 'getRefreshTokenFromCookie', from: resolver.resolve('./runtime/server/utils/cookies') },
-
-      // Custom claims utilities (from customClaims.ts)
-      { name: 'applyCustomClaims', from: resolver.resolve('./runtime/server/utils/customClaims') },
 
       // Handler utilities (from handler.ts)
       { name: 'defineAegisHandler', from: resolver.resolve('./runtime/server/utils/handler') },
@@ -421,11 +416,10 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Register type augmentations for Nitro route rules and export user-facing types
     const typesPath = resolver.resolve('./runtime/types')
-    addTemplate({
+    addTypeTemplate({
       filename: 'types/nuxt-aegis.d.ts',
-      write: true,
       getContents: () => {
-        return `import type { NitroAegisAuth, CustomTokenClaims } from ${JSON.stringify(typesPath)}
+        return `import type { NitroAegisAuth } from ${JSON.stringify(typesPath)}
 
 type NuxtAegisRouteRules = {
   /**
@@ -455,8 +449,68 @@ declare module 'nitropack' {
   }
 }
 
-// Export user-facing types for direct import
-export { type CustomTokenClaims }`
+// Export user-facing types for direct import from '#build/nuxt-aegis'
+export type {
+  // Token/Payload Types
+  TokenPayload,
+  CustomTokenClaims,
+  ExtractClaims,
+  ImpersonationContext,
+  JSONValue,
+  
+  // Response Types
+  RefreshResponse,
+  TokenExchangeResponse,
+  
+  // Callback Types
+  OnError,
+  OnUserInfo,
+  OnSuccess,
+  OnSuccessParams,
+  CustomClaimsCallback,
+  
+  // Handler Types
+  AegisHandler,
+  PasswordUser,
+  
+  // Hook Types
+  UserInfoHookPayload,
+  SuccessHookPayload,
+  ImpersonateCheckPayload,
+  ImpersonateFetchTargetPayload,
+  ImpersonateStartPayload,
+  ImpersonateEndPayload,
+  
+  // Configuration Types
+  ModuleOptions,
+  TokenConfig,
+  TokenRefreshConfig,
+  CookieConfig,
+  EncryptionConfig,
+  StorageConfig,
+  RedirectConfig,
+  EndpointConfig,
+  ClientMiddlewareConfig,
+  LoggingConfig,
+  ImpersonationConfig,
+  AuthCodeConfig,
+  ClaimsValidationConfig,
+  
+  // Provider Configuration
+  OAuthConfig,
+  OAuthProviderConfig,
+  GoogleProviderConfig,
+  MicrosoftProviderConfig,
+  GithubProviderConfig,
+  Auth0ProviderConfig,
+  MockProviderConfig,
+  PasswordProviderConfig,
+  CustomProviderConfig,
+  
+  // Route Protection
+  NitroAegisAuth,
+  NuxtAegisRouteRules,
+} from ${JSON.stringify(typesPath)}`
       },
     })
   },

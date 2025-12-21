@@ -70,7 +70,7 @@ interface TokenPayload {
 **With Custom Claims:**
 
 ```typescript
-import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
+import type { CustomTokenClaims } from '#build/nuxt-aegis'
 
 // Define your token type
 type AppTokenPayload = CustomTokenClaims<{

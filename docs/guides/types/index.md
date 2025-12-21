@@ -10,7 +10,7 @@ Nuxt Aegis provides comprehensive TypeScript support with generic types that all
 
 ```typescript
 // 1. Define your token payload
-import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
+import type { CustomTokenClaims } from '#build/nuxt-aegis'
 
 type AppTokenPayload = CustomTokenClaims<{
   role: string

@@ -46,6 +46,10 @@ export interface Provider {
 export interface DatabaseUser extends AppTokenPayload {
   /** Database record ID */
   id: string
+  /** User email address */
+  email: string
+  /** Full user name */
+  name: string
   /** Account creation timestamp */
   createdAt: string
   /** Last login timestamp */

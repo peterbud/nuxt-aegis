@@ -2,23 +2,112 @@
 
 TypeScript type definitions and interfaces for Nuxt Aegis.
 
-## User Types
+## Importing Types
 
-### `User`
-
-Authenticated user object from JWT token.
+All types are available from the `#build/nuxt-aegis` module:
 
 ```typescript
-interface User {
-  sub: string          // Unique user identifier
-  name: string         // Full display name
-  email: string        // Email address
-  picture?: string     // Profile picture URL
-  provider: string     // OAuth provider ('google', 'auth0', 'github', 'mock')
-  iat: number          // Token issued at (Unix timestamp)
-  exp: number          // Token expires at (Unix timestamp)
-  [key: string]: any   // Custom claims
+import type {
+  // Token/Payload Types
+  TokenPayload,
+  CustomTokenClaims,
+  ExtractClaims,
+  ImpersonationContext,
+  JSONValue,
+  
+  // Response Types
+  RefreshResponse,
+  TokenExchangeResponse,
+  
+  // Callback Types
+  OnError,
+  OnUserInfo,
+  OnSuccess,
+  OnSuccessParams,
+  CustomClaimsCallback,
+  
+  // Handler Types
+  AegisHandler,
+  PasswordUser,
+  
+  // Hook Types
+  UserInfoHookPayload,
+  SuccessHookPayload,
+  ImpersonateCheckPayload,
+  ImpersonateFetchTargetPayload,
+  ImpersonateStartPayload,
+  ImpersonateEndPayload,
+  
+  // Configuration Types
+  ModuleOptions,
+  TokenConfig,
+  TokenRefreshConfig,
+  CookieConfig,
+  EncryptionConfig,
+  StorageConfig,
+  RedirectConfig,
+  EndpointConfig,
+  ClientMiddlewareConfig,
+  LoggingConfig,
+  ImpersonationConfig,
+  AuthCodeConfig,
+  ClaimsValidationConfig,
+  
+  // Provider Configuration
+  OAuthConfig,
+  OAuthProviderConfig,
+  GoogleProviderConfig,
+  MicrosoftProviderConfig,
+  GithubProviderConfig,
+  Auth0ProviderConfig,
+  MockProviderConfig,
+  PasswordProviderConfig,
+  CustomProviderConfig,
+  
+  // Route Protection
+  NitroAegisAuth,
+  NuxtAegisRouteRules,
+} from '#build/nuxt-aegis'
+```
+
+---
+
+## Token & Payload Types
+
+::: info Deprecated: User Type
+The `User` type is deprecated. Use `TokenPayload` instead for better type safety and consistency.
+:::
+
+### `TokenPayload`
+
+Core JWT token payload interface representing the decoded JWT structure. This is the primary type returned by `useAuth()` and `getAuthUser()`.
+
+```typescript
+interface TokenPayload {
+  sub: string                           // Subject identifier (user ID) - required
+  email?: string                        // User email address
+  name?: string                         // User full name
+  picture?: string                      // Profile picture URL
+  provider?: string                     // Provider name (e.g., 'google', 'github')
+  iss?: string                          // Issuer claim
+  aud?: string | string[]               // Audience claim
+  iat?: number                          // Issued at timestamp
+  exp?: number                          // Expiration timestamp
+  impersonation?: ImpersonationContext  // Impersonation context if active
+  [key: string]: unknown                // Additional custom claims
 }
+```
+
+**Usage:**
+
+```typescript
+import type { TokenPayload } from '#build/nuxt-aegis'
+
+// Use as the base type
+const { user } = useAuth<TokenPayload>()
+
+// Or extend with custom claims
+type AppUser = CustomTokenClaims<{ role: string }>
 ```
 
 ### `CustomTokenClaims<T>`
@@ -32,7 +121,7 @@ type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
+import type { CustomTokenClaims } from '#build/nuxt-aegis'
 
 // Define your app's token type
 export type AppTokenPayload = CustomTokenClaims<{
@@ -69,7 +158,7 @@ type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims, ExtractClaims } from '#build/nuxt-aegis'
 
 type AppTokenPayload = CustomTokenClaims<{
   role: string
@@ -104,6 +193,222 @@ type JSONValue =
 ::: warning Token Size
 JWT tokens are sent with every request. Keep custom claims small (< 1KB recommended).
 Nuxt Aegis will warn in development mode if token payload exceeds 1KB.
+:::
+
+### `ImpersonationContext`
+
+Context information stored in JWT when a user is impersonating another user.
+
+```typescript
+interface ImpersonationContext {
+  originalUserId: string                // Original user ID performing impersonation
+  originalUserEmail?: string            // Original user email
+  originalUserName?: string             // Original user name
+  impersonatedAt: string                // Timestamp when impersonation started
+  reason?: string                       // Reason for impersonation
+  originalClaims?: Record<string, unknown>  // Original user's complete claims for restoration
+}
+```
+
+**Usage:**
+
+```typescript
+const user = getAuthUser(event)
+
+if (user.impersonation) {
+  console.log(`User ${user.impersonation.originalUserId} is impersonating ${user.sub}`)
+  console.log(`Reason: ${user.impersonation.reason}`)
+}
+```
+
+## Response Types
+
+### `RefreshResponse`
+
+Response from token refresh operations.
+
+```typescript
+interface RefreshResponse {
+  success: boolean      // Whether the refresh was successful
+  message: string       // Status message
+  accessToken?: string  // New JWT access token (if successful)
+}
+```
+
+**Usage:**
+
+```typescript
+// Client-side refresh
+const response = await $fetch<RefreshResponse>('/auth/refresh', { method: 'POST' })
+if (response.success) {
+  console.log('Token refreshed successfully')
+}
+```
+
+### `TokenExchangeResponse`
+
+Response from authorization code token exchange.
+
+```typescript
+interface TokenExchangeResponse {
+  accessToken: string   // JWT access token for API authentication
+  tokenType: 'Bearer'   // Token type (always "Bearer")
+}
+```
+
+**Usage:**
+
+```typescript
+// Exchange authorization code for tokens
+const response = await $fetch<TokenExchangeResponse>('/auth/token', {
+  method: 'POST',
+  body: { code: authorizationCode }
+})
+console.log('Received access token:', response.accessToken)
+```
+
+## Handler Types
+
+### `AegisHandler`
+
+Main handler interface for customizing Nuxt Aegis behavior via `defineAegisHandler`.
+
+```typescript
+interface AegisHandler {
+  onUserInfo?: (payload: UserInfoHookPayload) => 
+    Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
+  
+  password?: {
+    findUser: (email: string) => Promise<PasswordUser | null> | PasswordUser | null
+    upsertUser: (user: PasswordUser) => Promise<void> | void
+    sendVerificationCode: (email: string, code: string, action: 'register' | 'login' | 'reset') => 
+      Promise<void> | void
+    validatePassword?: (password: string) => Promise<boolean | string[]> | boolean | string[]
+    hashPassword?: (password: string) => Promise<string> | string
+    verifyPassword?: (password: string, hash: string) => Promise<boolean> | boolean
+  }
+  
+  impersonation?: {
+    fetchTarget: (targetId: string, event: H3Event) => 
+      Promise<Record<string, unknown> | null> | Record<string, unknown> | null
+    canImpersonate?: (requester: TokenPayload, targetId: string, event: H3Event) => 
+      Promise<boolean> | boolean
+  }
+}
+```
+
+**Usage:**
+
+```typescript
+// server/plugins/aegis.ts
+export default defineNitroPlugin(() => {
+  defineAegisHandler({
+    password: {
+      findUser: async (email) => {
+        return await db.users.findUnique({ where: { email } })
+      },
+      upsertUser: async (user) => {
+        await db.users.upsert({ where: { email: user.email }, update: user, create: user })
+      },
+      sendVerificationCode: async (email, code, action) => {
+        await sendEmail({ to: email, subject: `Verification code: ${code}` })
+      }
+    }
+  })
+})
+```
+
+::: tip Complete Guide
+See the [Handlers guide](/guides/handlers.md) for comprehensive examples.
+:::
+
+### `PasswordUser`
+
+User interface for password provider authentication.
+
+```typescript
+interface PasswordUser {
+  id?: string                  // User ID (optional)
+  email: string                // User email
+  hashedPassword: string       // Hashed password
+  [key: string]: unknown       // Additional user properties
+}
+```
+
+**Usage:**
+
+```typescript
+const user: PasswordUser = {
+  id: '123',
+  email: 'user@example.com',
+  hashedPassword: await hashPassword('secret'),
+  role: 'user',
+  createdAt: new Date()
+}
+```
+
+## Hook Payload Types
+
+### `ImpersonateCheckPayload`
+
+Payload for `nuxt-aegis:impersonate:check` hook.
+
+```typescript
+interface ImpersonateCheckPayload {
+  requester: TokenPayload      // User requesting impersonation
+  targetUserId: string         // Target user ID to impersonate
+  reason?: string              // Reason for impersonation (for audit)
+  event: H3Event               // H3 event for server context
+  ip: string                   // Client IP address (for audit)
+  userAgent: string            // User agent string (for audit)
+}
+```
+
+### `ImpersonateFetchTargetPayload`
+
+Payload for `nuxt-aegis:impersonate:fetchTarget` hook.
+
+```typescript
+interface ImpersonateFetchTargetPayload {
+  requester: TokenPayload      // User requesting impersonation
+  targetUserId: string         // Target user ID to impersonate
+  event: H3Event               // H3 event for server context
+}
+```
+
+### `ImpersonateStartPayload`
+
+Payload for `nuxt-aegis:impersonate:start` hook (audit logging).
+
+```typescript
+interface ImpersonateStartPayload {
+  requester: TokenPayload      // User who initiated impersonation
+  targetUser: TokenPayload     // Impersonated user
+  reason?: string              // Reason for impersonation
+  event: H3Event               // H3 event for server context
+  ip: string                   // Client IP address (for audit)
+  userAgent: string            // User agent string (for audit)
+  timestamp: Date              // Timestamp of impersonation
+}
+```
+
+### `ImpersonateEndPayload`
+
+Payload for `nuxt-aegis:impersonate:end` hook (audit logging).
+
+```typescript
+interface ImpersonateEndPayload {
+  restoredUser: TokenPayload   // Restored original user
+  impersonatedUser: TokenPayload  // User who was being impersonated
+  event: H3Event               // H3 event for server context
+  ip: string                   // Client IP address (for audit)
+  userAgent: string            // User agent string (for audit)
+  timestamp: Date              // Timestamp when impersonation ended
+}
+```
+
+::: tip Impersonation Hooks
+See the [Impersonation guide](/guides/impersonation.md) for complete examples of using impersonation hooks.
 :::
 
 ## Configuration Types
@@ -336,6 +641,47 @@ interface ProvidersConfig {
 
 ## Provider Types
 
+### `OAuthConfig<T>`
+
+Generic OAuth provider configuration wrapper used by all provider event handlers.
+
+```typescript
+interface OAuthConfig<T extends OAuthProviderConfig> {
+  config?: T                          // Provider-specific configuration
+  customClaims?: Record<string, unknown> | CustomClaimsCallback  // Static or dynamic custom claims
+  onUserInfo?: OnUserInfo             // Transform user info callback
+  onSuccess?: OnSuccess               // Success callback
+  onError?: OnError                   // Error callback
+}
+```
+
+**Usage:**
+
+```typescript
+import type { OAuthConfig, GoogleProviderConfig } from '#build/nuxt-aegis'
+
+export default defineOAuthGoogleEventHandler({
+  config: {
+    clientId: '...',
+    clientSecret: '...',
+  },
+  customClaims: { role: 'user' },
+} as OAuthConfig<GoogleProviderConfig>)
+```
+
+### `OAuthProviderConfig`
+
+Base OAuth provider configuration interface.
+
+```typescript
+interface OAuthProviderConfig {
+  clientId: string                    // OAuth client ID
+  clientSecret: string                // OAuth client secret
+  scopes?: string[]                   // OAuth scopes
+  authorizationParams?: Record<string, string>  // Custom authorization parameters
+}
+```
+
 ### `GoogleProviderConfig`
 
 Google OAuth configuration.
@@ -364,12 +710,26 @@ interface Auth0ProviderConfig {
 }
 ```
 
-### `GitHubProviderConfig`
+### `MicrosoftProviderConfig`
+
+Microsoft OAuth configuration.
+
+```typescript
+interface MicrosoftProviderConfig {
+  clientId: string                    // Microsoft client ID
+  clientSecret: string                // Microsoft client secret
+  tenant?: string                     // Microsoft tenant ID (default: 'common')
+  scopes?: string[]                   // OAuth scopes (default: ['openid', 'email', 'profile'])
+  authorizationParams?: Record<string, string> // Custom authorization parameters
+}
+```
+
+### `GithubProviderConfig`
 
 GitHub OAuth configuration.
 
 ```typescript
-interface GitHubProviderConfig {
+interface GithubProviderConfig
   clientId: string                    // GitHub client ID
   clientSecret: string                // GitHub client secret
   scopes?: string[]                   // OAuth scopes (default: ['user:email', 'read:user'])
@@ -404,6 +764,43 @@ interface MockUser {
   [key: string]: any                  // Custom claims
 }
 ```
+
+### `PasswordProviderConfig`
+
+Password provider configuration.
+
+```typescript
+interface PasswordProviderConfig {
+  magicCodeTTL?: number              // Magic code time-to-live in seconds (default: 600 = 10 minutes)
+  magicCodeMaxAttempts?: number      // Maximum verification attempts (default: 5)
+  passwordHashRounds?: number        // Bcrypt hashing rounds (default: 12)
+  passwordPolicy?: {
+    minLength?: number               // Minimum password length (default: 8)
+    requireUppercase?: boolean       // Require uppercase letter (default: true)
+    requireLowercase?: boolean       // Require lowercase letter (default: true)
+    requireNumber?: boolean          // Require number (default: true)
+    requireSpecial?: boolean         // Require special character (default: false)
+  }
+}
+```
+
+::: tip Password Provider
+See the [Password Authentication guide](/providers/password.md) for implementation details.
+:::
+
+### `CustomProviderConfig`
+
+Custom OAuth provider configuration for implementing your own provider.
+
+```typescript
+interface CustomProviderConfig extends OAuthProviderConfig {
+  name: string                       // Unique name identifier for the custom provider
+}
+```
+
+::: tip Custom Providers
+See the [Custom Provider guide](/providers/custom.md) for creating custom OAuth providers.
+:::
 
 ## Callback Types
 

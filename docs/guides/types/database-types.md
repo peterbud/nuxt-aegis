@@ -21,7 +21,7 @@ Database records often contain:
 ### Token Payload (JWT)
 
 ```typescript
-import type { CustomTokenClaims } from '#build/types/nuxt-aegis'
+import type { CustomTokenClaims } from '#build/nuxt-aegis'
 
 export type AppTokenPayload = CustomTokenClaims<{
   role: string
