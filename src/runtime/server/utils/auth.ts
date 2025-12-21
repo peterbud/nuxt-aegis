@@ -140,13 +140,9 @@ export function requireAuth<T extends TokenPayload = TokenPayload>(
  * })
  * ```
  */
-export function getAuthUser<T extends TokenPayload = TokenPayload>(event: H3Event): T {
+export function getAuthUser<T extends TokenPayload = TokenPayload>(event: H3Event): T | null {
   if (!event.context.user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
-      message: 'Authentication required',
-    })
+    return null
   }
 
   return event.context.user as T
