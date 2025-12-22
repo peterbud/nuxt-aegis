@@ -74,7 +74,7 @@ minimal/
 2. **Server Handler**: `server/routes/auth/google.get.ts` defines the OAuth handler using `defineOAuthGoogleEventHandler()`
 3. **Authentication UI**: `app.vue` uses the `useAegisAuth()` composable to handle authentication
 4. **Login Flow**: Clicking "Sign in with Google" redirects to `/auth/google` which initiates the OAuth flow
-5. **Callback**: After authorization, Google redirects back to `/auth/google/callback` handled by the same route
+5. **Callback**: After authorization, Google redirects back to `/auth/google` handled by the same route
 6. **Session**: User session is encrypted and stored securely
 6. **Logout**: Clicking "Log out" clears the session
 

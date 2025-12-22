@@ -414,10 +414,19 @@ export default defineNuxtModule<ModuleOptions>({
       })
     })
 
-    // Register type augmentations for Nitro route rules and export user-facing types
+    nuxt.options.alias['#nuxt-aegis'] = resolver.resolve(
+      './runtime/types/index',
+    )
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.alias = nitroConfig.alias || {}
+      // This tells the Nitro bundler where to find the code at runtime
+      nitroConfig.alias['#nuxt-aegis'] = resolver.resolve('./runtime/types/index')
+    })
+
+    // Register type augmentations for Nitro route rules
     const typesPath = resolver.resolve('./runtime/types')
     addTypeTemplate({
-      filename: 'types/nuxt-aegis.d.ts',
+      filename: 'types/nuxt-aegis-nitro.d.ts',
       getContents: () => {
         return `import type { NitroAegisAuth } from ${JSON.stringify(typesPath)}
 
@@ -449,68 +458,7 @@ declare module 'nitropack' {
   }
 }
 
-// Export user-facing types for direct import from '#build/nuxt-aegis'
-export type {
-  // Token/Payload Types
-  TokenPayload,
-  CustomTokenClaims,
-  ExtractClaims,
-  ImpersonationContext,
-  JSONValue,
-  
-  // Response Types
-  RefreshResponse,
-  TokenExchangeResponse,
-  
-  // Callback Types
-  OnError,
-  OnUserInfo,
-  OnSuccess,
-  OnSuccessParams,
-  CustomClaimsCallback,
-  
-  // Handler Types
-  AegisHandler,
-  PasswordUser,
-  
-  // Hook Types
-  UserInfoHookPayload,
-  SuccessHookPayload,
-  ImpersonateCheckPayload,
-  ImpersonateFetchTargetPayload,
-  ImpersonateStartPayload,
-  ImpersonateEndPayload,
-  
-  // Configuration Types
-  ModuleOptions,
-  TokenConfig,
-  TokenRefreshConfig,
-  CookieConfig,
-  EncryptionConfig,
-  StorageConfig,
-  RedirectConfig,
-  EndpointConfig,
-  ClientMiddlewareConfig,
-  LoggingConfig,
-  ImpersonationConfig,
-  AuthCodeConfig,
-  ClaimsValidationConfig,
-  
-  // Provider Configuration
-  OAuthConfig,
-  OAuthProviderConfig,
-  GoogleProviderConfig,
-  MicrosoftProviderConfig,
-  GithubProviderConfig,
-  Auth0ProviderConfig,
-  MockProviderConfig,
-  PasswordProviderConfig,
-  CustomProviderConfig,
-  
-  // Route Protection
-  NitroAegisAuth,
-  NuxtAegisRouteRules,
-} from ${JSON.stringify(typesPath)}`
+export {}`
       },
     })
   },

@@ -2,7 +2,7 @@ import type {
   SuccessHookPayload,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
-} from '../../../src/runtime/types'
+} from '#nuxt-aegis'
 import {
   dbAddUser,
   dbFindUserByProvider,
@@ -13,7 +13,6 @@ import {
   dbGetUserByEmail,
   dbCreateOrUpdatePasswordUser,
 } from '../utils/db'
-import { defineAegisHandler } from '../../../src/runtime/server/utils/handler'
 
 /**
  * Example Nuxt Aegis server plugin demonstrating global hook usage

@@ -1044,7 +1044,7 @@ const testUnauthenticatedProtectedApi = async () => {
 
         <!-- Password Change -->
         <div
-          v-if="isLoggedIn && (user?.provider === 'password' || user?.providers?.some((p: any) => p.name === 'password'))"
+          v-if="isLoggedIn && (user?.provider === 'password')"
           class="card"
         >
           <h3 class="section-title">

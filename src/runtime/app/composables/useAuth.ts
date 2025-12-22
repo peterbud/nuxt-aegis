@@ -86,7 +86,7 @@ interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
  * const { user, login, logout } = useAuth()
  *
  * // With custom claims
- * import type { CustomTokenClaims } from '#build/nuxt-aegis'
+ * import type { CustomTokenClaims } from '#nuxt-aegis'
  *
  * type AppTokenPayload = CustomTokenClaims<{
  *   role: string

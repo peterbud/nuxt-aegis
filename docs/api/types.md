@@ -4,7 +4,7 @@ TypeScript type definitions and interfaces for Nuxt Aegis.
 
 ## Importing Types
 
-All types are available from the `#build/nuxt-aegis` module:
+All types are available from the `#nuxt-aegis` module:
 
 ```typescript
 import type {
@@ -67,7 +67,7 @@ import type {
   // Route Protection
   NitroAegisAuth,
   NuxtAegisRouteRules,
-} from '#build/nuxt-aegis'
+} from '#nuxt-aegis'
 ```
 
 ---
@@ -101,7 +101,7 @@ interface TokenPayload {
 **Usage:**
 
 ```typescript
-import type { TokenPayload } from '#build/nuxt-aegis'
+import type { TokenPayload } from '#nuxt-aegis'
 
 // Use as the base type
 const { user } = useAuth<TokenPayload>()
@@ -121,7 +121,7 @@ type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims } from '#build/nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis'
 
 // Define your app's token type
 export type AppTokenPayload = CustomTokenClaims<{
@@ -158,7 +158,7 @@ type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims, ExtractClaims } from '#build/nuxt-aegis'
+import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis'
 
 type AppTokenPayload = CustomTokenClaims<{
   role: string
@@ -658,7 +658,7 @@ interface OAuthConfig<T extends OAuthProviderConfig> {
 **Usage:**
 
 ```typescript
-import type { OAuthConfig, GoogleProviderConfig } from '#build/nuxt-aegis'
+import type { OAuthConfig, GoogleProviderConfig } from '#nuxt-aegis'
 
 export default defineOAuthGoogleEventHandler({
   config: {
