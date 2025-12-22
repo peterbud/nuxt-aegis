@@ -164,8 +164,11 @@ describe('Refresh Token Encryption', () => {
       const data = { secret: 'data' }
       const encrypted = encryptData(data, testEncryptionKey)
 
-      // Tamper with the encrypted data
-      const tampered = encrypted.slice(0, -1) + 'X'
+      // Tamper with the auth tag portion (bytes 12-28 in the combined buffer)
+      // Decode, modify a byte in the auth tag, re-encode
+      const combined = Buffer.from(encrypted, 'base64')
+      combined[12] = combined[12] ^ 0xFF // Flip bits in first byte of auth tag
+      const tampered = combined.toString('base64')
 
       expect(() => {
         decryptData(tampered, testEncryptionKey)
