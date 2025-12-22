@@ -1,6 +1,6 @@
 {
   "name": "@peterbud/nuxt-aegis",
-  "version": "1.1.0-alpha",
+  "version": "1.1.0-alpha.1",
   "description": "Nuxt module for authentication with JWT token generation and session management.",
   "publishConfig": {
     "access": "public"
