@@ -460,6 +460,10 @@ declare module 'nitropack' {
 
 export {}`
       },
+    }, {
+      nuxt: true,
+      nitro: true,
+      node: true,
     })
   },
 })
