@@ -428,7 +428,15 @@ export default defineNuxtModule<ModuleOptions>({
     addTypeTemplate({
       filename: 'types/nuxt-aegis-nitro.d.ts',
       getContents: () => {
-        return `import type { NitroAegisAuth } from ${JSON.stringify(typesPath)}
+        return `import type { 
+  NitroAegisAuth,
+  UserInfoHookPayload,
+  SuccessHookPayload,
+  ImpersonateCheckPayload,
+  ImpersonateFetchTargetPayload,
+  ImpersonateStartPayload,
+  ImpersonateEndPayload
+} from ${JSON.stringify(typesPath)}
 
 type NuxtAegisRouteRules = {
   /**
@@ -446,6 +454,36 @@ declare module 'nitropack/types' {
   }
   interface NitroRouteConfig {
     nuxtAegis?: NuxtAegisRouteRules
+  }
+  interface NitroRuntimeHooks {
+    /**
+     * Hook called after fetching user info from the provider, before storing it.
+     * Use this to transform or validate the OAuth provider response.
+     */
+    'nuxt-aegis:userInfo': (payload: UserInfoHookPayload) => Promise<void> | void
+    /**
+     * Hook called after successful authentication.
+     * Use this for logging, analytics, or database operations.
+     */
+    'nuxt-aegis:success': (payload: SuccessHookPayload) => Promise<void> | void
+    /**
+     * Hook called to determine if a user is allowed to impersonate others.
+     * Return true to allow, false to deny.
+     */
+    'nuxt-aegis:impersonate:check': (payload: ImpersonateCheckPayload) => Promise<boolean> | boolean
+    /**
+     * Hook called to fetch the target user's data for impersonation.
+     * Must return the target user's data or null if not found.
+     */
+    'nuxt-aegis:impersonate:fetchTarget': (payload: ImpersonateFetchTargetPayload) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null
+    /**
+     * Hook called after impersonation starts successfully (fire-and-forget for audit logging).
+     */
+    'nuxt-aegis:impersonate:start': (payload: ImpersonateStartPayload) => Promise<void> | void
+    /**
+     * Hook called after impersonation ends successfully (fire-and-forget for audit logging).
+     */
+    'nuxt-aegis:impersonate:end': (payload: ImpersonateEndPayload) => Promise<void> | void
   }
 }
 
