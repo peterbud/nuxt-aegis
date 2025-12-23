@@ -12,12 +12,12 @@ export default defineNuxtConfig({
   },
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      secret: '',
     },
     providers: {
       google: {
-        clientId: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
-        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
+        clientId: '',
+        clientSecret: '',
       },
     },
   },

@@ -1188,6 +1188,7 @@ const testUnauthenticatedProtectedApi = async () => {
                 email: user.email,
                 role: user.role,
                 provider: user.provider,
+                permissions: user.permissions,
               },
               loggedIn: true,
               impersonating: isImpersonating,

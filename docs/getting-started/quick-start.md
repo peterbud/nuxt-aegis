@@ -4,7 +4,7 @@ Get your first authentication flow working in minutes.
 
 ## Basic Configuration
 
-Add the Nuxt Aegis configuration to your `nuxt.config.ts`:
+Add the Nuxt Aegis configuration to your `nuxt.config.ts`, Nuxt will automatically read the environment variables if you set up the name as shown in the [Installation](/getting-started/installation) guide. Otherwise you can use your own env variable naming, but then you need to reference them here.
 
 ```typescript
 export default defineNuxtConfig({
@@ -12,12 +12,12 @@ export default defineNuxtConfig({
   
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!, // Required
+      secret: '',
     },
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: '',
+        clientSecret: '',
       },
     },
   },

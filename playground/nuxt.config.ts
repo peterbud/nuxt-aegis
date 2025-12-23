@@ -16,17 +16,17 @@ export default defineNuxtConfig({
   nuxtAegis: {
     providers: {
       google: {
-        clientId: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID || '',
-        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET || '',
+        clientId: '',
+        clientSecret: '',
       },
       github: {
-        clientId: process.env.NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_ID || '',
-        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_SECRET || '',
+        clientId: '',
+        clientSecret: '',
       },
       auth0: {
-        clientId: process.env.NUXT_AEGIS_PROVIDERS_AUTH0_CLIENT_ID || '',
-        clientSecret: process.env.NUXT_AEGIS_PROVIDERS_AUTH0_CLIENT_SECRET || '',
-        domain: process.env.NUXT_AEGIS_PROVIDERS_AUTH0_DOMAIN || '',
+        clientId: '',
+        clientSecret: '',
+        domain: '',
       },
       // Mock provider for development/testing (works without credentials)
       mock: {
@@ -77,7 +77,7 @@ export default defineNuxtConfig({
       },
     },
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET || '',
+      secret: '',
       expiresIn: '15m',
     },
     tokenRefresh: {

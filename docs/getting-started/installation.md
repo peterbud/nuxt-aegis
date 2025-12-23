@@ -19,15 +19,18 @@ This command will:
 Create a `.env` file in your project root and add the required environment variables:
 
 ```bash
+# 'NUXT_' prefix is required for Nuxt to expose these variables to the runtime config
+# 'NUXT_AEGIS' is the namespace used by nuxt-aegis module
+
 # Required: Secret for signing JWT tokens (32+ characters recommended)
-NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-minimum-32-characters
+NUXT_NUXT_AEGIS_TOKEN_SECRET=your-super-secret-key-minimum-32-characters
 
 # OAuth Provider Credentials
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID=your-google-client-id
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Optional: Encryption key for refresh token storage (32+ characters)
-NUXT_AEGIS_ENCRYPTION_KEY=your-encryption-key-minimum-32-characters
+NUXT_NUXT_AEGIS_ENCRYPTION_KEY=your-encryption-key-minimum-32-characters
 ```
 
 ::: danger Never Commit Secrets

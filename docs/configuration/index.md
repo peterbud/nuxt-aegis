@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   nuxtAegis: {
     // JWT Token Configuration
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!, // Required
+      secret: '...', // Required
       expiresIn: '1h',              // Access token expiration (default: 1 hour)
       algorithm: 'HS256',           // Signing algorithm (HS256 or RS256)
       issuer: 'https://myapp.com',  // Token issuer
@@ -41,7 +41,7 @@ export default defineNuxtConfig({
       // Optional: Encryption at rest
       encryption: {
         enabled: false,              // Enable for sensitive data
-        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY, // 32+ characters
+        key: '...', // 32+ characters
         algorithm: 'aes-256-gcm',
       },
     },
@@ -86,8 +86,8 @@ export default defineNuxtConfig({
     // OAuth Providers
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: '...',
+        clientSecret: '...',
         scopes: ['openid', 'profile', 'email'],
       },
       // Add more providers as needed
