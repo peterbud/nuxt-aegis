@@ -10,12 +10,12 @@ The `useAuth()` composable provides reactive authentication state and methods fo
 
 ```vue
 <script setup lang="ts">
-const { user, isAuthenticated, login, logout } = useAuth()
+const { user, isLoggedIn, login, logout } = useAuth()
 </script>
 
 <template>
   <div>
-    <div v-if="isAuthenticated">
+    <div v-if="isLoggedIn">
       <p>Welcome, {{ user?.name }}!</p>
       <button @click="logout">Logout</button>
     </div>
@@ -50,19 +50,19 @@ interface User {
 `user` is reactive and automatically updates when authentication state changes.
 :::
 
-### `isAuthenticated`
+### `isLoggedIn`
 
-Boolean indicating whether the user is currently authenticated.
+Boolean indicating whether the user is currently logged in.
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated } = useAuth()
+const { isLoggedIn } = useAuth()
 </script>
 
 <template>
   <nav>
     <router-link to="/">Home</router-link>
-    <router-link v-if="isAuthenticated" to="/dashboard">
+    <router-link v-if="isLoggedIn" to="/dashboard">
       Dashboard
     </router-link>
     <router-link v-else to="/login">
@@ -78,7 +78,7 @@ Boolean indicating whether authentication state is being loaded.
 
 ```vue
 <script setup lang="ts">
-const { isLoading, isAuthenticated, user } = useAuth()
+const { isLoading, isLoggedIn, user } = useAuth()
 </script>
 
 <template>
@@ -86,7 +86,7 @@ const { isLoading, isAuthenticated, user } = useAuth()
     <div v-if="isLoading">
       <p>Loading...</p>
     </div>
-    <div v-else-if="isAuthenticated">
+    <div v-else-if="isLoggedIn">
       <p>Welcome, {{ user?.name }}!</p>
     </div>
     <div v-else>
@@ -99,6 +99,70 @@ const { isLoading, isAuthenticated, user } = useAuth()
 ::: tip Loading State
 Always check `isLoading` before rendering authentication-dependent content to avoid flashes of incorrect content.
 :::
+
+### `error`
+
+Error message from authentication operations, or `null` if no error.
+
+```vue
+<script setup lang="ts">
+const { error, login } = useAuth()
+</script>
+
+<template>
+  <div>
+    <p v-if="error" class="error">{{ error }}</p>
+    <button @click="login('google')">Login</button>
+  </div>
+</template>
+```
+
+### `isImpersonating`
+
+Boolean indicating whether currently impersonating another user.
+
+```vue
+<script setup lang="ts">
+const { isImpersonating, user, originalUser, stopImpersonation } = useAuth()
+</script>
+
+<template>
+  <div v-if="isImpersonating" class="banner">
+    <p>
+      You ({{ originalUser?.originalUserEmail }}) are impersonating {{ user?.email }}
+    </p>
+    <button @click="stopImpersonation">Stop Impersonation</button>
+  </div>
+</template>
+```
+
+::: tip Impersonation Feature
+This property is only available when impersonation is enabled. See [User Impersonation Guide](/guides/impersonation) for details.
+:::
+
+### `originalUser`
+
+Original user information when impersonating. Returns `null` when not impersonating.
+
+```typescript
+const { originalUser, isImpersonating } = useAuth()
+
+if (isImpersonating.value) {
+  console.log('Original user ID:', originalUser.value?.originalUserId)
+  console.log('Original user email:', originalUser.value?.originalUserEmail)
+  console.log('Original user name:', originalUser.value?.originalUserName)
+}
+```
+
+**OriginalUser Interface:**
+
+```typescript
+interface OriginalUser {
+  originalUserId: string      // Original user's ID
+  originalUserEmail?: string  // Original user's email
+  originalUserName?: string   // Original user's name
+}
+```
 
 ## Authentication Methods
 
@@ -127,7 +191,7 @@ await login('github')
 await login('auth0')
 ```
 
-### `logout(options?)`
+### `logout(redirectTo?)`
 
 Logs out the current user and clears the session.
 
@@ -135,15 +199,7 @@ Logs out the current user and clears the session.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `options` | `LogoutOptions` | Optional configuration |
-
-**LogoutOptions:**
-
-```typescript
-interface LogoutOptions {
-  redirect?: string  // Custom redirect URL after logout
-}
-```
+| `redirectTo` | `string` | Optional redirect path after logout |
 
 **Example:**
 
@@ -154,7 +210,7 @@ const { logout } = useAuth()
 await logout()
 
 // With custom redirect
-await logout({ redirect: '/goodbye' })
+await logout('/goodbye')
 ```
 
 ### `refresh()`
@@ -177,24 +233,79 @@ try {
 Tokens are automatically refreshed before expiration when `automaticRefresh: true` is configured. Manual refresh is rarely needed.
 :::
 
+### `impersonate(targetUserId, reason?)`
+
+Start impersonating another user. Requires admin privileges.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `targetUserId` | `string` | Target user ID or email to impersonate |
+| `reason` | `string` | Optional reason for impersonation (for audit logs) |
+
+**Example:**
+
+```typescript
+const { impersonate } = useAuth()
+
+// Basic impersonation
+await impersonate('user-123')
+
+// With reason for audit trail
+await impersonate('user@example.com', 'Debugging issue #456')
+```
+
+**Behavior:**
+- Generates a new short-lived access token (15 minutes default)
+- Does NOT generate a refresh token (impersonated sessions cannot be refreshed)
+- Updates authentication state to the impersonated user
+- Stores original user information for restoration
+
+::: warning Authorization Required
+Implement the `nuxt-aegis:impersonate:check` and `nuxt-aegis:impersonate:fetchTarget` hooks. See [User Impersonation Guide](/guides/impersonation).
+:::
+
+### `stopImpersonation()`
+
+Stop impersonating and restore the original user session.
+
+**Example:**
+
+```typescript
+const { stopImpersonation } = useAuth()
+
+try {
+  await stopImpersonation()
+  console.log('Restored to original user')
+} catch (error) {
+  console.error('Failed to stop impersonation:', error)
+}
+```
+
+**Behavior:**
+- Validates current session is impersonated
+- Restores original user's session with full privileges
+- Generates new access token and refresh token
+- Updates authentication state to the original user
+
 ## Conditional Rendering
 
 ### Show/Hide Based on Authentication
 
 ```vue
+<script setup lang="ts">
+const { isLoggedIn, user } = useAuth()
+</script>
+
 <template>
-  <div>
-    <!-- Show only to authenticated users -->
-    <div v-if="isAuthenticated">
-      <h1>Welcome back, {{ user?.name }}!</h1>
-      <p>Email: {{ user?.email }}</p>
-    </div>
-    
-    <!-- Show only to guests -->
-    <div v-else>
-      <h1>Welcome, Guest!</h1>
-      <p>Please log in to access your account.</p>
-    </div>
+  <div v-if="isLoggedIn">
+    <h1>Welcome back, {{ user?.name }}!</h1>
+    <p>{{ user?.email }}</p>
+  </div>
+  <div v-else>
+    <h1>Welcome, Guest!</h1>
+    <p>Please log in to access your account.</p>
   </div>
 </template>
 ```
@@ -202,24 +313,20 @@ Tokens are automatically refreshed before expiration when `automaticRefresh: tru
 ### Show During Loading
 
 ```vue
+<script setup lang="ts">
+const { isLoading, isLoggedIn, user, login } = useAuth()
+</script>
+
 <template>
   <div>
     <div v-if="isLoading">
-      <!-- Loading skeleton -->
-      <div class="skeleton">
-        <div class="skeleton-avatar"></div>
-        <div class="skeleton-text"></div>
-      </div>
+      <p>Loading...</p>
     </div>
-    
-    <div v-else-if="isAuthenticated">
-      <!-- Authenticated content -->
-      <img :src="user?.picture" alt="Avatar" />
+    <div v-else-if="isLoggedIn">
+      <img :src="user?.picture" :alt="user?.name" />
       <p>{{ user?.name }}</p>
     </div>
-    
     <div v-else>
-      <!-- Guest content -->
       <button @click="login('google')">Login</button>
     </div>
   </div>
@@ -268,154 +375,45 @@ const isPremium = computed(() => user.value?.premium === true)
 
 ```vue
 <script setup lang="ts">
-const { user, isAuthenticated, isLoading, login, logout } = useAuth()
+const { user, isLoggedIn, isLoading, login, logout } = useAuth()
 
 const providers = [
-  { name: 'google', label: 'Google', icon: '🔍' },
-  { name: 'github', label: 'GitHub', icon: '🐙' },
-  { name: 'auth0', label: 'Auth0', icon: '🔐' },
+  { name: 'google', label: 'Google' },
+  { name: 'github', label: 'GitHub' },
+  { name: 'auth0', label: 'Auth0' },
 ]
-
-function handleLogin(provider: string) {
-  login(provider)
-}
-
-function handleLogout() {
-  logout({ redirect: '/' })
-}
 </script>
 
 <template>
-  <div class="auth-container">
+  <div>
     <!-- Loading State -->
-    <div v-if="isLoading" class="loading">
-      <div class="spinner"></div>
+    <div v-if="isLoading">
       <p>Loading...</p>
     </div>
     
     <!-- Authenticated State -->
-    <div v-else-if="isAuthenticated" class="user-profile">
-      <img :src="user?.picture" :alt="user?.name" class="avatar" />
+    <div v-else-if="isLoggedIn">
+      <img :src="user?.picture" :alt="user?.name" />
       <h2>{{ user?.name }}</h2>
-      <p class="email">{{ user?.email }}</p>
-      <span class="provider">{{ user?.provider }}</span>
-      
-      <button @click="handleLogout" class="btn-logout">
-        Logout
-      </button>
+      <p>{{ user?.email }}</p>
+      <p>Provider: {{ user?.provider }}</p>
+      <button @click="logout('/')">Logout</button>
     </div>
     
     <!-- Guest State -->
-    <div v-else class="login-options">
+    <div v-else>
       <h2>Welcome!</h2>
       <p>Choose a provider to log in:</p>
-      
-      <div class="providers">
-        <button
-          v-for="provider in providers"
-          :key="provider.name"
-          @click="handleLogin(provider.name)"
-          class="btn-provider"
-        >
-          <span class="icon">{{ provider.icon }}</span>
-          <span>{{ provider.label }}</span>
-        </button>
-      </div>
+      <button
+        v-for="provider in providers"
+        :key="provider.name"
+        @click="login(provider.name)"
+      >
+        {{ provider.label }}
+      </button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.auth-container {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.loading {
-  text-align: center;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.user-profile {
-  text-align: center;
-}
-
-.avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  margin-bottom: 1rem;
-}
-
-.email {
-  color: #666;
-}
-
-.provider {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  background: #f0f0f0;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-}
-
-.btn-logout {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.login-options {
-  text-align: center;
-}
-
-.providers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.btn-provider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.btn-provider:hover {
-  border-color: #3498db;
-}
-
-.icon {
-  font-size: 1.5rem;
-}
-</style>
 ```
 
 ## TypeScript Support
@@ -424,19 +422,14 @@ Define custom user types for better type safety:
 
 ```typescript
 // types/auth.ts
-export interface CustomUser {
-  sub: string
-  name: string
-  email: string
-  picture?: string
-  provider: string
+export type AppTokenClaims = CustomTokenClaims<{
   role: 'admin' | 'user' | 'guest'
   premium: boolean
   customData?: Record<string, any>
-}
+}>
 
 // Component
-const { user } = useAuth<CustomUser>()
+const { user } = useAuth<AppTokenClaims>()
 
 // Now user has full type safety
 const role = user.value?.role // Type: 'admin' | 'user' | 'guest'

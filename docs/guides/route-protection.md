@@ -337,16 +337,6 @@ definePageMeta({
 </script>
 ```
 
-::: tip Middleware Chains
-You can combine multiple middlewares:
-```typescript
-definePageMeta({
-  middleware: ['auth-logged-in', 'admin', 'verify-email']
-})
-```
-They run in the order specified.
-:::
-
 ### Comparison: Global vs Per-Page
 
 | Aspect | `global: false` (Per-Page) | `global: true` (Global) |
@@ -526,83 +516,6 @@ export async function requirePremium(event: H3Event) {
   return user
 }
 ```
-
-## Complete RBAC Example
-
-::: code-group
-
-```typescript [server/utils/rbac.ts]
-export async function requireRole(
-  event: H3Event,
-  allowedRoles: string[]
-) {
-  const user = await requireAuth(event)
-  
-  if (!user.role || !allowedRoles.includes(user.role)) {
-    throw createError({
-      statusCode: 403,
-      message: 'Insufficient permissions'
-    })
-  }
-  
-  return user
-}
-
-export async function requirePermission(
-  event: H3Event,
-  permission: string
-) {
-  const user = await requireAuth(event)
-  
-  const permissions = user.permissions || []
-  
-  if (!permissions.includes(permission)) {
-    throw createError({
-      statusCode: 403,
-      message: `Missing permission: ${permission}`
-    })
-  }
-  
-  return user
-}
-```
-
-```typescript [server/routes/api/admin/users.get.ts]
-export default defineEventHandler(async (event) => {
-  // Require admin role
-  await requireRole(event, ['admin'])
-  
-  return await getAllUsers()
-})
-```
-
-```typescript [server/routes/api/posts/create.post.ts]
-export default defineEventHandler(async (event) => {
-  // Require permission
-  const user = await requirePermission(event, 'posts:create')
-  
-  const body = await readBody(event)
-  return await createPost(user.sub, body)
-})
-```
-
-```typescript [middleware/admin.ts]
-export default defineNuxtRouteMiddleware((to, from) => {
-  const { user, isAuthenticated, isLoading } = useAuth()
-  
-  if (isLoading.value) return
-  
-  if (!isAuthenticated.value) {
-    return navigateTo('/login')
-  }
-  
-  if (user.value?.role !== 'admin') {
-    return navigateTo('/')
-  }
-})
-```
-
-:::
 
 ## Conditional UI Elements
 

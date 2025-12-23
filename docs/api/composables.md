@@ -390,12 +390,12 @@ const providers = [
 
 ```vue
 <script setup lang="ts">
-interface CustomUser extends User {
+type AppTokenClaims = CustomTokenClaims<{
   role: 'admin' | 'user'
   premium: boolean
-}
+}>
 
-const { user } = useAuth<CustomUser>()
+const { user } = useAuth<AppTokenClaims>()
 
 const isAdmin = computed(() => user.value?.role === 'admin')
 const isPremium = computed(() => user.value?.premium === true)
