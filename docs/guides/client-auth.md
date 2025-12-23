@@ -102,7 +102,7 @@ Always check `isLoading` before rendering authentication-dependent content to av
 
 ## Authentication Methods
 
-### `login(provider, options?)`
+### `login(provider?, redirectTo?)`
 
 Initiates the OAuth login flow for the specified provider.
 
@@ -110,38 +110,21 @@ Initiates the OAuth login flow for the specified provider.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `provider` | `string` | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`) |
-| `options` | `LoginOptions` | Optional configuration |
-
-**LoginOptions:**
-
-```typescript
-interface LoginOptions {
-  redirect?: string          // Custom redirect URL after login
-  authorizationParams?: Record<string, string> // Custom OAuth params
-}
-```
+| `provider` | `string` | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`). Defaults to `'google'` |
+| `redirectTo` | `string` | Optional redirect path after login (not currently implemented) |
 
 **Example:**
 
 ```typescript
 const { login } = useAuth()
 
-// Basic login
+// Basic login (defaults to Google)
+await login()
+
+// Login with specific provider
 await login('google')
-
-// With custom redirect
-await login('google', {
-  redirect: '/dashboard'
-})
-
-// With authorization params
-await login('google', {
-  authorizationParams: {
-    prompt: 'consent',
-    access_type: 'offline'
-  }
-})
+await login('github')
+await login('auth0')
 ```
 
 ### `logout(options?)`
@@ -294,12 +277,7 @@ const providers = [
 ]
 
 function handleLogin(provider: string) {
-  login(provider, {
-    redirect: '/dashboard',
-    authorizationParams: {
-      prompt: 'select_account',
-    },
-  })
+  login(provider)
 }
 
 function handleLogout() {

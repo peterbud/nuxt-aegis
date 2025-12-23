@@ -25,8 +25,8 @@ function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): {
   isLoading: Ref<boolean>
   isImpersonating: Ref<boolean>
   originalUser: Ref<OriginalUser | null>
-  login: (provider: string, options?: LoginOptions) => Promise<void>
-  logout: (options?: LogoutOptions) => Promise<void>
+  login: (provider?: string, redirectTo?: string) => Promise<void>
+  logout: (redirectTo?: string) => Promise<void>
   refresh: () => Promise<void>
   impersonate: (targetUserId: string, reason?: string) => Promise<void>
   stopImpersonation: () => Promise<void>
@@ -177,9 +177,9 @@ interface OriginalUser {
 }
 ```
 
-### `login(provider, options?)`
+### `login(provider?, redirectTo?)`
 
-**Type:** `(provider: string, options?: LoginOptions) => Promise<void>`
+**Type:** `(provider?: string, redirectTo?: string) => Promise<void>`
 
 Initiates the OAuth login flow for the specified provider.
 
@@ -187,45 +187,28 @@ Initiates the OAuth login flow for the specified provider.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `provider` | `string` | ✅ | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`) |
-| `options` | `LoginOptions` | ❌ | Optional configuration |
-
-**LoginOptions:**
-
-```typescript
-interface LoginOptions {
-  redirect?: string                         // Custom redirect URL after login
-  authorizationParams?: Record<string, string> // Custom OAuth parameters
-}
-```
+| `provider` | `string` | ❌ | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`). Defaults to `'google'` |
+| `redirectTo` | `string` | ❌ | Custom redirect path after login (not currently implemented) |
 
 **Example:**
 
 ```typescript
 const { login } = useAuth()
 
-// Basic login
+// Basic login (defaults to Google)
+await login()
+
+// Login with specific provider
 await login('google')
-
-// With custom redirect
-await login('google', {
-  redirect: '/dashboard'
-})
-
-// With authorization parameters
-await login('google', {
-  authorizationParams: {
-    prompt: 'consent',
-    access_type: 'offline'
-  }
-})
+await login('github')
+await login('auth0')
 ```
 
 **Returns:** `Promise<void>`
 
-### `logout(options?)`
+### `logout(redirectTo?)`
 
-**Type:** `(options?: LogoutOptions) => Promise<void>`
+**Type:** `(redirectTo?: string) => Promise<void>`
 
 Logs out the current user and clears the session.
 
@@ -233,15 +216,7 @@ Logs out the current user and clears the session.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `options` | `LogoutOptions` | ❌ | Optional configuration |
-
-**LogoutOptions:**
-
-```typescript
-interface LogoutOptions {
-  redirect?: string  // Custom redirect URL after logout
-}
-```
+| `redirectTo` | `string` | ❌ | Custom redirect path after logout |
 
 **Example:**
 
@@ -252,7 +227,7 @@ const { logout } = useAuth()
 await logout()
 
 // With custom redirect
-await logout({ redirect: '/goodbye' })
+await logout('/goodbye')
 ```
 
 **Returns:** `Promise<void>`
