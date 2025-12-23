@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from '#imports'
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
-import type { TokenConfig, TokenPayload, TokenRefreshConfig } from '../../types'
+import type { TokenConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
 import { generateAndStoreRefreshToken } from './refreshToken'
 import { generateToken } from './jwt'
 
@@ -38,7 +38,7 @@ export async function generateAuthTokens(
   }
 
   // Build standard token payload from user object
-  const payload: TokenPayload = {
+  const payload: BaseTokenClaims = {
     sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
     email: providerUserInfo.email as string | undefined,
     name: providerUserInfo.name as string | undefined,
@@ -83,19 +83,19 @@ export async function generateAuthTokens(
  * @example
  * ```typescript
  * // With custom claims typing
- * interface MyTokenPayload extends TokenPayload {
+ * type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   permissions: string[]
- * }
+ * }>
  *
  * export default defineEventHandler((event) => {
- *   const authedEvent = requireAuth<MyTokenPayload>(event)
+ *   const authedEvent = requireAuth<AppTokenClaims>(event)
  *   // TypeScript knows about role and permissions
  *   return { role: authedEvent.context.user.role }
  * })
  * ```
  */
-export function requireAuth<T extends TokenPayload = TokenPayload>(
+export function requireAuth<T extends BaseTokenClaims = BaseTokenClaims>(
   event: H3Event,
 ): H3Event & { context: { user: T } } {
   if (!event.context.user) {
@@ -129,19 +129,19 @@ export function requireAuth<T extends TokenPayload = TokenPayload>(
  * @example
  * ```typescript
  * // With custom claims typing
- * interface MyTokenPayload extends TokenPayload {
+ * export type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   permissions: string[]
- * }
+ * }>
  *
  * export default defineEventHandler((event) => {
- *   const user = getAuthUser<MyTokenPayload>(event)
+ *   const user = getAuthUser<AppTokenClaims>(event)
  *   // TypeScript knows about role and permissions
  *   return { role: user.role, permissions: user.permissions }
  * })
  * ```
  */
-export function getAuthUser<T extends TokenPayload = TokenPayload>(event: H3Event): T | null {
+export function getAuthUser<T extends BaseTokenClaims = BaseTokenClaims>(event: H3Event): T | null {
   if (!event.context.user) {
     return null
   }

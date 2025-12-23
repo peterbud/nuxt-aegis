@@ -8,17 +8,17 @@ import type { CustomTokenClaims } from '#nuxt-aegis'
  *
  * @example Client-side usage:
  * ```typescript
- * const { user } = useAuth<AppTokenPayload>()
+ * const { user } = useAuth<AppTokenClaims>()
  * console.log(user.value?.role) // Type-safe access to custom claims
  * ```
  *
  * @example Server-side usage:
  * ```typescript
- * const user = getAuthUser<AppTokenPayload>(event)
+ * const user = getAuthUser<AppTokenClaims>(event)
  * return { role: user.role, permissions: user.permissions }
  * ```
  */
-export type AppTokenPayload = CustomTokenClaims<{
+export type AppTokenClaims = CustomTokenClaims<{
   /** User role (e.g., 'admin', 'user', 'guest') */
   role: string
   /** Array of permission strings */

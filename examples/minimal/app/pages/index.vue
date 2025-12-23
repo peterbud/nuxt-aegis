@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { AppTokenPayload } from '~~/shared/types/token'
+import type { AppTokenClaims } from '~~/shared/types/token'
 import { useAuth } from '#imports'
 
-const { user, login, logout } = useAuth<AppTokenPayload>()
+const { user, login, logout } = useAuth<AppTokenClaims>()
 </script>
 
 <template>
@@ -39,7 +39,7 @@ const { user, login, logout } = useAuth<AppTokenPayload>()
       </div>
       <button
         class="btn btn-secondary"
-        @click="logout"
+        @click="() => logout()"
       >
         Log out
       </button>

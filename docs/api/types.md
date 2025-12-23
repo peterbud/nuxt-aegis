@@ -9,7 +9,7 @@ All types are available from the `#nuxt-aegis` module:
 ```typescript
 import type {
   // Token/Payload Types
-  TokenPayload,
+  BaseTokenClaims,
   CustomTokenClaims,
   ExtractClaims,
   ImpersonationContext,
@@ -74,16 +74,24 @@ import type {
 
 ## Token & Payload Types
 
-::: info Deprecated: User Type
-The `User` type is deprecated. Use `TokenPayload` instead for better type safety and consistency.
+::: info Understanding Token Claims
+Nuxt Aegis uses two key concepts:
+- **BaseTokenClaims**: Standard JWT claims (sub, email, name, iss, exp, etc.) that are always present
+- **CustomTokenClaims<T>**: Combines BaseTokenClaims with your application-specific claims (role, permissions, etc.)
+
+This naming makes the relationship clear: your custom token type extends the base claims.
 :::
 
-### `TokenPayload`
+::: info Deprecated: User Type
+The `User` type is deprecated. Use `BaseTokenClaims` or `CustomTokenClaims<T>` instead for better type safety and clarity.
+:::
 
-Core JWT token payload interface representing the decoded JWT structure. This is the primary type returned by `useAuth()` and `getAuthUser()`.
+### `BaseTokenClaims`
+
+Base JWT token claims interface representing standard JWT fields. This defines the foundation that all tokens have, whether you add custom claims or not.
 
 ```typescript
-interface TokenPayload {
+interface BaseTokenClaims {
   sub: string                           // Subject identifier (user ID) - required
   email?: string                        // User email address
   name?: string                         // User full name
@@ -94,28 +102,36 @@ interface TokenPayload {
   iat?: number                          // Issued at timestamp
   exp?: number                          // Expiration timestamp
   impersonation?: ImpersonationContext  // Impersonation context if active
-  [key: string]: unknown                // Additional custom claims
+  [key: string]: unknown                // Allows for custom claims via intersection
 }
 ```
+
+**When to use `BaseTokenClaims`:**
+- When you only need standard JWT fields without custom claims
+- As the base for creating custom token types with `CustomTokenClaims<T>`
+- For generic authentication utilities that work with any token
 
 **Usage:**
 
 ```typescript
-import type { TokenPayload } from '#nuxt-aegis'
+import type { BaseTokenClaims } from '#nuxt-aegis'
 
-// Use as the base type
-const { user } = useAuth<TokenPayload>()
+// Use directly if you don't have custom claims
+const { user } = useAuth<BaseTokenClaims>()
 
-// Or extend with custom claims
+// Most applications will use CustomTokenClaims instead
 type AppUser = CustomTokenClaims<{ role: string }>
 ```
 
 ### `CustomTokenClaims<T>`
 
-Helper type for creating type-safe custom token payloads.
+Helper type for creating type-safe custom token payloads. This is what you'll use in your application to define your token structure with both standard JWT fields and your custom claims.
 
+**The relationship:**
 ```typescript
-type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
+// BaseTokenClaims: sub, email, name, iss, exp, etc.
+// CustomTokenClaims<T>: BaseTokenClaims + your custom claims
+type CustomTokenClaims<T extends Record<string, JSONValue>> = BaseTokenClaims & T
 ```
 
 **Usage:**
@@ -123,19 +139,24 @@ type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
 ```typescript
 import type { CustomTokenClaims } from '#nuxt-aegis'
 
-// Define your app's token type
-export type AppTokenPayload = CustomTokenClaims<{
-  role: 'admin' | 'user' | 'guest'
+// Define your app's token type with both base and custom claims
+export type AppTokenClaims = CustomTokenClaims<{
+  role: 'admin' | 'user' | 'guest'  // Your custom claims
   permissions: string[]
   organizationId: string
 }>
 
-// Use in components
-const { user } = useAuth<AppTokenPayload>()
-console.log(user.value?.role)  // Type-safe access
+// Now AppTokenClaims includes:
+// - Base claims: sub, email, name, iss, exp, etc.
+// - Custom claims: role, permissions, organizationId
+
+// Use in components - access both base and custom claims
+const { user } = useAuth<AppTokenClaims>()
+console.log(user.value?.email)  // Base claim - type-safe
+console.log(user.value?.role)   // Custom claim - type-safe
 
 // Use in server handlers
-const user = getAuthUser<AppTokenPayload>(event)
+const user = getAuthUser<AppTokenClaims>(event)
 if (user.role === 'admin') {
   // Admin logic
 }
@@ -149,10 +170,10 @@ See the [Token Types guide](/guides/types/token-types.md) for comprehensive exam
 
 ### `ExtractClaims<T>`
 
-Utility type to extract only custom claims from a token payload.
+Utility type to extract only custom claims from a token payload, removing all BaseTokenClaims fields.
 
 ```typescript
-type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
+type ExtractClaims<T extends BaseTokenClaims> = Omit<T, keyof BaseTokenClaims>
 ```
 
 **Usage:**
@@ -160,17 +181,17 @@ type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
 ```typescript
 import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis'
 
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: string
   permissions: string[]
 }>
 
 // Extract only custom claims
-type CustomClaims = ExtractClaims<AppTokenPayload>
+type CustomClaims = ExtractClaims<AppTokenClaims>
 // Result: { role: string; permissions: string[] }
 
 // Use in database operations
-function updateUserClaims(userId: string, claims: ExtractClaims<AppTokenPayload>) {
+function updateUserClaims(userId: string, claims: ExtractClaims<AppTokenClaims>) {
   // Only accepts custom claims, not standard JWT fields
   await db.update({ role: claims.role, permissions: claims.permissions })
 }
@@ -291,7 +312,7 @@ interface AegisHandler {
   impersonation?: {
     fetchTarget: (targetId: string, event: H3Event) => 
       Promise<Record<string, unknown> | null> | Record<string, unknown> | null
-    canImpersonate?: (requester: TokenPayload, targetId: string, event: H3Event) => 
+    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: H3Event) => 
       Promise<boolean> | boolean
   }
 }
@@ -355,7 +376,7 @@ Payload for `nuxt-aegis:impersonate:check` hook.
 
 ```typescript
 interface ImpersonateCheckPayload {
-  requester: TokenPayload      // User requesting impersonation
+  requester: BaseTokenClaims      // User requesting impersonation
   targetUserId: string         // Target user ID to impersonate
   reason?: string              // Reason for impersonation (for audit)
   event: H3Event               // H3 event for server context
@@ -370,7 +391,7 @@ Payload for `nuxt-aegis:impersonate:fetchTarget` hook.
 
 ```typescript
 interface ImpersonateFetchTargetPayload {
-  requester: TokenPayload      // User requesting impersonation
+  requester: BaseTokenClaims      // User requesting impersonation
   targetUserId: string         // Target user ID to impersonate
   event: H3Event               // H3 event for server context
 }
@@ -382,8 +403,8 @@ Payload for `nuxt-aegis:impersonate:start` hook (audit logging).
 
 ```typescript
 interface ImpersonateStartPayload {
-  requester: TokenPayload      // User who initiated impersonation
-  targetUser: TokenPayload     // Impersonated user
+  requester: BaseTokenClaims      // User who initiated impersonation
+  targetUser: BaseTokenClaims     // Impersonated user
   reason?: string              // Reason for impersonation
   event: H3Event               // H3 event for server context
   ip: string                   // Client IP address (for audit)
@@ -398,8 +419,8 @@ Payload for `nuxt-aegis:impersonate:end` hook (audit logging).
 
 ```typescript
 interface ImpersonateEndPayload {
-  restoredUser: TokenPayload   // Restored original user
-  impersonatedUser: TokenPayload  // User who was being impersonated
+  restoredUser: BaseTokenClaims   // Restored original user
+  impersonatedUser: BaseTokenClaims  // User who was being impersonated
   event: H3Event               // H3 event for server context
   ip: string                   // Client IP address (for audit)
   userAgent: string            // User agent string (for audit)

@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import type { TokenPayload } from './token'
+import type { BaseTokenClaims } from './token'
 
 /**
  * Nitro hook type definitions for Nuxt Aegis
@@ -56,7 +56,7 @@ export interface SuccessHookPayload {
  */
 export interface ImpersonateCheckPayload {
   /** JWT payload of the user requesting impersonation */
-  requester: TokenPayload
+  requester: BaseTokenClaims
   /** Target user ID to impersonate */
   targetUserId: string
   /** Optional reason for impersonation (for audit) */
@@ -77,7 +77,7 @@ export interface ImpersonateCheckPayload {
  */
 export interface ImpersonateFetchTargetPayload {
   /** JWT payload of the user requesting impersonation */
-  requester: TokenPayload
+  requester: BaseTokenClaims
   /** Target user ID to impersonate */
   targetUserId: string
   /** H3 event for server context access */
@@ -90,9 +90,9 @@ export interface ImpersonateFetchTargetPayload {
  */
 export interface ImpersonateStartPayload {
   /** JWT payload of the user who initiated impersonation */
-  requester: TokenPayload
+  requester: BaseTokenClaims
   /** JWT payload of the impersonated user */
-  targetUser: TokenPayload
+  targetUser: BaseTokenClaims
   /** Reason for impersonation */
   reason?: string
   /** H3 event for server context access */
@@ -111,9 +111,9 @@ export interface ImpersonateStartPayload {
  */
 export interface ImpersonateEndPayload {
   /** JWT payload of the restored original user */
-  restoredUser: TokenPayload
+  restoredUser: BaseTokenClaims
   /** JWT payload of the user who was being impersonated */
-  impersonatedUser: TokenPayload
+  impersonatedUser: BaseTokenClaims
   /** H3 event for server context access */
   event: H3Event
   /** Client IP address (for audit) */

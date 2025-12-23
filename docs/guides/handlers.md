@@ -53,7 +53,7 @@ Determines if a user is allowed to impersonate another user.
 - Implement complex permission logic
 
 **Signature:**
-`(requester: TokenPayload, targetId: string, event: H3Event) => Promise<boolean> | boolean`
+`(requester: BaseTokenClaims, targetId: string, event: H3Event) => Promise<boolean> | boolean`
 
 **Example:**
 

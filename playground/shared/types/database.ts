@@ -1,4 +1,4 @@
-import type { AppTokenPayload } from './token'
+import type { AppTokenClaims } from './token'
 
 /**
  * Provider information for multi-provider authentication
@@ -18,7 +18,7 @@ export interface Provider {
  * should NEVER be included in JWT tokens.
  *
  * ⚠️ IMPORTANT: Fields like `hashedPassword` belong here in the database
- * model, but should NEVER be included in AppTokenPayload (JWT tokens).
+ * model, but should NEVER be included in AppTokenClaims (JWT tokens).
  *
  * @example Usage in database operations:
  * ```typescript
@@ -29,7 +29,7 @@ export interface Provider {
  *
  * @example Mapping to JWT claims:
  * ```typescript
- * function userToTokenPayload(dbUser: DatabaseUser): AppTokenPayload {
+ * function userToAppTokenClaims(dbUser: DatabaseUser): AppTokenClaims {
  *   return {
  *     sub: dbUser.id,
  *     email: dbUser.email,
@@ -43,7 +43,7 @@ export interface Provider {
  * }
  * ```
  */
-export interface DatabaseUser extends AppTokenPayload {
+export interface DatabaseUser extends AppTokenClaims {
   /** Database record ID */
   id: string
   /** User email address */

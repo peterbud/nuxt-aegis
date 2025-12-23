@@ -7,10 +7,10 @@ Type-safe server-side authentication with Nuxt Aegis.
 Use generic type parameter for type-safe access to JWT claims:
 
 ```typescript
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
 export default defineEventHandler((event) => {
-  const user = getAuthUser<AppTokenPayload>(event)
+  const user = getAuthUser<AppTokenClaims>(event)
   
   // Fully typed access
   return {
@@ -25,10 +25,10 @@ export default defineEventHandler((event) => {
 
 ```typescript
 // server/api/admin/users.get.ts
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
 export default defineEventHandler((event) => {
-  const user = getAuthUser<AppTokenPayload>(event)
+  const user = getAuthUser<AppTokenClaims>(event)
   
   // Type-safe role check
   if (user.role !== 'admin') {
@@ -46,7 +46,7 @@ export default defineEventHandler((event) => {
 
 ```typescript
 // server/plugins/aegis.ts
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
 export default defineNitroPlugin(() => {
   defineAegisHandler({
@@ -56,7 +56,7 @@ export default defineNitroPlugin(() => {
         
         if (!dbUser) return null
         
-        // Return JWT claims (AppTokenPayload structure)
+        // Return JWT claims (AppTokenClaims structure)
         return {
           sub: dbUser.id,
           email: dbUser.email,
@@ -78,10 +78,10 @@ export default defineNitroPlugin(() => {
 Alternative that throws if not authenticated:
 
 ```typescript
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
 export default defineEventHandler((event) => {
-  const authedEvent = requireAuth<AppTokenPayload>(event)
+  const authedEvent = requireAuth<AppTokenClaims>(event)
   
   // TypeScript knows user is defined
   return {
@@ -94,10 +94,10 @@ export default defineEventHandler((event) => {
 
 ```typescript
 // server/middleware/admin.ts
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
 export default defineEventHandler((event) => {
-  const user = getAuthUser<AppTokenPayload>(event)
+  const user = getAuthUser<AppTokenClaims>(event)
   
   if (user.role !== 'admin') {
     throw createError({
@@ -112,12 +112,12 @@ export default defineEventHandler((event) => {
 
 ```typescript
 // server/api/projects/[id].get.ts
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 import type { DatabaseUser } from '~/types/database'
 
 export default defineEventHandler(async (event) => {
   // 1. Get JWT claims (type-safe)
-  const tokenUser = getAuthUser<AppTokenPayload>(event)
+  const tokenUser = getAuthUser<AppTokenClaims>(event)
   
   // 2. Fetch from database
   const dbUser: DatabaseUser = await database.findById(tokenUser.sub)
@@ -145,8 +145,8 @@ export default defineEventHandler(async (event) => {
 ### ✓ Do
 
 ```typescript
-// Use AppTokenPayload for JWT claims
-const user = getAuthUser<AppTokenPayload>(event)
+// Use AppTokenClaims for JWT claims
+const user = getAuthUser<AppTokenClaims>(event)
 
 // Fetch database record separately if needed
 const dbUser = await database.findById(user.sub)

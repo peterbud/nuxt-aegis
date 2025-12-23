@@ -23,7 +23,7 @@ Database records often contain:
 ```typescript
 import type { CustomTokenClaims } from '#nuxt-aegis'
 
-export type AppTokenPayload = CustomTokenClaims<{
+export type AppTokenClaims = CustomTokenClaims<{
   role: string
   permissions: string[]
   organizationId: string
@@ -33,9 +33,9 @@ export type AppTokenPayload = CustomTokenClaims<{
 ### Database Model
 
 ```typescript
-import type { AppTokenPayload } from './token'
+import type { AppTokenClaims } from './token'
 
-export interface DatabaseUser extends AppTokenPayload {
+export interface DatabaseUser extends AppTokenClaims {
   // Database-specific fields
   id: string
   createdAt: string
@@ -55,14 +55,14 @@ export interface DatabaseUser extends AppTokenPayload {
 
 ```typescript
 // types/database.ts
-import type { AppTokenPayload } from './token'
+import type { AppTokenClaims } from './token'
 
 export interface Provider {
   name: string
   id: string
 }
 
-export interface DatabaseUser extends AppTokenPayload {
+export interface DatabaseUser extends AppTokenClaims {
   id: string
   createdAt: string
   lastLogin: string
@@ -76,7 +76,7 @@ export function getUserById(id: string): DatabaseUser | null {
 }
 
 // JWT claims mapping
-export function userToTokenPayload(dbUser: DatabaseUser): AppTokenPayload {
+export function userToTokenClaims(dbUser: DatabaseUser): AppTokenClaims {
   return {
     sub: dbUser.id,
     email: dbUser.email,
@@ -143,13 +143,13 @@ password: {
 
 ```typescript
 // Extend token payload for database model
-interface DatabaseUser extends AppTokenPayload {
+interface DatabaseUser extends AppTokenClaims {
   id: string
   hashedPassword?: string
 }
 
 // Map database to JWT claims
-function toTokenPayload(db: DatabaseUser): AppTokenPayload {
+function userToTokenClaims(db: DatabaseUser): AppTokenClaims {
   return {
     sub: db.id,
     email: db.email,
@@ -162,7 +162,7 @@ function toTokenPayload(db: DatabaseUser): AppTokenPayload {
 
 ```typescript
 // DON'T put database-only fields in token type
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: string
   hashedPassword: string  // ✗ Security risk!
 }>

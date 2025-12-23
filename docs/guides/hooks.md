@@ -64,13 +64,13 @@ Called after an impersonation session has successfully started.
 
 ```typescript
 {
-  requester: TokenPayload    // The admin user
-  targetUser: TokenPayload   // The user being impersonated
-  reason?: string            // Reason provided for impersonation
-  timestamp: Date            // When it started
-  ip: string                 // Client IP
-  userAgent: string          // Client User Agent
-  event: H3Event             // Server event context
+  requester: BaseTokenClaims    // The admin user
+  targetUser: BaseTokenClaims   // The user being impersonated
+  reason?: string               // Reason provided for impersonation
+  timestamp: Date               // When it started
+  ip: string                    // Client IP
+  userAgent: string             // Client User Agent
+  event: H3Event                // Server event context
 }
 ```
 
@@ -94,8 +94,8 @@ Called after an impersonation session has ended (user reverted to original ident
 
 ```typescript
 {
-  restoredUser: TokenPayload     // The admin user (restored)
-  impersonatedUser: TokenPayload // The user who was impersonated
+  restoredUser: BaseTokenClaims     // The admin user (restored)
+  impersonatedUser: BaseTokenClaims // The user who was impersonated
   timestamp: Date
   ip: string
   userAgent: string

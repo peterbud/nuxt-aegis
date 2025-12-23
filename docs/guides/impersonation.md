@@ -400,7 +400,7 @@ import type {
 
 // Hook payload types
 interface ImpersonateCheckPayload {
-  requester: TokenPayload
+  requester: BaseTokenClaims
   targetUserId: string
   reason?: string
   event: H3Event
@@ -409,14 +409,14 @@ interface ImpersonateCheckPayload {
 }
 
 interface ImpersonateFetchTargetPayload {
-  requester: TokenPayload
+  requester: BaseTokenClaims
   targetUserId: string
   event: H3Event
 }
 
 interface ImpersonateStartPayload {
-  requester: TokenPayload
-  targetUser: TokenPayload
+  requester: BaseTokenClaims
+  targetUser: BaseTokenClaims
   reason?: string
   event: H3Event
   ip: string
@@ -425,8 +425,8 @@ interface ImpersonateStartPayload {
 }
 
 interface ImpersonateEndPayload {
-  restoredUser: TokenPayload
-  impersonatedUser: TokenPayload
+  restoredUser: BaseTokenClaims
+  impersonatedUser: BaseTokenClaims
   event: H3Event
   ip: string
   userAgent: string

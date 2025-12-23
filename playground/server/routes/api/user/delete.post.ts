@@ -1,9 +1,9 @@
 import { dbDeleteUser } from '../../../utils/db'
-import type { AppTokenPayload } from '~~/shared/types/token'
+import type { AppTokenClaims } from '~~/shared/types/token'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user from JWT token
-  const user = getAuthUser<AppTokenPayload>(event)
+  const user = getAuthUser<AppTokenClaims>(event)
 
   if (!user?.sub) {
     throw createError({

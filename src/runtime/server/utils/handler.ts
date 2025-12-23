@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import type { UserInfoHookPayload } from '../../types/hooks'
-import type { TokenPayload } from '../../types/token'
+import type { BaseTokenClaims } from '../../types/token'
 import type { PasswordUser } from '../../types/providers'
 
 export interface AegisHandler {
@@ -72,7 +72,7 @@ export interface AegisHandler {
      * If not defined, defaults to allowing if fetchTarget returns a user.
      * You can throw an error here to provide a specific message.
      */
-    canImpersonate?: (requester: TokenPayload, targetId: string, event: H3Event) => Promise<boolean> | boolean
+    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: H3Event) => Promise<boolean> | boolean
   }
 }
 

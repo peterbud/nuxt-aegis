@@ -8,7 +8,7 @@ import {
 } from '../utils/refreshToken'
 import { setRefreshTokenCookie } from '../utils/cookies'
 import { useRuntimeConfig } from '#imports'
-import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRefreshConfig } from '../../types'
+import type { RefreshResponse, TokenConfig, CookieConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
 
 /**
  * POST /auth/refresh
@@ -88,7 +88,7 @@ export default defineEventHandler(async (event) => {
     const customClaims: Record<string, unknown> = storedRefreshToken.customClaims || {}
 
     // Build standard token payload from stored user object
-    const payload: TokenPayload = {
+    const payload: BaseTokenClaims = {
       sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
       email: providerUserInfo.email as string | undefined,
       name: providerUserInfo.name as string | undefined,

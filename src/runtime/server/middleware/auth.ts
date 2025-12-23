@@ -1,7 +1,7 @@
 import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
 import { getRouteRules, useRuntimeConfig } from '#imports'
 import { verifyToken } from '../utils/jwt'
-import type { TokenConfig, NuxtAegisRouteRules, TokenPayload } from '../../types'
+import type { TokenConfig, NuxtAegisRouteRules, BaseTokenClaims } from '../../types'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('Middleware')
@@ -121,7 +121,7 @@ export default defineEventHandler(async (event) => {
   // Filter JWT metadata claims (iat, exp, iss, aud) to prevent hydration mismatches
   // These are token metadata, not user properties
   const { iat, exp, iss, aud, ...userData } = payload
-  event.context.user = userData as TokenPayload
+  event.context.user = userData as BaseTokenClaims
 
   // If impersonating, also inject original user data for audit trails and permission checks
   if (payload.impersonation) {

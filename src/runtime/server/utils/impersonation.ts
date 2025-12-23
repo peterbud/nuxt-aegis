@@ -1,13 +1,14 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import type {
-  TokenPayload,
+  BaseTokenClaims,
   ImpersonationContext,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
 } from '../../types'
 import { generateToken } from './jwt'
-import { useRuntimeConfig, useNitroApp } from '#imports'
+import { useRuntimeConfig } from '#imports'
+import { useNitroApp } from 'nitropack/runtime'
 import { createLogger } from './logger'
 import { generateAndStoreRefreshToken } from './refreshToken'
 import { useAegisHandler } from './handler'
@@ -49,7 +50,7 @@ function getClientInfo(event: H3Event): { ip?: string, userAgent?: string } {
  * @throws 403 error if impersonation is not allowed
  */
 export async function checkImpersonationAllowed(
-  requester: TokenPayload,
+  requester: BaseTokenClaims,
   targetUserId: string,
   event: H3Event,
 ): Promise<void> {
@@ -97,7 +98,7 @@ export async function checkImpersonationAllowed(
  * @throws 500 error if hook is not implemented
  */
 export async function fetchTargetUser(
-  requester: TokenPayload,
+  requester: BaseTokenClaims,
   targetUserId: string,
   event: H3Event,
 ): Promise<Record<string, unknown>> {
@@ -143,7 +144,7 @@ export async function fetchTargetUser(
  * @returns JWT access token (no refresh token)
  */
 export async function generateImpersonatedToken(
-  requester: TokenPayload,
+  requester: BaseTokenClaims,
   targetUserData: Record<string, unknown>,
   reason: string | undefined,
   _event: H3Event,
@@ -180,7 +181,7 @@ export async function generateImpersonatedToken(
   }
 
   // Build token payload with target user's data
-  const tokenPayload: TokenPayload = {
+  const tokenPayload: BaseTokenClaims = {
     sub: (targetUserData.sub || targetUserData.id || targetUserData.email) as string,
     email: targetUserData.email as string | undefined,
     name: targetUserData.name as string | undefined,
@@ -229,7 +230,7 @@ export async function generateImpersonatedToken(
  * @returns Access token for impersonated session (no refresh token)
  */
 export async function startImpersonation(
-  requester: TokenPayload,
+  requester: BaseTokenClaims,
   targetUserId: string,
   reason: string | undefined,
   event: H3Event,
@@ -246,7 +247,7 @@ export async function startImpersonation(
   // 4. Emit audit hook (fire-and-forget, after successful token generation)
   const { ip, userAgent } = getClientInfo(event)
 
-  const targetPayload: TokenPayload = {
+  const targetPayload: BaseTokenClaims = {
     sub: (targetUserData.sub || targetUserData.id || targetUserData.email) as string,
     email: targetUserData.email as string | undefined,
     name: targetUserData.name as string | undefined,
@@ -281,7 +282,7 @@ export async function startImpersonation(
  * @returns Object with new access token and refresh token ID
  */
 export async function endImpersonation(
-  currentToken: TokenPayload,
+  currentToken: BaseTokenClaims,
   event: H3Event,
 ): Promise<{ accessToken: string, refreshTokenId: string }> {
   // Check if feature is enabled
@@ -335,7 +336,7 @@ export async function endImpersonation(
 
   // Build token payload for original user
   // Use fresh data if available, otherwise fall back to stored context
-  const originalPayload: TokenPayload = {
+  const originalPayload: BaseTokenClaims = {
     sub: originalUserData
       ? ((originalUserData.sub || originalUserData.id || originalUserData.email) as string)
       : impersonation.originalUserId,

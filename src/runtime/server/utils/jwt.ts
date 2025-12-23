@@ -1,5 +1,5 @@
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
-import type { TokenConfig, TokenPayload } from '../../types'
+import type { TokenConfig, BaseTokenClaims } from '../../types'
 import { filterReservedClaims, validateClaimTypes } from './customClaims'
 import { createLogger } from './logger'
 
@@ -9,7 +9,7 @@ const logger = createLogger('JWT')
  * Validate token payload size and log warning if too large
  * @param payload - Token payload to validate
  */
-function validateTokenSize(payload: TokenPayload): void {
+function validateTokenSize(payload: BaseTokenClaims): void {
   // Only check in development mode
   if (process.env.NODE_ENV === 'production') {
     return
@@ -36,7 +36,7 @@ function validateTokenSize(payload: TokenPayload): void {
  * @returns Signed JWT token
  */
 export async function generateToken(
-  payload: TokenPayload,
+  payload: BaseTokenClaims,
   config: TokenConfig,
   customClaims?: Record<string, unknown>,
 ): Promise<string> {
@@ -58,7 +58,7 @@ export async function generateToken(
   const finalPayload = { ...payload, ...safeClaims }
 
   // Validate token size in development
-  validateTokenSize(finalPayload as TokenPayload)
+  validateTokenSize(finalPayload as BaseTokenClaims)
 
   // Create JWT with standard claims
   let jwt = new SignJWT(finalPayload)
@@ -106,7 +106,7 @@ export async function updateTokenWithClaims(
   const secret = new TextEncoder().encode(config.secret)
   const { payload } = await jwtVerify(token, secret)
 
-  const updatedPayload: TokenPayload = {
+  const updatedPayload: BaseTokenClaims = {
     ...payload,
     ...claims,
     sub: payload.sub as string,
@@ -125,7 +125,7 @@ export async function verifyToken(
   token: string,
   secret: string,
   checkExpiration: boolean = true,
-): Promise<TokenPayload | null> {
+): Promise<BaseTokenClaims | null> {
   if (!token || !secret) {
     return null
   }
@@ -134,17 +134,17 @@ export async function verifyToken(
     const secretKey = new TextEncoder().encode(secret)
     if (checkExpiration) {
       const { payload } = await jwtVerify(token, secretKey)
-      return payload as TokenPayload
+      return payload as BaseTokenClaims
     }
     else {
       // Decode without verifying expiration
 
       // First decode to get the payload
-      const payload = decodeJwt(token) as TokenPayload
+      const payload = decodeJwt(token) as BaseTokenClaims
 
       const beforeExpiry = new Date((payload.exp || Date.now()) - 1000)
       await jwtVerify(token, secretKey, { currentDate: beforeExpiry })
-      return payload as TokenPayload
+      return payload as BaseTokenClaims
     }
   }
   catch {

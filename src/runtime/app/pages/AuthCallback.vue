@@ -25,7 +25,7 @@ import { setAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
 import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
-import type { TokenPayload } from '../../types'
+import type { BaseTokenClaims } from '../../types'
 
 const logger = createLogger('Callback')
 const config = useRuntimeConfig()
@@ -98,7 +98,7 @@ onMounted(async () => {
     // We already have a fresh access token from the exchange
     const tokenParts = response.accessToken.split('.')
     if (tokenParts[1]) {
-      const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+      const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
       // Update the auth state by accessing the useState directly
       const { useState } = await import('#app')
       const authState = useState('auth-state')

@@ -2,18 +2,47 @@
 
 Define type-safe custom JWT token payloads for your application.
 
+## Understanding Token Claims
+
+Nuxt Aegis uses two key types for JWT tokens:
+
+### **BaseTokenClaims** - The Foundation
+Standard JWT claims that are always present in every token:
+- `sub` - User ID (subject)
+- `email`, `name`, `picture` - User profile fields
+- `iss`, `aud`, `iat`, `exp` - JWT metadata fields
+- `provider` - Authentication provider name
+- `impersonation` - Impersonation context (if active)
+
+### **CustomTokenClaims<T>** - Your Application Type
+Combines `BaseTokenClaims` with your application-specific claims:
+
+```typescript
+// BaseTokenClaims: sub, email, name, iss, exp, etc.
+// +
+// Your custom claims: role, permissions, etc.
+// =
+// CustomTokenClaims<T>: Everything together
+```
+
+This naming makes the relationship clear: you're adding custom claims on top of the base claims.
+
 ## CustomTokenClaims Helper
 
-The `CustomTokenClaims<T>` helper type extends `TokenPayload` with your custom claims while ensuring type safety and JSON-serializability.
+The `CustomTokenClaims<T>` helper type combines `BaseTokenClaims` with your custom claims while ensuring type safety and JSON-serializability.
 
 ```typescript
 import type { CustomTokenClaims } from '#nuxt-aegis'
 
-type AppTokenPayload = CustomTokenClaims<{
-  role: string
-  permissions: string[]
-  organizationId: string
+type AppTokenClaims = CustomTokenClaims<{
+  role: string              // Your custom claim
+  permissions: string[]      // Your custom claim
+  organizationId: string     // Your custom claim
 }>
+
+// AppTokenClaims now includes:
+// - Base claims: sub, email, name, iss, exp, provider...
+// - Custom claims: role, permissions, organizationId
 ```
 
 ### Supported Value Types
@@ -24,7 +53,7 @@ Custom claims must be JSON-serializable:
 - Objects (one level): `{ [key: string]: string | number | boolean | ... }`
 
 ```typescript
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   // ✓ Primitives
   role: string
   isActive: boolean
@@ -51,9 +80,9 @@ type AppTokenPayload = CustomTokenClaims<{
 Use the generic type parameter with `useAuth()`:
 
 ```typescript
-import type { AppTokenPayload } from '~/types/token'
+import type { AppTokenClaims } from '~/types/token'
 
-const { user, login, logout } = useAuth<AppTokenPayload>()
+const { user, login, logout } = useAuth<AppTokenClaims>()
 
 // All fields are fully typed
 if (user.value) {
@@ -70,12 +99,12 @@ Extract only custom claims from a token payload:
 ```typescript
 import type { ExtractClaims } from '#nuxt-aegis'
 
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: string
   permissions: string[]
 }>
 
-type OnlyCustomClaims = ExtractClaims<AppTokenPayload>
+type OnlyCustomClaims = ExtractClaims<AppTokenClaims>
 // Result: { role: string, permissions: string[] }
 ```
 
@@ -90,14 +119,14 @@ Useful for:
 
 ```typescript
 // Keep payloads small and focused
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: 'admin' | 'user' | 'guest'  // Use literal types for enums
   permissions: string[]
   tenantId: string
 }>
 
 // Use meaningful field names
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   organizationId: string  // ✓ Clear
   orgId: string          // ✗ Ambiguous
 }>
@@ -147,13 +176,13 @@ import type { CustomTokenClaims } from '#nuxt-aegis'
  * 
  * @example
  * ```typescript
- * const { user } = useAuth<AppTokenPayload>()
+ * const { user } = useAuth<AppTokenClaims>()
  * if (user.value?.role === 'admin') {
  *   // Admin-specific logic
  * }
  * ```
  */
-export type AppTokenPayload = CustomTokenClaims<{
+export type AppTokenClaims = CustomTokenClaims<{
   /** User role in the system */
   role: 'admin' | 'user' | 'guest'
   

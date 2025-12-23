@@ -1,6 +1,6 @@
 import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
-import type { TokenPayload } from '../../types'
+import type { BaseTokenClaims } from '../../types'
 import { clearAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
@@ -13,7 +13,7 @@ const logger = createLogger('Auth')
  */
 interface AuthState {
   /** Current user data from JWT token */
-  user: TokenPayload | null
+  user: BaseTokenClaims | null
   /** Loading state indicator */
   isLoading: boolean
   /** Error message if authentication fails */
@@ -22,9 +22,9 @@ interface AuthState {
 
 /**
  * Return type for the useAuth composable
- * @template T - Token payload type extending TokenPayload (defaults to TokenPayload)
+ * @template T - Token payload type extending BaseTokenClaims (defaults to BaseTokenClaims)
  */
-interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
+interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
   /** Reactive property indicating whether a user is logged in */
   isLoggedIn: ComputedRef<boolean>
   /** Reactive property indicating the authentication state is being initialized */
@@ -77,7 +77,7 @@ interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
  * - logout() - End user session
  * - refresh() - Restore authentication state
  *
- * @template T - Custom token payload type extending TokenPayload
+ * @template T - Custom token payload type extending BaseTokenClaims
  * @returns {UseAuthReturn<T>} Authentication state and methods
  *
  * @example
@@ -88,17 +88,17 @@ interface UseAuthReturn<T extends TokenPayload = TokenPayload> {
  * // With custom claims
  * import type { CustomTokenClaims } from '#nuxt-aegis'
  *
- * type AppTokenPayload = CustomTokenClaims<{
+ * type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   permissions: string[]
  *   organizationId: string
  * }>
  *
- * const { user, login, logout } = useAuth<AppTokenPayload>()
+ * const { user, login, logout } = useAuth<AppTokenClaims>()
  * // user.value?.role is now type-safe
  * ```
  */
-export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<T> {
+export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthReturn<T> {
   // Global auth state
   const authState = useState<AuthState>(
     'auth-state',
@@ -178,7 +178,7 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         // Decode token to get user payload
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
           // Filter time-sensitive JWT metadata to prevent hydration mismatches
           authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null
@@ -318,7 +318,7 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         // Decode token to get impersonated user payload
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
           // Filter time-sensitive JWT metadata to prevent hydration mismatches
           authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null
@@ -380,7 +380,7 @@ export function useAuth<T extends TokenPayload = TokenPayload>(): UseAuthReturn<
         // Decode token to get restored user payload
         const tokenParts = response.accessToken.split('.')
         if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as TokenPayload
+          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
           // Filter time-sensitive JWT metadata to prevent hydration mismatches
           authState.value.user = filterTimeSensitiveClaims(payload)
           authState.value.error = null

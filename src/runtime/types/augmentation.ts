@@ -1,6 +1,6 @@
 import type { NuxtAegisRuntimeConfig, RedirectConfig, LoggingConfig } from './config'
 import type { TokenRefreshConfig } from './refresh'
-import type { TokenPayload } from './token'
+import type { BaseTokenClaims } from './token'
 import type { ClientMiddlewareConfig } from './routes'
 import type { SuccessHookPayload } from './hooks'
 
@@ -46,7 +46,7 @@ declare module 'h3' {
      * Authenticated user data from JWT token
      * Available when request is authenticated via the auth middleware
      */
-    user?: TokenPayload
+    user?: BaseTokenClaims
     /**
      * Original user data before impersonation
      * Available when impersonation is active

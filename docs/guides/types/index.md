@@ -12,17 +12,17 @@ Nuxt Aegis provides comprehensive TypeScript support with generic types that all
 // 1. Define your token payload
 import type { CustomTokenClaims } from '#nuxt-aegis'
 
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: string
   permissions: string[]
 }>
 
 // 2. Use with useAuth
-const { user } = useAuth<AppTokenPayload>()
+const { user } = useAuth<AppTokenClaims>()
 console.log(user.value?.role) // ✓ Type-safe!
 
 // 3. Use with getAuthUser
-const user = getAuthUser<AppTokenPayload>(event)
+const user = getAuthUser<AppTokenClaims>(event)
 return { role: user.role } // ✓ Type-safe!
 ```
 

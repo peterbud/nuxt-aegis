@@ -19,7 +19,7 @@ const { user, isAuthenticated, login, logout } = useAuth()
 ## Type Signature
 
 ```typescript
-function useAuth<T extends TokenPayload = TokenPayload>(): {
+function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): {
   user: Ref<T | null>
   isAuthenticated: Ref<boolean>
   isLoading: Ref<boolean>
@@ -56,7 +56,7 @@ console.log(user.value?.sub)    // Unique user identifier
 **Default User Interface:**
 
 ```typescript
-interface TokenPayload {
+interface BaseTokenClaims {
   sub: string          // Unique user ID
   name: string         // Display name
   email: string        // Email address
@@ -73,13 +73,13 @@ interface TokenPayload {
 import type { CustomTokenClaims } from '#nuxt-aegis'
 
 // Define your token type
-type AppTokenPayload = CustomTokenClaims<{
+type AppTokenClaims = CustomTokenClaims<{
   role: 'admin' | 'user'
   permissions: string[]
 }>
 
 // Use with type parameter
-const { user } = useAuth<AppTokenPayload>()
+const { user } = useAuth<AppTokenClaims>()
 
 // Type-safe access to custom claims
 if (user.value?.role === 'admin') {

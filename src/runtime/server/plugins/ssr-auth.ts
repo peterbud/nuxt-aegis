@@ -3,7 +3,7 @@ import { getCookie } from 'h3'
 import { hashRefreshToken, getRefreshTokenData } from '../utils/refreshToken'
 import { generateToken } from '../utils/jwt'
 import { useRuntimeConfig } from '#imports'
-import type { TokenPayload, TokenConfig, CookieConfig, TokenRefreshConfig } from '../../types'
+import type { BaseTokenClaims, TokenConfig, CookieConfig, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('SSR:Auth')
@@ -84,7 +84,7 @@ export default defineNitroPlugin((nitroApp) => {
       const providerUserInfo = storedRefreshToken.providerUserInfo
       const provider = storedRefreshToken.provider
 
-      const userPayload: TokenPayload = {
+      const userPayload: BaseTokenClaims = {
         sub: String(providerUserInfo.sub || providerUserInfo.email || providerUserInfo.id || ''),
         email: providerUserInfo.email as string | undefined,
         name: providerUserInfo.name as string | undefined,

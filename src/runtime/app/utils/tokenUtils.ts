@@ -1,4 +1,4 @@
-import type { TokenPayload } from '../../types'
+import type { BaseTokenClaims } from '../../types'
 
 /**
  * Filter out time-sensitive JWT metadata claims that cause hydration mismatches
@@ -15,7 +15,7 @@ import type { TokenPayload } from '../../types'
  * @param user - Token payload with all claims
  * @returns Token payload with only stable user data
  */
-export function filterTimeSensitiveClaims(user: TokenPayload): TokenPayload {
-  const { iat, exp, iss, ...stableUser } = user
-  return stableUser as TokenPayload
+export function filterTimeSensitiveClaims(user: BaseTokenClaims): BaseTokenClaims {
+  const { iat, exp, ...stableUser } = user
+  return stableUser as BaseTokenClaims
 }

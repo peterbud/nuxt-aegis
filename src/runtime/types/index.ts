@@ -8,7 +8,7 @@ import './augmentations'
 
 // Token types
 export type {
-  TokenPayload,
+  BaseTokenClaims,
   TokenConfig,
   RefreshTokenData,
   RefreshResponse,

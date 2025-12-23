@@ -23,11 +23,16 @@ export interface ImpersonationContext {
 }
 
 /**
- * JWT Token payload interface
- * Represents the decoded JWT token structure with standard and custom claims
- * This is what gets stored in the JWT and attached to event.context.user
+ * Base JWT token claims interface
+ *
+ * Defines the standard JWT claims that are always present in tokens.
+ * This serves as the foundation for CustomTokenClaims, which extends these
+ * base claims with your application-specific custom claims.
+ *
+ * Use CustomTokenClaims<T> to add your own claims on top of these base claims.
+ * This is what gets stored in the JWT and attached to event.context.user.
  */
-export interface TokenPayload {
+export interface BaseTokenClaims {
   /** Subject identifier (user ID) - required claim */
   sub: string
   /** User email address */
@@ -117,43 +122,51 @@ export interface ClaimsValidationConfig {
  * JSON-compatible value type for JWT custom claims
  * Supports primitives, arrays, and one level of object nesting
  */
-export type JSONValue
-  = | string
-    | number
-    | boolean
-    | null
-    | undefined
-    | string[]
-    | number[]
-    | { [key: string]: string | number | boolean | null | undefined | string[] | number[] }
+export type JSONValue = | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | string[]
+  | number[]
+  | { [key: string]: string | number | boolean | null | undefined | string[] | number[] }
 
 /**
  * Helper type for creating custom token payloads with type safety
  *
- * Extends TokenPayload with custom claims while ensuring type safety.
- * Prevents overriding standard JWT claims and ensures all custom claims
- * are JSON-serializable.
+ * Combines BaseTokenClaims (standard JWT claims like sub, email, name) with your
+ * application-specific custom claims. This is the primary type you'll use when
+ * working with authenticated users in your application.
  *
- * @template T - Record of custom claims to add to the token payload
+ * The relationship:
+ * - BaseTokenClaims: Standard JWT claims (sub, email, name, iss, exp, etc.)
+ * - CustomTokenClaims<T>: BaseTokenClaims + your custom claims (role, permissions, etc.)
+ *
+ * Ensures type safety by preventing override of standard JWT claims and ensuring
+ * all custom claims are JSON-serializable.
+ *
+ * @template T - Record of custom claims to add to the base token claims
  *
  * @example
  * ```typescript
- * // Define your custom claims
- * type AppTokenPayload = CustomTokenClaims<{
+ * // Define your custom claims on top of base claims
+ * type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   permissions: string[]
  *   organizationId: string
  * }>
  *
- * // Use with useAuth
- * const { user } = useAuth<AppTokenPayload>()
- * console.log(user.value?.role) // Type-safe access
+ * // Use with useAuth - you get both base claims (sub, email, name)
+ * // and your custom claims (role, permissions, organizationId)
+ * const { user } = useAuth<AppTokenClaims>()
+ * console.log(user.value?.email) // Base claim
+ * console.log(user.value?.role) // Custom claim - Type-safe access
  * ```
  *
  * @example
  * ```typescript
  * // With nested objects (one level)
- * type AppTokenPayload = CustomTokenClaims<{
+ * type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   metadata: {
  *     tenantId: string
@@ -165,28 +178,28 @@ export type JSONValue
  * @warning Never include sensitive data like passwords, API keys, or secrets in JWT tokens
  * @warning Keep token payloads small (< 1KB recommended) for performance
  */
-export type CustomTokenClaims<T extends Record<string, JSONValue>> = TokenPayload & T
+export type CustomTokenClaims<T extends Record<string, JSONValue>> = BaseTokenClaims & T
 
 /**
  * Utility type to extract only custom claims from a token payload
  *
- * Removes all standard TokenPayload fields, leaving only your custom claims.
+ * Removes all standard BaseTokenClaims fields, leaving only your custom claims.
  * Useful for type composition and claim validation.
  *
- * @template T - A token payload type extending TokenPayload
+ * @template T - A token payload type extending BaseTokenClaims
  *
  * @example
  * ```typescript
- * type AppTokenPayload = CustomTokenClaims<{
+ * type AppTokenClaims = CustomTokenClaims<{
  *   role: string
  *   permissions: string[]
  * }>
  *
- * type CustomClaims = ExtractClaims<AppTokenPayload>
+ * type CustomClaims = ExtractClaims<AppTokenClaims>
  * // Result: { role: string, permissions: string[] }
  * ```
  */
-export type ExtractClaims<T extends TokenPayload> = Omit<T, keyof TokenPayload>
+export type ExtractClaims<T extends BaseTokenClaims> = Omit<T, keyof BaseTokenClaims>
 
 /**
  * Custom claims callback function
