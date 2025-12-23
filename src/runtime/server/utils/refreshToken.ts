@@ -195,6 +195,7 @@ export async function revokeRefreshToken(
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param config - Token refresh configuration
  * @param previousTokenHash - Hash of previous refresh token for rotation tracking
+ * @param customClaims - Resolved custom claims from initial authentication
  * @param event - H3Event for Nitro storage access
  * @returns The generated refresh token string
  */
@@ -203,6 +204,7 @@ export async function generateAndStoreRefreshToken(
   provider: string,
   config: TokenRefreshConfig,
   previousTokenHash?: string,
+  customClaims?: Record<string, unknown>,
   event?: H3Event,
 ): Promise<string | undefined> {
   const refreshToken = randomBytes(32).toString('base64url')
@@ -217,6 +219,7 @@ export async function generateAndStoreRefreshToken(
     previousTokenHash,
     providerUserInfo, // Store complete OAuth provider user data
     provider, // Store provider name for custom claims refresh
+    customClaims, // Store resolved custom claims for consistent refresh
   }, event)
 
   return refreshToken

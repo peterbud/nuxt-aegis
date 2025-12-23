@@ -2,7 +2,6 @@ import { defineNitroPlugin } from 'nitropack/runtime'
 import { getCookie } from 'h3'
 import { hashRefreshToken, getRefreshTokenData } from '../utils/refreshToken'
 import { generateToken } from '../utils/jwt'
-import { processCustomClaims } from '../utils/customClaims'
 import { useRuntimeConfig } from '#imports'
 import type { TokenPayload, TokenConfig, CookieConfig, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
@@ -93,17 +92,9 @@ export default defineNitroPlugin((nitroApp) => {
         provider,
       }
 
-      // Process custom claims (same as /auth/refresh endpoint)
-      let customClaims: Record<string, unknown> = {}
-      const providerConfig = config.nuxtAegis?.providers?.[provider as 'google' | 'github' | 'microsoft' | 'auth0']
-
-      if (providerConfig && 'customClaims' in providerConfig && providerConfig.customClaims) {
-        // Type assertion needed because of the union type in provider config
-        customClaims = await processCustomClaims(
-          providerUserInfo,
-          providerConfig.customClaims as Record<string, unknown> | ((info: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>),
-        )
-      }
+      // Use stored custom claims from initial authentication
+      // This ensures custom claims are consistent and works for both runtime config and route handler custom claims
+      const customClaims: Record<string, unknown> = storedRefreshToken.customClaims || {}
 
       // Generate short-lived access token for SSR
       const ssrTokenExpiry = tokenRefreshConfig?.ssrTokenExpiry || '5m'

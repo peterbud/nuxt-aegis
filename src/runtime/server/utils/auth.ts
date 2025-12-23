@@ -52,6 +52,7 @@ export async function generateAuthTokens(
     provider, // Store provider name for custom claims refresh
     tokenRefreshConfig,
     undefined, // No previous token hash for initial auth
+    customClaims, // Store resolved custom claims for consistent refresh
     event,
   )
 

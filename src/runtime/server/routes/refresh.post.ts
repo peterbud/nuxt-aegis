@@ -7,7 +7,6 @@ import {
   revokeRefreshToken,
 } from '../utils/refreshToken'
 import { setRefreshTokenCookie } from '../utils/cookies'
-import { processCustomClaims } from '../utils/customClaims'
 import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, TokenPayload, TokenRefreshConfig } from '../../types'
 
@@ -79,26 +78,14 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // EP-28b: Extract user object from stored data
+    // EP-28b: Extract user object and custom claims from stored data
     const providerUserInfo = storedRefreshToken.providerUserInfo
     const provider = storedRefreshToken.provider
 
-    // Get custom claims configuration from runtime config for this provider
-    // JT-14, JT-15: Reuse the same custom claims configuration by invoking the callback
-    let customClaims: Record<string, unknown> = {}
-
-    // Access provider-specific configuration from runtime config
-    const providerConfig = config.nuxtAegis?.providers?.[provider as 'google' | 'github' | 'microsoft' | 'auth0']
-
-    if (providerConfig && 'customClaims' in providerConfig) {
-      const customClaimsConfig = providerConfig.customClaims
-
-      if (customClaimsConfig) {
-        // Process custom claims using the same processCustomClaims utility
-        // This ensures the same callback is invoked for both initial auth and refresh
-        customClaims = await processCustomClaims(providerUserInfo, customClaimsConfig)
-      }
-    }
+    // JT-14, JT-15: Use stored custom claims from initial authentication
+    // This ensures custom claims are consistent between initial auth and refresh
+    // and works for both runtime config and route handler custom claims
+    const customClaims: Record<string, unknown> = storedRefreshToken.customClaims || {}
 
     // Build standard token payload from stored user object
     const payload: TokenPayload = {
@@ -118,6 +105,7 @@ export default defineEventHandler(async (event) => {
       provider, // Store provider name
       tokenRefreshConfig,
       hashedRefreshToken, // Pass previous token hash for rotation tracking
+      customClaims, // Preserve custom claims in new refresh token
       event,
     )
 

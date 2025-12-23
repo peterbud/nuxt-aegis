@@ -386,6 +386,7 @@ export async function endImpersonation(
     'restored-session', // Fake provider name for restored sessions
     refreshTokenConfig,
     undefined, // No previous token
+    customClaims, // Store custom claims for restored session
     event,
   )
 

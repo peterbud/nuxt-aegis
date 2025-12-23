@@ -74,6 +74,8 @@ export interface RefreshTokenData {
   providerUserInfo: Record<string, unknown>
   /** Provider name for dynamic custom claims generation during refresh (e.g., 'google', 'github', 'microsoft', 'auth0') */
   provider: string
+  /** Resolved custom claims from initial authentication - reused during token refresh to maintain consistency */
+  customClaims?: Record<string, unknown>
 }
 
 /**
