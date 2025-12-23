@@ -33,9 +33,9 @@ cp .env.example .env
 Edit `.env` and add your Google OAuth credentials:
 
 ```env
-NUXT_AEGIS_TOKEN_SECRET=your-secure-random-32-char-string
-NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET=your-client-secret
+NUXT_NUXT_AEGIS_TOKEN_SECRET=your-secure-random-32-char-string
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
 1. **Run the development server**
@@ -80,6 +80,6 @@ minimal/
 
 ## Learn More
 
-- [Nuxt Aegis Documentation](../../docs/index.md)
-- [Google Provider Guide](../../docs/providers/google.md)
-- [Quick Start Guide](../../docs/getting-started/quick-start.md)
+- [Nuxt Aegis Documentation](https://peterbud.github.io/nuxt-aegis/)
+- [Google Provider Guide](https://peterbud.github.io/nuxt-aegis/providers/google.html)
+- [Quick Start Guide](https://peterbud.github.io/nuxt-aegis/getting-started/quick-start.html)
