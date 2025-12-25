@@ -21,19 +21,24 @@ Nuxt Aegis provides full Server-Side Rendering (SSR) support with **authenticate
    - Nitro plugin validates the httpOnly refresh cookie
    - Generates a short-lived access token (5 minutes by default)
    - Token is stored in `event.context.ssrAccessToken`
-   - `$api` instance on server includes this token in Authorization headers
+   - `$api` instance automatically includes this token in Authorization headers
    - `event.context.user` is populated for middleware and server routes
 
 2. **Client-Side Hydration (After SSR)**
    - Client calls `/auth/refresh` to get its own long-lived access token (1 hour by default)
    - Refresh token is rotated by the client (not during SSR)
    - Client token is used for all subsequent requests
+   - `$api` automatically uses the client token for subsequent calls
    - Authentication state becomes reactive
 
 3. **Security**
    - SSR tokens are never sent to the client (stay in `event.context`)
    - Refresh token is NOT rotated on server (avoids client/server conflicts)
    - Client handles token rotation after hydration
+
+::: tip $api Plugin
+The `$api` plugin provides automatic bearer token injection on both server and client. See the [$api Plugin Reference](/api/fetch-plugin) for implementation details and the [Composables API](/api/composables#api) for usage examples.
+:::
 
 ## Configuration
 
@@ -151,9 +156,9 @@ export default defineEventHandler(async (event) => {
 
 **Recommended:** Use `event.context.user` from middleware for most cases. Only use `$api` when you need to call external authenticated endpoints during SSR.
 
-### 2. Client-Side Data Fetching
+### 2. Client-Side Data Fetching with $api
 
-When fetching authenticated data, `useAsyncData` will work on both server and client with authenticated SSR:
+The `$api` plugin makes it seamless to fetch authenticated data on both server and client. It automatically uses the appropriate token for each context:
 
 ```vue
 <template>
@@ -170,15 +175,22 @@ When fetching authenticated data, `useAsyncData` will work on both server and cl
 <script setup>
 const { $api } = useNuxtApp()
 
-// Works on server (with SSR token) and client (with client token)
+// $api automatically handles tokens for both SSR and client
+// - On server: Uses event.context.ssrAccessToken (5 min lifetime)
+// - On client: Uses in-memory access token (1 hour lifetime)
 const { data: items, pending, error } = await useAsyncData('dashboard-items', 
   () => $api<Item[]>('/api/items'),
   {
-    server: true, // Fetch during SSR
+    server: true, // Fetch during SSR with SSR token
   }
 )
 </script>
 ```
+
+**How it works:**
+- **During SSR:** `$api` uses the short-lived SSR token from `event.context`
+- **On client:** `$api` uses the long-lived access token from memory
+- **Automatic refresh:** If client token expires, `$api` refreshes and retries automatically
 
 If you want to skip SSR and fetch only on the client:
 
@@ -190,6 +202,14 @@ const { data: items, pending, error } = await useAsyncData('dashboard-items',
   }
 )
 ```
+
+::: tip Learn More About $api
+See the [$api Plugin Reference](/api/fetch-plugin) for detailed implementation information including:
+- How automatic token refresh works
+- SSR vs client token differences
+- Error handling and retry logic
+- Circular reference prevention
+:::
 
 ### 3. Protected Pages with Authenticated SSR
 

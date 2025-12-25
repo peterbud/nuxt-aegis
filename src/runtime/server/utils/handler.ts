@@ -3,13 +3,89 @@ import type { UserInfoHookPayload } from '../../types/hooks'
 import type { BaseTokenClaims } from '../../types/token'
 import type { PasswordUser } from '../../types/providers'
 
+/**
+ * Context passed to onUserPersist handler
+ */
+export interface UserPersistContext {
+  /** Provider name (e.g., 'google', 'github', 'password') */
+  provider: string
+  /** H3 event for server context access */
+  event: H3Event
+}
+
 export interface AegisHandler {
   /**
    * Transform user data after fetching from OAuth provider.
-   * Replaces `nuxt-aegis:userInfo` hook.
    * Return the modified user object to use it.
    */
   onUserInfo?: (payload: UserInfoHookPayload) => Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
+
+  /**
+   * Persist user data to your database and return enriched user information.
+   *
+   * Called for:
+   * - OAuth authentication: After provider data transformation, before JWT generation
+   * - Password authentication: After registration, password change, or reset
+   *
+   * The returned object is merged into the user data and used for JWT claims.
+   *
+   * @param user - User data to persist (provider-specific fields vary)
+   * @param context - Context with provider name and H3 event
+   * @returns Enriched user object with database fields (e.g., userId, role, permissions)
+   *
+   * @example
+   * ```typescript
+   * onUserPersist: async (user, { provider, event }) => {
+   *   // For password provider, user includes hashedPassword
+   *   if (provider === 'password') {
+   *     const dbUser = await db.users.upsert({
+   *       where: { email: user.email },
+   *       update: { hashedPassword: user.hashedPassword },
+   *       create: { email: user.email, hashedPassword: user.hashedPassword },
+   *     })
+   *     return { userId: dbUser.id, role: dbUser.role }
+   *   }
+   *
+   *   // For OAuth providers, link or create user
+   *   const dbUser = await db.users.upsert({
+   *     where: { email: user.email },
+   *     update: { lastLogin: new Date() },
+   *     create: { email: user.email, name: user.name, picture: user.picture },
+   *   })
+   *   return { userId: dbUser.id, role: dbUser.role, permissions: dbUser.permissions }
+   * }
+   * ```
+   */
+  onUserPersist?: (
+    user: Record<string, unknown>,
+    context: UserPersistContext,
+  ) => Promise<Record<string, unknown>> | Record<string, unknown>
+
+  /**
+   * Generate custom claims for JWT tokens.
+   *
+   * Called after onUserPersist, receives the merged user data.
+   * This is the recommended location for adding database-driven claims.
+   *
+   * Provider-level customClaims (defined in route handlers) take precedence over this.
+   *
+   * @param user - Complete user object including data from onUserPersist
+   * @returns Custom claims to add to the JWT
+   *
+   * @example
+   * ```typescript
+   * customClaims: async (user) => {
+   *   return {
+   *     role: user.role,
+   *     permissions: user.permissions,
+   *     organizationId: user.organizationId,
+   *   }
+   * }
+   * ```
+   */
+  customClaims?: (
+    user: Record<string, unknown>,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>
 
   /**
    * Password authentication handler.
@@ -22,12 +98,6 @@ export interface AegisHandler {
      * Return null if user is not found.
      */
     findUser: (email: string) => Promise<PasswordUser | null> | PasswordUser | null
-
-    /**
-     * Create or update a user.
-     * Called after successful registration or password change.
-     */
-    upsertUser: (user: PasswordUser) => Promise<void> | void
 
     /**
      * Send a verification code to the user.

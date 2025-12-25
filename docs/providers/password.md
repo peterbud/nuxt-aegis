@@ -50,6 +50,28 @@ Then implement the required handlers in your server plugin:
 // server/plugins/aegis.ts
 export default defineNitroPlugin(() => {
   defineAegisHandler({
+    // Unified database persistence for all auth methods
+    onUserPersist: async (user, { provider }) => {
+      const email = user.email as string
+      
+      if (provider === 'password') {
+        const hashedPassword = user.hashedPassword as string
+        const dbUser = await database.upsertUser({
+          where: { email },
+          update: { hashedPassword },
+          create: { email, hashedPassword, role: 'user' },
+        })
+        return {
+          userId: dbUser.id,
+          role: dbUser.role,
+          permissions: dbUser.permissions,
+        }
+      }
+      
+      // Handle OAuth providers...
+      // (see handlers guide for full example)
+    },
+    
     password: {
       // Find user by email
       async findUser(email) {
@@ -60,18 +82,9 @@ export default defineNitroPlugin(() => {
           id: user.id,
           email: user.email,
           hashedPassword: user.hashedPassword,
-          // Include any additional fields for custom claims
           name: user.name,
           role: user.role,
         }
-      },
-      
-      // Create or update user
-      async upsertUser(user) {
-        await database.upsertUser({
-          email: user.email,
-          hashedPassword: user.hashedPassword,
-        })
       },
       
       // Send verification code
@@ -120,32 +133,9 @@ async findUser(email) {
 }
 ```
 
-### `upsertUser`
-
-Called to create or update a user with a new password. The password is already hashed using bcrypt.
-
-**Parameters:**
-- `user: PasswordUser` - The user object with `email` and `hashedPassword`
-
-**Example:**
-
-```typescript
-async upsertUser(user) {
-  await db.users.upsert({
-    where: { email: user.email },
-    update: { 
-      hashedPassword: user.hashedPassword,
-      updatedAt: new Date(),
-    },
-    create: {
-      email: user.email,
-      hashedPassword: user.hashedPassword,
-      role: 'user',
-      createdAt: new Date(),
-    },
-  })
-}
-```
+::: tip Database Persistence
+User persistence (creating/updating user records) is handled by the global `onUserPersist` handler, not in the password provider callbacks. This allows you to unify database logic across OAuth and password authentication. See the [Handlers Guide](/guides/handlers#onuserpersist) for details.
+:::
 
 ### `sendVerificationCode`
 
@@ -215,8 +205,7 @@ async sendVerificationCode(email, code, action) {
 
 2. **User verifies code** (`POST /auth/password/register-verify`)
    - Code is validated (max attempts, expiration)
-   - `upsertUser` is called to create user
-   - `findUser` is called to get fresh user data
+   - `onUserPersist` handler is called to create/update user
    - Custom claims are resolved
    - Aegis CODE is generated
    - User is redirected to `/auth/callback?code={aegis_code}`
@@ -255,7 +244,7 @@ async sendVerificationCode(email, code, action) {
    - Session is validated and consumed
    - Password strength is checked
    - Password is hashed
-   - `upsertUser` is called
+   - `onUserPersist` handler is called to update password
    - All refresh tokens are invalidated
 
 ### Password Change Flow
@@ -265,7 +254,7 @@ async sendVerificationCode(email, code, action) {
    - Current password is verified via `findUser` and bcrypt
    - New password strength is checked
    - New password is hashed
-   - `upsertUser` is called
+   - `onUserPersist` handler is called to update password
    - All refresh tokens except current session are invalidated
    - User stays logged in
 

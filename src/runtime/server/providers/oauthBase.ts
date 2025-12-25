@@ -226,7 +226,7 @@ export function defineOAuthEventHandler<
 
       // Invoke onUserInfo hooks in priority order:
       // 1. Provider-level onUserInfo (if defined in route handler)
-      // 2. Nitro hook 'nuxt-aegis:userInfo' (global default in server plugin)
+      // 2. Aegis Handler onUserInfo (global transformation)
       if (_onUserInfo) {
         // Provider-level onUserInfo hook takes precedence
         providerUserInfo = await _onUserInfo(providerUserInfo, tokens, event)
@@ -248,15 +248,33 @@ export function defineOAuthEventHandler<
         }
       }
 
-      // Resolve custom claims if it's a callback function
+      // Persist user data and get enriched information
+      const handler = useAegisHandler()
+      if (handler?.onUserPersist) {
+        const enrichedData = await handler.onUserPersist(providerUserInfo, {
+          provider: implementation.runtimeConfigKey,
+          event,
+        })
+        // Merge enriched data into provider user info
+        providerUserInfo = { ...providerUserInfo, ...enrichedData }
+      }
+
+      // Resolve custom claims in priority order:
+      // 1. Provider-level customClaims (if defined in route handler)
+      // 2. Handler-level customClaims (global, database-driven)
       let resolvedCustomClaims: Record<string, unknown> | undefined
       if (_customClaims) {
+        // Provider-level customClaims take precedence
         if (typeof _customClaims === 'function') {
           resolvedCustomClaims = await _customClaims(providerUserInfo, tokens)
         }
         else {
           resolvedCustomClaims = _customClaims
         }
+      }
+      else if (handler?.customClaims) {
+        // Fallback to handler-level customClaims
+        resolvedCustomClaims = await handler.customClaims(providerUserInfo)
       }
 
       // Invoke onSuccess hooks:

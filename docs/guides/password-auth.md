@@ -205,6 +205,24 @@ Then implement the handlers in your server plugin:
 // server/plugins/aegis.ts
 export default defineNitroPlugin(() => {
   defineAegisHandler({
+    // Unified database persistence for all auth methods
+    onUserPersist: async (user, { provider }) => {
+      if (provider === 'password') {
+        const { createOrUpdatePasswordUser } = await import('../utils/db')
+        const dbUser = await createOrUpdatePasswordUser(user.email as string, user.hashedPassword as string)
+        
+        return {
+          userId: dbUser.id,
+          name: dbUser.name,
+          picture: dbUser.picture,
+          role: dbUser.role,
+        }
+      }
+      
+      // Handle OAuth providers...
+      // (see handlers guide for full example)
+    },
+    
     password: {
       // Look up user by email
       async findUser(email) {
@@ -223,12 +241,6 @@ export default defineNitroPlugin(() => {
           picture: user.picture,
           role: user.role,
         }
-      },
-      
-      // Create or update user
-      async upsertUser(user) {
-        const { createOrUpdatePasswordUser } = await import('../utils/db')
-        await createOrUpdatePasswordUser(user.email, user.hashedPassword)
       },
       
       // Send verification codes

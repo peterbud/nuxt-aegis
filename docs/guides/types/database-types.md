@@ -93,6 +93,31 @@ export function userToTokenClaims(dbUser: DatabaseUser): AppTokenClaims {
 ## Password Authentication Example
 
 ```typescript
+// Unified persistence handler
+onUserPersist: async (user, { provider }) => {
+  if (provider === 'password') {
+    const dbUser = await database.upsert({
+      where: { email: user.email },
+      update: { hashedPassword: user.hashedPassword },
+      create: {
+        email: user.email,
+        hashedPassword: user.hashedPassword,
+        role: 'user',
+      },
+    })
+    
+    // Return data to merge into user object (for JWT claims)
+    return {
+      userId: dbUser.id,
+      role: dbUser.role,
+      permissions: dbUser.permissions,
+      organizationId: dbUser.organizationId,
+    }
+  }
+  
+  // Handle OAuth providers...
+},
+
 // Password provider handler
 password: {
   async findUser(email) {
@@ -112,14 +137,6 @@ password: {
       permissions: dbUser.permissions,
     }
   },
-  
-  async upsertUser(user) {
-    // user.hashedPassword is available here
-    await database.upsert({
-      email: user.email,
-      hashedPassword: user.hashedPassword,
-    })
-  }
 }
 ```
 

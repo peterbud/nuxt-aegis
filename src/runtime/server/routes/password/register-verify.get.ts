@@ -62,16 +62,26 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Persist user
-    await handler.password.upsertUser({
+    // Persist user and get enriched data
+    let userData: Record<string, unknown> = {
       email,
       hashedPassword: hashedPassword as string,
-    })
+    }
 
-    // Retrieve user to get ID and other fields
-    const user = await handler.password.findUser(email)
-    if (!user) {
-      throw new Error('User not found after creation')
+    if (handler.onUserPersist) {
+      const enrichedData = await handler.onUserPersist(userData, {
+        provider: 'password',
+        event,
+      })
+      userData = { ...userData, ...enrichedData }
+    }
+    else {
+      // If no onUserPersist handler, we still need to fetch the user for additional fields
+      // This is required for password provider
+      throw createError({
+        statusCode: 500,
+        message: 'onUserPersist handler is required for password authentication',
+      })
     }
 
     // Delete magic code
@@ -79,9 +89,9 @@ export default defineEventHandler(async (event) => {
 
     // Prepare provider user info
     const providerUserInfo = {
-      sub: user.id || user.email,
+      sub: userData.id || userData.email,
       provider: 'password',
-      ...user,
+      ...userData,
     }
 
     // Generate Aegis CODE

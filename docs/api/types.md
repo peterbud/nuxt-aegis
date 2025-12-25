@@ -299,9 +299,14 @@ interface AegisHandler {
   onUserInfo?: (payload: UserInfoHookPayload) => 
     Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
   
+  onUserPersist?: (user: Record<string, unknown>, context: UserPersistContext) =>
+    Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
+  
+  customClaims?: (user: Record<string, unknown>) =>
+    Promise<Record<string, JSONValue>> | Record<string, JSONValue>
+  
   password?: {
     findUser: (email: string) => Promise<PasswordUser | null> | PasswordUser | null
-    upsertUser: (user: PasswordUser) => Promise<void> | void
     sendVerificationCode: (email: string, code: string, action: 'register' | 'login' | 'reset') => 
       Promise<void> | void
     validatePassword?: (password: string) => Promise<boolean | string[]> | boolean | string[]
@@ -318,18 +323,43 @@ interface AegisHandler {
 }
 ```
 
+**Key Handlers:**
+
+- **`onUserInfo`**: Transform provider data after authentication (see [Handlers guide](/guides/handlers.md#onuserinfo))
+- **`onUserPersist`**: Persist user to database and enrich user data (see [Handlers guide](/guides/handlers.md#onuserpersist))
+- **`customClaims`**: Global fallback for adding JWT claims (see [Custom Claims guide](/guides/custom-claims.md#handler-level-claims))
+
 **Usage:**
 
 ```typescript
 // server/plugins/aegis.ts
 export default defineNitroPlugin(() => {
   defineAegisHandler({
+    // Unified database persistence for all auth methods
+    onUserPersist: async (user, { provider }) => {
+      if (provider === 'password') {
+        const dbUser = await db.users.upsert({
+          where: { email: user.email },
+          update: { hashedPassword: user.hashedPassword },
+          create: { email: user.email, hashedPassword: user.hashedPassword, role: 'user' }
+        })
+        return { userId: dbUser.id, role: dbUser.role }
+      }
+      // Handle OAuth providers...
+    },
+    
+    // Global custom claims
+    customClaims: async (user) => {
+      const dbUser = await db.users.findUnique({ where: { id: user.userId } })
+      return { 
+        role: dbUser.role,
+        permissions: dbUser.permissions 
+      }
+    },
+    
     password: {
       findUser: async (email) => {
         return await db.users.findUnique({ where: { email } })
-      },
-      upsertUser: async (user) => {
-        await db.users.upsert({ where: { email: user.email }, update: user, create: user })
       },
       sendVerificationCode: async (email, code, action) => {
         await sendEmail({ to: email, subject: `Verification code: ${code}` })
@@ -342,6 +372,29 @@ export default defineNitroPlugin(() => {
 ::: tip Complete Guide
 See the [Handlers guide](/guides/handlers.md) for comprehensive examples.
 :::
+
+### `UserPersistContext`
+
+Context object passed to the `onUserPersist` handler.
+
+```typescript
+interface UserPersistContext {
+  provider: string    // Provider name (e.g., 'google', 'password', 'github')
+  event: H3Event      // H3 event for server context
+}
+```
+
+**Usage:**
+
+```typescript
+onUserPersist: async (user, { provider, event }) => {
+  if (provider === 'password') {
+    // Handle password authentication
+  } else {
+    // Handle OAuth providers
+  }
+}
+```
 
 ### `PasswordUser`
 

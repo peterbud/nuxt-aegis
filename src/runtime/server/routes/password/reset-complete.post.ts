@@ -75,12 +75,7 @@ export default defineEventHandler(async (event) => {
       ? await handler.password.hashPassword(password)
       : await hashPassword(password)
 
-    // Update user
-    // We need to fetch the user first to get other fields if upsertUser requires them?
-    // The interface says upsertUser(user: PasswordUser).
-    // We only have email and hashedPassword.
-    // If upsertUser is a full update, we might overwrite other fields.
-    // So we should fetch first.
+    // Fetch user to get current data
     const user = await handler.password.findUser(email)
     if (!user) {
       throw createError({
@@ -89,10 +84,25 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    await handler.password.upsertUser({
-      ...user,
-      hashedPassword,
-    })
+    // Update user with new password
+    if (handler.onUserPersist) {
+      await handler.onUserPersist(
+        {
+          ...user,
+          hashedPassword,
+        },
+        {
+          provider: 'password',
+          event,
+        },
+      )
+    }
+    else {
+      throw createError({
+        statusCode: 500,
+        message: 'onUserPersist handler is required for password authentication',
+      })
+    }
 
     // TODO: Revoke all sessions (refresh tokens)
     // This requires implementing deleteUserRefreshTokens in refreshToken.ts

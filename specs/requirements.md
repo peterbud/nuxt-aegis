@@ -57,7 +57,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-4.5:** The Password Provider SHALL support authenticated password change for logged-in users.
 
-**PR-4.6:** WHERE the Password Provider is enabled, the module SHALL require developer-implemented callbacks for user persistence (`findUser`, `upsertUser`, `sendVerificationCode`).
+**PR-4.6:** WHERE the Password Provider is enabled, the module SHALL require developer-implemented callbacks for user lookup and email delivery (`findUser`, `sendVerificationCode`) and SHALL use the unified `onUserPersist` handler for database persistence.
 
 **PR-4.7:** WHEN a password is stored, the Password Provider SHALL hash it using scrypt (Node.js built-in) with cryptographically secure salt.
 
@@ -97,7 +97,37 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-4.25:** WHERE verification codes are sent, developers SHALL implement email delivery with clickable verification links to GET endpoints (`/auth/password/{action}-verify?code={code}`).
 
-### 3.4 Initial Login (OAuth Providers)
+### 3.4 Unified User Persistence
+
+**PR-5.1:** The module SHALL provide a unified `onUserPersist` handler that is called for all authentication providers (OAuth and password-based) to persist user data to the application's database.
+
+**PR-5.2:** WHEN the `onUserPersist` handler is invoked, the module SHALL pass the user data object and a context object containing the provider name and H3 event.
+
+**PR-5.3:** WHERE the `onUserPersist` handler returns an object, the module SHALL merge the returned properties into the user data object for subsequent claim resolution.
+
+**PR-5.4:** WHERE the `onUserPersist` handler is configured, developers SHALL be able to branch logic based on the provider name to handle different authentication methods (e.g., OAuth vs password).
+
+**PR-5.5:** WHEN the `onUserPersist` handler is called for password authentication, the user object SHALL include the `hashedPassword` field for database persistence.
+
+**PR-5.6:** WHEN the `onUserPersist` handler is called for OAuth authentication, the user object SHALL include provider-specific profile data (e.g., email, name, picture).
+
+**PR-5.7:** WHERE the `onUserPersist` handler is not configured, the module SHALL log a warning and continue with the authentication flow without persisting user data.
+
+### 3.5 Handler-Level Custom Claims
+
+**PR-6.1:** The module SHALL provide a handler-level `customClaims` callback that serves as a global fallback for adding custom claims to JWT tokens.
+
+**PR-6.2:** WHEN the handler-level `customClaims` callback is invoked, the module SHALL pass the complete user object (including data returned from `onUserPersist`) as input.
+
+**PR-6.3:** WHERE both provider-level and handler-level `customClaims` are configured, the module SHALL prioritize provider-level claims and use handler-level claims as a fallback for properties not defined in provider-level claims.
+
+**PR-6.4:** WHEN resolving custom claims, the module SHALL merge provider-level claims over handler-level claims, allowing provider-specific overrides.
+
+**PR-6.5:** WHERE the handler-level `customClaims` callback is configured, the module SHALL support both synchronous and asynchronous callback functions that return a claims object.
+
+**PR-6.6:** WHERE the Password Provider is used and no provider-level `customClaims` are configured, the module SHALL use the handler-level `customClaims` callback to generate JWT claims.
+
+### 3.6 Initial Login (OAuth Providers)
 
 **PR-5:** WHEN a user initiates login with an OAuth provider, the module SHALL initiate an OAuth flow that redirects the browser to the configured authentication provider's login page.
 
@@ -105,7 +135,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-7:** IF the token exchange fails, THEN the module SHALL return an error response to the client with appropriate error details.
 
-### 3.5 Provider Token Exchange (OAuth Providers)
+### 3.7 Provider Token Exchange (OAuth Providers)
 
 **PR-8:** WHEN provider tokens are received, the module SHALL validate the tokens according to the provider's specifications.
 
@@ -408,7 +438,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-9.3:** WHERE the Password Provider is enabled, the module SHALL provide a `GET /auth/password/register-verify` endpoint to verify registration codes.
 
-**EP-9.4:** WHEN a registration verification request is received with a valid code, the endpoint SHALL call `upsertUser` to create the user, call `findUser` to retrieve fresh user data, resolve custom claims, generate an Aegis authorization CODE, and redirect to `/auth/callback?code={aegis_code}`.
+**EP-9.4:** WHEN a registration verification request is received with a valid code, the endpoint SHALL call the `onUserPersist` handler to create/update the user, resolve custom claims (provider-level or handler-level), generate an Aegis authorization CODE, and redirect to `/auth/callback?code={aegis_code}`.
 
 **EP-9.5:** WHERE the Password Provider is enabled, the module SHALL provide a `POST /auth/password/login` endpoint to authenticate existing users.
 
@@ -428,11 +458,11 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-9.13:** WHERE the Password Provider is enabled, the module SHALL provide a `POST /auth/password/reset-complete` endpoint to complete password reset.
 
-**EP-9.14:** WHEN a reset completion request is received, the endpoint SHALL validate the session token, check password strength, hash the new password, call `upsertUser`, and invalidate all refresh tokens for the user.
+**EP-9.14:** WHEN a reset completion request is received, the endpoint SHALL validate the session token, check password strength, hash the new password, call the `onUserPersist` handler to update the password, and invalidate all refresh tokens for the user.
 
 **EP-9.15:** WHERE the Password Provider is enabled, the module SHALL provide a `POST /auth/password/change` endpoint for authenticated password changes.
 
-**EP-9.16:** WHEN a password change request is received, the endpoint SHALL require authentication via Bearer token, verify the current password via `findUser`, check new password strength, hash the new password, call `upsertUser`, and invalidate all refresh tokens except the current session.
+**EP-9.16:** WHEN a password change request is received, the endpoint SHALL require authentication via Bearer token, verify the current password via `findUser`, check new password strength, hash the new password, call the `onUserPersist` handler to update the password, and invalidate all refresh tokens except the current session.
 
 **EP-9.17:** WHERE verification codes are used, the module SHALL enforce maximum attempt limits (default 5) and TTL (default 600 seconds) with atomic operations.
 
@@ -536,7 +566,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CF-9.4:** WHERE the Password Provider is configured, the module SHALL support configuring password strength policy including minimum length (default 8), uppercase requirement (default true), lowercase requirement (default true), number requirement (default true), and special character requirement (default false).
 
-**CF-9.5:** WHERE the Password Provider is enabled, the module SHALL require developer implementation of three mandatory callbacks: `findUser`, `upsertUser`, and `sendVerificationCode` via `defineAegisHandler`.
+**CF-9.5:** WHERE the Password Provider is enabled, the module SHALL require developer implementation of two mandatory callbacks: `findUser` and `sendVerificationCode` via `defineAegisHandler`, and SHALL use the unified `onUserPersist` handler for database persistence across all authentication providers.
 
 **CF-9.6:** WHERE the Password Provider is configured, the module SHALL support optional callback overrides for `validatePassword`, `hashPassword`, and `verifyPassword` to customize password handling logic.
 

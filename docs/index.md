@@ -32,7 +32,10 @@ features:
   - icon: 🔄
     title: Automatic Token Refresh
     details: Built-in token refresh with configurable expiration times
-  - icon: 🛡️
+  - icon: �
+    title: $api Plugin with Auto Bearer Tokens
+    details: Custom fetch instance that automatically injects bearer tokens and handles 401 token refresh
+  - icon: �🛡️
     title: Route Protection
     details: Flexible middleware for protecting server and client routes with declarative configuration
   - icon: 🎭

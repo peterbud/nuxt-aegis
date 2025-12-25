@@ -55,6 +55,7 @@ export default defineConfig({
           { text: 'Overview', link: '/architecture' },
           { text: 'Authentication Flow', link: '/architecture/authentication-flow' },
           { text: 'Token Lifecycle', link: '/architecture/token-lifecycle' },
+          { text: 'Data Flow & Transformations', link: '/architecture/data-flow' },
           { text: 'Project Structure', link: '/architecture/project-structure' },
         ],
       },
@@ -105,6 +106,7 @@ export default defineConfig({
         text: 'API Reference',
         items: [
           { text: 'Composables', link: '/api/composables' },
+          { text: 'Fetch Plugin', link: '/api/fetch-plugin' },
           { text: 'Endpoints', link: '/api/endpoints' },
           { text: 'Server Utilities', link: '/api/server-utils' },
           { text: 'Event Handlers', link: '/api/event-handlers' },

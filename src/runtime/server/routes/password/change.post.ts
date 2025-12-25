@@ -128,10 +128,24 @@ export default defineEventHandler(async (event) => {
     : await hashPassword(newPassword)
 
   // Update user
-  await handler.password.upsertUser({
-    ...user,
-    hashedPassword: newHashedPassword,
-  })
+  if (handler.onUserPersist) {
+    await handler.onUserPersist(
+      {
+        ...user,
+        hashedPassword: newHashedPassword,
+      },
+      {
+        provider: 'password',
+        event,
+      },
+    )
+  }
+  else {
+    throw createError({
+      statusCode: 500,
+      message: 'onUserPersist handler is required for password authentication',
+    })
+  }
 
   // Revoke other sessions
   // Get current refresh token from cookie to preserve it

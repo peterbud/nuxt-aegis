@@ -1,5 +1,4 @@
 import type {
-  SuccessHookPayload,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
 } from '#nuxt-aegis'
@@ -11,7 +10,7 @@ import {
   dbLinkProviderToUser,
   dbUpdateUser,
   dbGetUserByEmail,
-  dbCreateOrUpdatePasswordUser,
+  dbGetAllUsers,
 } from '../utils/db'
 
 /**
@@ -29,6 +28,140 @@ export default defineNitroPlugin((nitroApp) => {
    * Register Aegis Handler for logic
    */
   defineAegisHandler({
+    /**
+     * Global user info transformation
+     * Called after fetching user info from any provider, before storing it
+     */
+    onUserInfo: async (payload) => {
+      // Example: Add a custom field to all users
+      payload.providerUserInfo.authenticatedAt = new Date().toISOString()
+      payload.providerUserInfo.authProvider = payload.provider
+
+      // You can also normalize user data here
+      if (!payload.providerUserInfo.id && payload.providerUserInfo.sub) {
+        payload.providerUserInfo.id = payload.providerUserInfo.sub
+      }
+
+      // Return the modified user object so it gets used
+      return payload.providerUserInfo
+    },
+
+    /**
+     * Persist user data and return enriched information
+     * Unified handler for both OAuth and password authentication
+     */
+    onUserPersist: async (user, { provider }) => {
+      const userEmail = user.email as string
+      if (!userEmail) {
+        throw new Error('User email is required for persistence')
+      }
+
+      console.log(`[Aegis Plugin] Persisting user for provider: ${provider}`)
+
+      // Handle password provider
+      if (provider === 'password') {
+        // For password authentication, user includes hashedPassword
+        const hashedPassword = user.hashedPassword as string
+
+        // Check if user already exists in database
+        let dbUser = dbGetUserByEmail(userEmail)
+
+        if (dbUser) {
+          // Update existing user's password
+          dbUpdateUser(dbUser.id, { hashedPassword })
+          console.log(`[Aegis Plugin] Updated password for existing user: ${dbUser.email}`)
+        }
+        else {
+          // Create new user - determine role based on email
+          const role = userEmail === 'admin@example.com' ? 'admin' : 'user'
+          const permissions = userEmail === 'admin@example.com'
+            ? ['read', 'write', 'delete', 'admin']
+            : ['read']
+
+          dbUser = dbAddUser({
+            email: userEmail,
+            name: user.name as string || userEmail.split('@')[0],
+            picture: user.picture as string || '',
+            role,
+            permissions,
+            organizationId: 'default',
+            providers: [{ name: 'password', id: userEmail }],
+          })
+
+          // Update with hashed password
+          dbUpdateUser(dbUser.id, { hashedPassword })
+          console.log(`[Aegis Plugin] Created new password user: ${dbUser.email} with role: ${role}`)
+        }
+
+        // Return enriched data
+        return {
+          userId: dbUser.id,
+          role: dbUser.role,
+          permissions: dbUser.permissions,
+          organizationId: dbUser.organizationId,
+        }
+      }
+
+      // Handle OAuth providers
+      const providerId = String(user.id || user.sub)
+
+      // 1. Check if user exists with this provider
+      let dbUser = dbFindUserByProvider(provider, providerId)
+
+      if (dbUser) {
+        // 2. User found, update last login
+        dbUpdateUser(dbUser.id, { lastLogin: new Date().toISOString() })
+        console.log(`[Aegis Plugin] User ${dbUser.name} found, last login updated.`)
+      }
+      else {
+        // 3. No user found with this provider, check by email
+        const existingUser = dbGetUserProfile(userEmail)
+
+        if (existingUser) {
+          // 4. User with same email found, link new provider
+          dbLinkProviderToUser(existingUser.id, { name: provider, id: providerId })
+          dbUpdateUser(existingUser.id, { lastLogin: new Date().toISOString() })
+          console.log(`[Aegis Plugin] Existing user ${existingUser.name} found, linked new provider ${provider}.`)
+          dbUser = existingUser
+        }
+        else {
+          // 5. No user found, create new user
+          // Use role and permissions from provider if available, otherwise default to 'user'
+          const newUser = dbAddUser({
+            email: userEmail,
+            name: (user.name as string) || '',
+            picture: (user.picture as string) || '',
+            role: (user.role as string) || 'user',
+            permissions: (user.permissions as string[]) || ['read'],
+            organizationId: (user.organizationId as string) || 'default',
+            providers: [{ name: provider, id: providerId }],
+          })
+          console.log(`[Aegis Plugin] New user ${newUser.name} created with role: ${newUser.role}`)
+          dbUser = newUser
+        }
+      }
+
+      // Return enriched user data for JWT claims
+      return {
+        userId: dbUser.id,
+        role: dbUser.role,
+        permissions: dbUser.permissions,
+        organizationId: dbUser.organizationId,
+      }
+    },
+
+    /**
+     * Generate custom claims for JWT tokens
+     * Called after onUserPersist with merged user data
+     */
+    customClaims: async (user) => {
+      return {
+        role: user.role,
+        permissions: user.permissions,
+        organizationId: user.organizationId,
+      }
+    },
+
     /**
      * Password authentication handler
      * Required for password provider
@@ -56,14 +189,6 @@ export default defineNitroPlugin((nitroApp) => {
       },
 
       /**
-       * Create or update a user with password
-       * Called after successful registration or password change
-       */
-      upsertUser: async (user) => {
-        dbCreateOrUpdatePasswordUser(user.email, user.hashedPassword)
-      },
-
-      /**
        * Send verification code to user
        * In a real app, integrate with email service (SendGrid, Mailgun, etc.)
        * This demo logs to console for testing
@@ -72,23 +197,6 @@ export default defineNitroPlugin((nitroApp) => {
         const { sendMagicCodeEmail } = await import('../utils/sendEmail')
         await sendMagicCodeEmail(email, code, type)
       },
-    },
-    /**
-     * Global user info transformation
-     * Called after fetching user info from any provider, before storing it
-     */
-    onUserInfo: async (payload) => {
-      // Example: Add a custom field to all users
-      payload.providerUserInfo.authenticatedAt = new Date().toISOString()
-      payload.providerUserInfo.authProvider = payload.provider
-
-      // You can also normalize user data here
-      if (!payload.providerUserInfo.id && payload.providerUserInfo.sub) {
-        payload.providerUserInfo.id = payload.providerUserInfo.sub
-      }
-
-      // Return the modified user object so it gets used
-      return payload.providerUserInfo
     },
 
     impersonation: {
@@ -119,13 +227,21 @@ export default defineNitroPlugin((nitroApp) => {
           targetUserId: targetUserId,
         })
 
-        // Try to find user by ID or email
+        // Try to find user by ID, email, or provider ID
         let targetUser = dbGetUserById(targetUserId)
         if (!targetUser) {
           targetUser = dbGetUserProfile(targetUserId)
         }
+        // Also check by provider ID (e.g., mock-user-002)
+        if (!targetUser) {
+          const allUsers = dbGetAllUsers()
+          targetUser = allUsers.find(u =>
+            u.providers?.some(p => p.id === targetUserId),
+          ) || null
+        }
 
         if (!targetUser) {
+          console.log('[Aegis Plugin] Target user not found')
           return null
         }
 
@@ -150,83 +266,11 @@ export default defineNitroPlugin((nitroApp) => {
   })
 
   /**
-   * Global success hook
-   * Called after successful authentication for any provider
-   *
-   * Use this to:
-   * - Log authentication events
-   * - Send analytics
-   * - Update user records in your database
-   * - Trigger notifications
-   */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
-  nitroApp.hooks.hook('nuxt-aegis:success', async (payload: SuccessHookPayload) => {
-    const providerName = payload.provider
-    const providerId = String(payload.providerUserInfo.id || payload.providerUserInfo.sub)
-    const userEmail = payload.providerUserInfo.email as string
-
-    if (!userEmail) {
-      console.error('User email is missing, cannot process user persistence')
-      return
-    }
-
-    // Handle password provider differently
-    if (providerName === 'password') {
-      // Password provider already created/updated the user via onUserPersist
-      // Just ensure the user exists in our database
-      const user = dbGetUserProfile(userEmail)
-
-      if (user) {
-        dbUpdateUser(user.id, { lastLogin: new Date().toISOString() })
-        console.log(`[Aegis Plugin] Password user ${user.email} logged in.`)
-      }
-      return
-    }
-
-    // 1. Check if user exists with this provider
-    let user = dbFindUserByProvider(providerName, providerId)
-
-    if (user) {
-      // 2. User found, update last login
-      dbUpdateUser(user.id, { lastLogin: new Date().toISOString() })
-      console.log(`[Aegis Plugin] User ${user.name} found, last login updated.`)
-    }
-    else {
-      // 3. No user found with this provider, check by email
-      const existingUser = dbGetUserProfile(userEmail)
-
-      if (existingUser) {
-        // 4. User with same email found, link new provider
-        dbLinkProviderToUser(existingUser.id, { name: providerName, id: providerId })
-        dbUpdateUser(existingUser.id, { lastLogin: new Date().toISOString() })
-        console.log(`[Aegis Plugin] Existing user ${existingUser.name} found, linked new provider ${providerName}.`)
-        user = existingUser
-      }
-      else {
-        // 5. No user found, create new user
-        const newUser = dbAddUser({
-          email: userEmail,
-          name: (payload.providerUserInfo.name as string) || '',
-          picture: (payload.providerUserInfo.picture as string) || '',
-          role: 'user',
-          permissions: ['read'],
-          organizationId: 'default',
-          providers: [{ name: providerName, id: providerId }],
-        })
-        console.log(`[Aegis Plugin] New user ${newUser.name} created.`)
-        user = newUser
-        // user = existingUser
-      }
-    }
-  })
-
-  /**
    * Impersonation start hook
    * Called after successful impersonation (audit logging)
    *
    * This is fire-and-forget - errors won't block impersonation
    */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
   nitroApp.hooks.hook('nuxt-aegis:impersonate:start', async (payload: ImpersonateStartPayload) => {
     console.log('[Aegis Plugin] 🎭 IMPERSONATION STARTED', {
       admin: payload.requester.email,
@@ -252,7 +296,6 @@ export default defineNitroPlugin((nitroApp) => {
    *
    * This is fire-and-forget - errors won't block session restoration
    */
-  // @ts-expect-error - Type augmentation not available in playground, but works in consumer projects
   nitroApp.hooks.hook('nuxt-aegis:impersonate:end', async (payload: ImpersonateEndPayload) => {
     console.log('[Aegis Plugin] 🎭 IMPERSONATION ENDED', {
       admin: payload.restoredUser.email,

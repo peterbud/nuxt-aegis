@@ -66,6 +66,25 @@ sequenceDiagram
         Browser->>Browser: Store JWT in memory/localStorage
         Browser-->>User: Redirect to app (logged in!)
     end
+
+    rect rgba(200, 200, 200, 0.1)
+        Note over User,Browser: Stage 6: Using $api for Authenticated Requests
+        User->>Browser: Navigate to protected page
+        Browser->>Browser: $api intercepts request
+        Browser->>Browser: Attach bearer token automatically
+        Browser->>NuxtServer: GET /api/user/profile (Authorization: Bearer JWT)
+        NuxtServer->>NuxtServer: Validate JWT token
+        NuxtServer-->>Browser: User profile data
+        
+        alt Token expired (401 response)
+            Browser->>Browser: $api detects 401
+            Browser->>NuxtServer: POST /auth/refresh (automatic)
+            NuxtServer-->>Browser: New JWT token
+            Browser->>Browser: Update token in memory
+            Browser->>NuxtServer: Retry GET /api/user/profile (new token)
+            NuxtServer-->>Browser: User profile data
+        end
+    end
 ```
 
 ## Authentication Stages
@@ -228,6 +247,66 @@ const payload = {
   iat: Math.floor(Date.now() / 1000),
   exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
 }
+
+const token = await signJWT(payload, secret)
+return { token, expiresAt, user: payload }
+```
+
+**5.4 Client Stores Token & Updates State**
+```typescript
+// Token stored in memory (not localStorage/sessionStorage)
+setAccessToken(token)
+
+// Update reactive auth state
+user.value = response.user
+isAuthenticated.value = true
+```
+
+### Stage 6: Using $api for Authenticated Requests
+
+After authentication, use the `$api` plugin to make authenticated API calls:
+
+**6.1 Automatic Bearer Token Injection**
+```typescript
+// In your component
+const { $api } = useNuxtApp()
+
+// $api automatically adds: Authorization: Bearer <token>
+const data = await $api('/api/user/profile')
+```
+
+**6.2 Automatic Token Refresh on 401**
+
+When a request returns 401 (token expired):
+
+```typescript
+// $api automatically:
+// 1. Detects 401 response
+// 2. Calls /auth/refresh endpoint
+// 3. Updates token in memory
+// 4. Retries original request with new token
+const data = await $api('/api/protected/resource')
+// ↑ Works even if token expired!
+```
+
+**6.3 SSR Token Handling**
+
+During server-side rendering, `$api` uses a short-lived SSR token:
+
+```vue
+<script setup>
+const { $api } = useNuxtApp()
+
+// Works on both server (SSR token) and client (regular token)
+const { data } = await useAsyncData('profile',
+  () => $api('/api/user/profile')
+)
+</script>
+```
+
+::: tip Learn More
+See the [$api Plugin Reference](/api/fetch-plugin) for detailed implementation information about automatic token handling, refresh logic, and best practices.
+:::
 
 const jwt = await sign(payload, jwtSecret, { algorithm: 'HS256' })
 ```

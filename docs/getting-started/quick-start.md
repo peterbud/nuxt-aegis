@@ -71,6 +71,44 @@ You now have a working authentication flow with:
 - ✅ Automatic token refresh
 - ✅ Secure cookie handling
 
+## Making Authenticated API Calls
+
+Use the `$api` instance to make authenticated requests to your backend:
+
+```vue
+<script setup lang="ts">
+const { user } = useAuth()
+const { $api } = useNuxtApp()
+
+// Fetch user-specific data with automatic bearer token
+const { data: items, pending } = await useAsyncData(
+  'user-items',
+  () => $api('/api/user/items')
+)
+</script>
+
+<template>
+  <div>
+    <h1>Welcome, {{ user?.name }}!</h1>
+    <div v-if="pending">Loading your items...</div>
+    <ul v-else>
+      <li v-for="item in items" :key="item.id">
+        {{ item.title }}
+      </li>
+    </ul>
+  </div>
+</template>
+```
+
+The `$api` instance automatically:
+- Adds the bearer token to the `Authorization` header
+- Refreshes expired tokens and retries failed requests
+- Works seamlessly on both server (SSR) and client
+
+::: tip Learn More
+See the [$api documentation](/api/composables#api) for advanced usage patterns and configuration.
+:::
+
 ## Next Steps
 
 Learn more about:

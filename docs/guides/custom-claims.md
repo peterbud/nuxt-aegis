@@ -6,9 +6,20 @@ Add application-specific data to your JWT tokens using custom claims.
 
 Custom claims allow you to enrich JWT tokens with additional user data beyond the standard OAuth profile. Claims can be static values or dynamic functions that fetch data from databases or external APIs.
 
-## Static Custom Claims
+Nuxt Aegis supports custom claims at two levels:
 
-Add fixed values to all tokens for a provider:
+1. **Provider-level claims**: Specific to each OAuth provider (e.g., Google, GitHub)
+2. **Handler-level claims**: Global fallback that applies to all providers
+
+::: tip Priority
+Provider-level claims take precedence over handler-level claims when both are defined.
+:::
+
+## Provider-Level Claims
+
+### Static Custom Claims
+
+Add fixed values to all tokens for a specific provider:
 
 ```typescript
 // server/routes/auth/google.get.ts
@@ -34,7 +45,7 @@ All tokens issued after Google authentication will include these claims:
 }
 ```
 
-## Dynamic Custom Claims
+### Dynamic Custom Claims
 
 Use a callback function to compute claims dynamically:
 
@@ -144,6 +155,67 @@ export default defineOAuthGoogleEventHandler({
 
 ::: warning Token Refresh
 During token refresh, the custom claims callback is invoked again with the stored user object. Provider tokens are NOT available during refresh since we're not re-authenticating with the provider.
+:::
+
+## Handler-Level Claims
+
+Handler-level claims provide a global function that applies to all authentication methods when provider-level claims are not defined. This is particularly useful for:
+
+- Centralizing logic across multiple OAuth providers
+- Supporting password authentication (which doesn't have provider-level customClaims)
+- Implementing consistent permission models
+
+```typescript
+// server/plugins/aegis.ts
+export default defineNitroPlugin(() => {
+  defineAegisHandler({
+    // Global custom claims handler
+    customClaims: async (user) => {
+      // Fetch from database based on user ID
+      const dbUser = await db.getUserById(user.userId)
+      
+      return {
+        role: dbUser.role,
+        permissions: dbUser.permissions,
+        organizationId: dbUser.organizationId,
+      }
+    },
+    
+    onUserPersist: async (user, { provider }) => {
+      // Persist user to database...
+      return { userId: dbUser.id }
+    },
+  })
+})
+```
+
+### Priority Rules
+
+When both provider-level and handler-level claims are defined:
+
+```typescript
+// server/plugins/aegis.ts
+defineAegisHandler({
+  customClaims: async (user) => {
+    return {
+      role: 'user',      // ← Will be overridden by provider
+      tier: 'free',      // ← Will be used (not in provider claims)
+    }
+  },
+})
+
+// server/routes/auth/google.get.ts
+export default defineOAuthGoogleEventHandler({
+  customClaims: {
+    role: 'admin',  // ← Takes priority
+  },
+})
+
+// Result: { role: 'admin', tier: 'free' }
+```
+
+::: tip Best Practice
+Use handler-level claims for shared authorization logic and provider-level claims for provider-specific attributes.
 :::
 
 ## Supported Claim Types

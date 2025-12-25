@@ -557,7 +557,7 @@ if (isImpersonating.value) {
 }
 ```
 
-## Related
+### Related
 
 - [Login Guide](/guides/client-auth)
 - [Route Protection](/guides/route-protection)
