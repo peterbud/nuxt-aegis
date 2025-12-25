@@ -14,7 +14,7 @@ Standard JWT claims that are always present in every token:
 - `provider` - Authentication provider name
 - `impersonation` - Impersonation context (if active)
 
-### **CustomTokenClaims<T>** - Your Application Type
+### **CustomTokenClaims\<T\>** - Your Application Type
 Combines `BaseTokenClaims` with your application-specific claims:
 
 ```typescript

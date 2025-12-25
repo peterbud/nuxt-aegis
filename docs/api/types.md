@@ -77,14 +77,11 @@ import type {
 ::: info Understanding Token Claims
 Nuxt Aegis uses two key concepts:
 - **BaseTokenClaims**: Standard JWT claims (sub, email, name, iss, exp, etc.) that are always present
-- **CustomTokenClaims<T>**: Combines BaseTokenClaims with your application-specific claims (role, permissions, etc.)
+- **CustomTokenClaims\<T\>**: Combines BaseTokenClaims with your application-specific claims (role, permissions, etc.)
 
 This naming makes the relationship clear: your custom token type extends the base claims.
 :::
 
-::: info Deprecated: User Type
-The `User` type is deprecated. Use `BaseTokenClaims` or `CustomTokenClaims<T>` instead for better type safety and clarity.
-:::
 
 ### `BaseTokenClaims`
 
