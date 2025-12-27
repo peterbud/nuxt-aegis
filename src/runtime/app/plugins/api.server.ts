@@ -8,7 +8,7 @@ import { defineNuxtPlugin, useRequestEvent } from '#app'
  * It will only work when explicitly called via useNuxtApp().$api
  */
 export default defineNuxtPlugin({
-  name: 'api-server',
+  name: 'nuxt-aegis-api-server',
   enforce: 'pre',
   async setup() {
     // Create $api instance with SSR token attachment
