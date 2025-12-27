@@ -106,7 +106,7 @@ The `$api` instance automatically:
 - Works seamlessly on both server (SSR) and client
 
 ::: tip Learn More
-See the [$api documentation](/api/composables#api) for advanced usage patterns and configuration.
+See the [`$api` fetch plugin documentation](/api/fetch-plugin) for advanced usage patterns and configuration.
 :::
 
 ## Next Steps

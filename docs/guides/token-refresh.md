@@ -147,14 +147,6 @@ export default defineNuxtConfig({
       },
     },
   },
-  nitro: {
-    storage: {
-      refreshTokenStore: {
-        driver: 'fs',
-        base: './.data/refresh-tokens',
-      },
-    },
-  },
 })
 ```
 

@@ -102,13 +102,6 @@ export default defineNuxtConfig({
       // Public API routes (override)
       '/api/public/**': { nuxtAegis: { auth: false } },
     },
-    // Configure storage for persistent refresh tokens
-    storage: {
-      refreshTokenStore: {
-        driver: 'fs',
-        base: './.data/refresh-tokens',
-      },
-    },
   },
 })
 ```
