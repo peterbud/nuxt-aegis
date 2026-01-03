@@ -105,9 +105,11 @@ export default defineNuxtModule<ModuleOptions>({
 
     const runtimeConfig = nuxt.options.runtimeConfig
 
+    // Get logger for validation warnings/errors
+    const logger = useLogger('nuxt-aegis')
+
     // Validate SSR configuration
     if (options.enableSSR && nuxt.options.ssr === false) {
-      const logger = useLogger('nuxt-aegis')
       logger.warn(
         'nuxtAegis.enableSSR is true but Nuxt SSR is disabled. '
         + 'SSR authentication will not work. Set ssr: true in nuxt.config.ts or disable enableSSR.',
@@ -118,12 +120,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     // SC-19: Validate encryption configuration
     if (options.tokenRefresh?.encryption?.enabled) {
-      const encryptionKey = options.tokenRefresh.encryption.key || process.env.NUXT_AEGIS_ENCRYPTION_KEY
+      const encryptionKey = options.tokenRefresh.encryption.key
 
       if (!encryptionKey) {
-        throw new Error(
+        // Warn during build time, but don't throw - validation happens at runtime
+        logger.warn(
           '[Nuxt Aegis] Encryption is enabled but no encryption key is configured. '
-          + 'Please set tokenRefresh.encryption.key in nuxt.config.ts or NUXT_AEGIS_ENCRYPTION_KEY environment variable.',
+          + 'The application will fail at runtime if encryption is attempted. '
+          + 'Please set tokenRefresh.encryption.key in nuxt.config.ts or in the appropriate environment variable.',
         )
       }
 
@@ -262,9 +266,6 @@ export default defineNuxtModule<ModuleOptions>({
       addPlugin(resolver.resolve('./runtime/app/plugins/api.server'))
       addPlugin(resolver.resolve('./runtime/app/plugins/ssr-state.server'))
     }
-
-    // Get logger for validation warnings/errors
-    const logger = useLogger('nuxt-aegis')
 
     // Register client-side route middlewares if enabled
     if (options.clientMiddleware?.enabled) {
