@@ -1,7 +1,65 @@
+const mock = {
+  clientId: 'mock-playground-client',
+  clientSecret: 'mock-playground-secret',
+  mockUsers: {
+    admin: {
+      sub: 'mock-admin-001',
+      email: 'admin@example.com',
+      name: 'Admin User',
+      given_name: 'Admin',
+      family_name: 'User',
+      role: 'admin',
+      permissions: ['read', 'write', 'delete'],
+      email_verified: true,
+    },
+    user: {
+      sub: 'mock-user-002',
+      email: 'user@example.com',
+      name: 'Regular User',
+      given_name: 'Regular',
+      family_name: 'User',
+      subscription: 'basic',
+      role: 'user',
+      permissions: ['read'],
+      email_verified: true,
+    },
+    premium: {
+      sub: 'mock-premium-003',
+      email: 'premium@example.com',
+      name: 'Premium User',
+      subscription: 'premium',
+      role: 'user',
+      permissions: ['read'],
+      email_verified: true,
+    },
+  },
+  defaultUser: 'user',
+}
+
 export default defineNuxtConfig({
   modules: [
     '../src/module',
   ],
+  $development: {
+    nuxtAegis: {
+      providers: {
+        // Mock provider for development/testing (works without credentials)
+        mock,
+      },
+    },
+  },
+  $test: {
+    nuxtAegis: {
+      providers: {
+        // Mock provider for development/testing (works without credentials)
+        mock,
+      },
+      token: {
+        secret: 'test-secret-key-for-playground',
+      },
+    },
+  },
+  ssr: false,
   devtools: { enabled: true },
   compatibilityDate: '2025-10-04',
   // Server-side route protection via Nitro route rules
@@ -27,44 +85,6 @@ export default defineNuxtConfig({
         clientId: '',
         clientSecret: '',
         domain: '',
-      },
-      // Mock provider for development/testing (works without credentials)
-      mock: {
-        clientId: 'mock-playground-client',
-        clientSecret: 'mock-playground-secret',
-        mockUsers: {
-          admin: {
-            sub: 'mock-admin-001',
-            email: 'admin@example.com',
-            name: 'Admin User',
-            given_name: 'Admin',
-            family_name: 'User',
-            role: 'admin',
-            permissions: ['read', 'write', 'delete'],
-            email_verified: true,
-          },
-          user: {
-            sub: 'mock-user-002',
-            email: 'user@example.com',
-            name: 'Regular User',
-            given_name: 'Regular',
-            family_name: 'User',
-            subscription: 'basic',
-            role: 'user',
-            permissions: ['read'],
-            email_verified: true,
-          },
-          premium: {
-            sub: 'mock-premium-003',
-            email: 'premium@example.com',
-            name: 'Premium User',
-            subscription: 'premium',
-            role: 'user',
-            permissions: ['read'],
-            email_verified: true,
-          },
-        },
-        defaultUser: 'user',
       },
       // Password provider for username/password authentication
       password: {
@@ -101,12 +121,5 @@ export default defineNuxtConfig({
       redirectTo: '/login',
       loggedOutRedirectTo: '/',
     },
-    // Logging configuration (optional)
-    // logging: {
-    //   Log level: 'silent' | 'error' | 'warn' | 'info' | 'debug' (default: 'info')
-    //   level: 'debug',
-    //   Enable security event logging (default: false, auto-enabled at debug level)
-    //   security: true,
-    // },
   },
 })
