@@ -1,7 +1,7 @@
 import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
 import type { BaseTokenClaims } from '../../types'
-import { clearAccessToken } from '../utils/tokenStore'
+import { clearAccessToken, setAccessToken, getAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
 import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
@@ -172,7 +172,6 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
 
       if (response?.accessToken) {
         // CL-18: Store new access token in memory (NOT sessionStorage)
-        const { setAccessToken } = await import('../utils/tokenStore')
         setAccessToken(response.accessToken)
 
         // Decode token to get user payload
@@ -291,7 +290,6 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       logger.debug('Starting impersonation...', { targetUserId })
 
       // Get current access token to authenticate the request
-      const { getAccessToken } = await import('../utils/tokenStore')
       const currentToken = getAccessToken()
 
       if (!currentToken) {
@@ -312,7 +310,6 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
 
       if (response?.accessToken) {
         // Store new impersonated access token
-        const { setAccessToken } = await import('../utils/tokenStore')
         setAccessToken(response.accessToken)
 
         // Decode token to get impersonated user payload
@@ -357,7 +354,6 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       logger.debug('Stopping impersonation...')
 
       // Get current impersonated token
-      const { getAccessToken } = await import('../utils/tokenStore')
       const currentToken = getAccessToken()
 
       if (!currentToken) {
@@ -374,7 +370,6 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
 
       if (response?.accessToken) {
         // Store restored access token
-        const { setAccessToken } = await import('../utils/tokenStore')
         setAccessToken(response.accessToken)
 
         // Decode token to get restored user payload
