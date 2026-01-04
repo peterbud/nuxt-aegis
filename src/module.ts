@@ -34,6 +34,7 @@ export default defineNuxtModule<ModuleOptions>({
     tokenRefresh: {
       enabled: true,
       automaticRefresh: true,
+      rotationEnabled: true, // Enable refresh token rotation by default for security
       cookie: {
         cookieName: 'nuxt-aegis-refresh',
         maxAge: 60 * 60 * 24 * 7, // 7 days

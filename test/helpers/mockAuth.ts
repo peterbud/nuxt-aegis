@@ -82,6 +82,17 @@ export function parseCookie(setCookieHeader: string | null, name: string): strin
 }
 
 /**
+ * Get cookie value from response object
+ */
+export function getCookieValue(response: Record<string, unknown>, name: string): string | null {
+  const setCookieHeader = response.headers && typeof response.headers === 'object'
+    ? (response.headers as Record<string, string>)['set-cookie']
+    : null
+
+  return parseCookie(setCookieHeader || null, name)
+}
+
+/**
  * Extract tokens that AEGIS generated and returned
  * Verifies Aegis returns them in the correct format
  */

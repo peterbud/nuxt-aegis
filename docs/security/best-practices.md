@@ -136,7 +136,66 @@ export default defineNuxtConfig({
 openssl rand -base64 32
 ```
 
-## 5. Short Token Lifetimes
+## 5. Token Rotation Strategy
+
+::: tip Choose the Right Strategy
+Enable token rotation for maximum security, or disable for fixed-duration sessions.
+:::
+
+**Rotation Enabled (Default - Recommended):**
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      rotationEnabled: true,  // Default: rotate on every refresh
+    },
+  },
+})
+```
+
+**When to enable rotation:**
+- ✅ Production applications
+- ✅ High-security requirements
+- ✅ Single-device or primary device usage
+- ✅ Want to follow OAuth 2.0 best practices
+- ✅ Need protection against token replay attacks
+
+**Benefits:**
+- **Maximum security** - stolen tokens are quickly invalidated
+- **Automatic refresh** - sessions extend with regular use
+- **Replay protection** - old tokens immediately revoked
+
+**Rotation Disabled:**
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      rotationEnabled: false,  // Reuse tokens until expiry
+    },
+  },
+})
+```
+
+**When to disable rotation:**
+- ⚠️ Development/testing environments
+- ⚠️ Fixed-duration session requirements
+- ⚠️ Multi-device token sharing needed
+- ⚠️ Multi-tab applications where rotation causes issues
+
+**Trade-offs:**
+- **Lower security** - stolen tokens valid until expiry (e.g., 7 days)
+- **Fixed sessions** - session expires exactly after configured duration
+- **Simpler** - fewer storage operations
+
+::: warning Security Consideration
+When `rotationEnabled: false`, a compromised refresh token remains valid until its expiry date. Consider using shorter `maxAge` values (e.g., 24 hours instead of 7 days) to limit exposure.
+:::
+
+## 6. Short Token Lifetimes
 
 ::: tip Balance Security and UX
 Use short access token lifetimes (1 hour) and longer refresh tokens (7 days).
@@ -152,6 +211,7 @@ export default defineNuxtConfig({
       expiresIn: '1h',  // Short-lived access tokens
     },
     tokenRefresh: {
+      rotationEnabled: true,  // Enable rotation for security
       cookie: {
         maxAge: 60 * 60 * 24 * 7,  // 7 days for refresh tokens
       },
@@ -160,7 +220,26 @@ export default defineNuxtConfig({
 })
 ```
 
-## 6. Server-Side Validation
+**Without rotation (shorter refresh token lifetime recommended):**
+
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nuxtAegis: {
+    token: {
+      expiresIn: '1h',
+    },
+    tokenRefresh: {
+      rotationEnabled: false,
+      cookie: {
+        maxAge: 60 * 60 * 24,  // 1 day only (reduced from 7 days)
+      },
+    },
+  },
+})
+```
+
+## 7. Server-Side Validation
 
 ::: danger Always Validate Server-Side
 Never rely solely on client-side authentication checks. Always validate on the server.
@@ -183,7 +262,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-## 7. Implement Rate Limiting
+## 8. Implement Rate Limiting
 
 ::: warning Prevent Brute Force Attacks
 Rate limit authentication endpoints to prevent credential stuffing and brute force attacks.
@@ -218,7 +297,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-## 8. Validate User Input
+## 9. Validate User Input
 
 ::: danger Input Validation
 Always validate and sanitize user input to prevent injection attacks.
@@ -250,7 +329,7 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-## 9. Monitor Security Events
+## 10. Monitor Security Events
 
 ::: tip Security Monitoring
 Log and monitor authentication events for suspicious activity.

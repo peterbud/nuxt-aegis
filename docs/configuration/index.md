@@ -24,6 +24,7 @@ export default defineNuxtConfig({
     tokenRefresh: {
       enabled: true,
       automaticRefresh: true,       // Auto-refresh on app startup
+      rotationEnabled: true,        // Enable refresh token rotation
       cookie: {
         cookieName: 'nuxt-aegis-refresh',
         maxAge: 60 * 60 * 24 * 7,   // 7 days in seconds
@@ -130,6 +131,7 @@ Configure automatic token refresh functionality.
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable token refresh functionality |
 | `automaticRefresh` | `boolean` | `true` | Auto-refresh tokens before expiration |
+| `rotationEnabled` | `boolean` | `true` | Enable automatic refresh token rotation |
 | `cookie.cookieName` | `string` | `'nuxt-aegis-refresh'` | Refresh token cookie name |
 | `cookie.maxAge` | `number` | `604800` | Cookie max age in seconds (7 days) |
 | `cookie.httpOnly` | `boolean` | `true` | HTTP-only flag for security |
@@ -140,6 +142,10 @@ Configure automatic token refresh functionality.
 | `encryption.algorithm` | `'aes-256-gcm'` | `'aes-256-gcm'` | Encryption algorithm |
 | `storage.driver` | `'fs' \| 'redis' \| 'memory'` | `'fs'` | Storage backend driver |
 | `storage.base` | `string` | `'./.data/refresh-tokens'` | Base path for filesystem storage |
+
+::: tip Token Rotation
+When `rotationEnabled: true` (default), refresh tokens are automatically replaced on every use for maximum security. Set to `false` for fixed-duration sessions. See [Token Refresh Guide](/guides/token-refresh#token-rotation) for details.
+:::
 
 ::: tip Production Storage
 In production, use Redis or a database for refresh token storage, not the filesystem.

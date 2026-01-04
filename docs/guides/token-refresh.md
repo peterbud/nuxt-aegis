@@ -74,6 +74,7 @@ export default defineNuxtConfig({
     tokenRefresh: {
       enabled: true,
       automaticRefresh: true,
+      rotationEnabled: true,          // Enable refresh token rotation
       
       // Cookie configuration
       cookie: {
@@ -309,32 +310,89 @@ During token refresh, the OAuth provider's tokens are NOT available since we're 
 
 ## Token Rotation
 
-For additional security, you can rotate refresh tokens:
+Nuxt Aegis supports automatic refresh token rotation as an additional security measure.
+
+### What is Token Rotation?
+
+Token rotation means that every time you use a refresh token to get a new access token, you also receive a **new refresh token** and the old one is immediately revoked. This limits the window of opportunity if a refresh token is compromised.
+
+### Configuration
 
 ```typescript
-// server/utils/rotateRefreshToken.ts
-export async function rotateRefreshToken(
-  event: H3Event,
-  oldToken: string
-) {
-  // Generate new refresh token
-  const newToken = generateRefreshToken()
-  
-  // Get stored user data
-  const userData = await getStoredUserData(oldToken)
-  
-  // Delete old token
-  await deleteRefreshToken(oldToken)
-  
-  // Store new token with same user data
-  await storeRefreshToken(newToken, userData)
-  
-  // Set new cookie
-  setRefreshTokenCookie(event, newToken)
-  
-  return newToken
-}
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      rotationEnabled: true,  // Default: true
+    },
+  },
+})
 ```
+
+### Rotation Enabled (Default)
+
+When `rotationEnabled: true`:
+
+- **New refresh token** generated on every refresh
+- **Old refresh token** immediately revoked
+- **Cookie updated** with new token
+- **Maximum security** - follows OAuth 2.0 best practices
+
+**Best for:**
+- Production applications
+- High-security requirements
+- Preventing token replay attacks
+- Single-device usage
+
+```typescript
+// With rotation enabled:
+// 1. User refreshes access token
+// 2. Server generates NEW refresh token (7 days from now)
+// 3. Server revokes OLD refresh token
+// 4. Cookie set with new token
+// 5. User's session effectively never expires (as long as they use the app)
+```
+
+### Rotation Disabled
+
+When `rotationEnabled: false`:
+
+- **Same refresh token** reused until expiry
+- **No new tokens** generated on refresh
+- **Fixed session duration** - exactly 7 days (or configured maxAge)
+- **Multi-tab friendly** - all tabs can use the same token
+
+**Best for:**
+- Development/testing
+- Multi-tab applications
+- When session should expire after exact duration
+- Reducing storage operations
+
+```typescript
+// With rotation disabled:
+// 1. User refreshes access token
+// 2. Server reuses SAME refresh token
+// 3. No new token generated
+// 4. Cookie refreshed with original expiry
+// 5. Session expires exactly 7 days after initial login
+```
+
+### Security Trade-offs
+
+| Aspect | Rotation Enabled | Rotation Disabled |
+|--------|-----------------|-------------------|
+| **Security** | ✅ Maximum - token replay protection | ⚠️ Lower - stolen token valid until expiry |
+| **Session Duration** | ♾️ Indefinite (with regular use) | ⏱️ Fixed (e.g., 7 days exactly) |
+| **Multi-tab Support** | ⚠️ May create multiple tokens | ✅ All tabs share same token |
+| **Storage Operations** | 📝 More writes (on every refresh) | 📝 Fewer writes |
+| **Complexity** | 🔄 Token rotation tracking | ✅ Simple reuse |
+
+::: tip Recommendation
+Keep `rotationEnabled: true` (default) for production applications unless you have specific requirements for fixed-duration sessions or multi-device token sharing.
+:::
+
+::: warning SSR Token Generation
+During SSR, the module **never rotates** refresh tokens regardless of this setting. This prevents client/server state conflicts during server-side rendering.
+:::
 
 ## Logout and Token Revocation
 

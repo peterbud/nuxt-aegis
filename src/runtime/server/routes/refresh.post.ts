@@ -9,6 +9,9 @@ import {
 import { setRefreshTokenCookie } from '../utils/cookies'
 import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('Refresh')
 
 /**
  * POST /auth/refresh
@@ -99,23 +102,34 @@ export default defineEventHandler(async (event) => {
     // EP-28b: Generate new access token with user data and custom claims
     const newToken = await generateToken(payload, tokenConfig, customClaims)
 
-    // EP-30: Generate new refresh token (rotation)
-    const newRefreshToken = await generateAndStoreRefreshToken(
-      providerUserInfo, // RS-2: Store complete OAuth provider user data
-      provider, // Store provider name
-      tokenRefreshConfig,
-      hashedRefreshToken, // Pass previous token hash for rotation tracking
-      customClaims, // Preserve custom claims in new refresh token
-      event,
-    )
+    // EP-30: Conditionally rotate refresh token based on configuration
+    const rotationEnabled = tokenRefreshConfig?.rotationEnabled ?? true // Default true for backward compatibility
 
-    // Set new refresh token cookie
-    if (newRefreshToken) {
-      setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
+    if (rotationEnabled) {
+      // Generate new refresh token (rotation)
+      logger.debug('Rotating refresh token for user:', payload.sub)
+      const newRefreshToken = await generateAndStoreRefreshToken(
+        providerUserInfo, // RS-2: Store complete OAuth provider user data
+        provider, // Store provider name
+        tokenRefreshConfig,
+        hashedRefreshToken, // Pass previous token hash for rotation tracking
+        customClaims, // Preserve custom claims in new refresh token
+        event,
+      )
+
+      // Set new refresh token cookie
+      if (newRefreshToken) {
+        setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
+      }
+
+      // Revoke the old refresh token
+      await revokeRefreshToken(hashedRefreshToken, event)
     }
-
-    // Revoke the old refresh token
-    await revokeRefreshToken(hashedRefreshToken, event)
+    else {
+      // Reuse existing refresh token - re-set cookie to ensure it doesn't expire in browser
+      logger.debug('Reusing existing refresh token for user:', payload.sub)
+      setRefreshTokenCookie(event, refreshToken, cookieConfig)
+    }
 
     return {
       success: true,

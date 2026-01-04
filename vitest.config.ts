@@ -45,6 +45,7 @@ export default defineConfig({
             'test/password-auth.test.ts',
             'test/redirect-config.test.ts',
             'test/ssr-enabled.test.ts',
+            'test/rotation-disabled.test.ts',
           ],
           pool: 'forks',
           poolOptions: {

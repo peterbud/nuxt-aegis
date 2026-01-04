@@ -54,6 +54,8 @@ export interface TokenRefreshConfig {
   enabled?: boolean
   /** Automatically refresh tokens in the background (default: true) */
   automaticRefresh?: boolean
+  /** Enable refresh token rotation on every refresh (default: true) */
+  rotationEnabled?: boolean
   /** Refresh token cookie configuration */
   cookie?: CookieConfig
   /** Encryption configuration for stored user data */
