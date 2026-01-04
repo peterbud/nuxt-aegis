@@ -9,10 +9,10 @@
     "test": "playwright test"
   },
   "dependencies": {
-    "nuxt": "^4.1.2"
+    "nuxt": "^4.2.2"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^3.21.0",
+    "@nuxt/test-utils": "^3.22.0",
     "@playwright/test": "^1.57.0"
   }
 }
