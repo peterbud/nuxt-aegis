@@ -1,6 +1,35 @@
 # Changelog
 
 
+## v1.1.0-alpha.3
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.2...v1.1.0-alpha.3)
+
+### 🚀 Enhancements
+
+- Add e2e tests example with mock users ([d88a9f7](https://github.com/peterbud/nuxt-aegis/commit/d88a9f7))
+- Implement refresh token rotation feature with configuration options ([c334046](https://github.com/peterbud/nuxt-aegis/commit/c334046))
+- Add optional authentication for public routes ([b61a6df](https://github.com/peterbud/nuxt-aegis/commit/b61a6df))
+
+### 💅 Refactors
+
+- Use object syntax at plugin setup and standardize names ([6c63ec1](https://github.com/peterbud/nuxt-aegis/commit/6c63ec1))
+- Turn encryption validation error to warning ([a88ab88](https://github.com/peterbud/nuxt-aegis/commit/a88ab88))
+- Streamline access token management by importing functions directly ([b204e32](https://github.com/peterbud/nuxt-aegis/commit/b204e32))
+
+### 📖 Documentation
+
+- Update CustomTokenClaims type formatting ([76a7059](https://github.com/peterbud/nuxt-aegis/commit/76a7059))
+- Remove incorrect storage configuration for refresh tokens ([9b88819](https://github.com/peterbud/nuxt-aegis/commit/9b88819))
+
+### 🏡 Chore
+
+- Update dependencies ([afaac84](https://github.com/peterbud/nuxt-aegis/commit/afaac84))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.2
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.1...v1.1.0-alpha.2)
