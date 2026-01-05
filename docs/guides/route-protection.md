@@ -37,6 +37,26 @@ The `nuxtAegis.auth` property supports the following values:
 - `undefined` - Route is not protected (opt-in behavior)
 :::
 
+::: info Optional Authentication on Public Routes
+Even on public routes (where `auth: false`, `'public'`, `'skip'`, or `undefined`), if a valid Bearer token is provided in the `Authorization` header, the middleware will:
+1. Verify the token
+2. Populate `event.context.user` with the decoded token claims
+
+This enables **optional authentication** - routes that work for both authenticated and anonymous users, with different behavior based on authentication status.
+
+**Example use cases:**
+- API endpoints that return personalized data when authenticated
+- Public pages with user-specific UI elements when logged in
+- Analytics or tracking that includes user identity when available
+
+**Behavior:**
+- **Valid token present**: `event.context.user` is populated, no error thrown
+- **Invalid token present**: `event.context.user` is undefined, no error thrown (fails silently)
+- **No token present**: `event.context.user` is undefined, no error thrown
+
+For protected routes, invalid or missing tokens will throw a 401 error.
+:::
+
 ::: info Route Matching Precedence
 Nitro matches routes by specificity. More specific patterns take precedence:
 ```typescript
@@ -75,7 +95,26 @@ export default defineEventHandler(async (event) => {
 
 ### Optional Authentication
 
-Use `getAuthUser()` to optionally check authentication:
+Routes without explicit protection (`auth: false`, `'public'`, `'skip'`, or `undefined`) support optional authentication. When a Bearer token is provided, it will be verified and the user context populated, but missing or invalid tokens won't cause errors.
+
+```typescript
+// server/routes/api/posts.get.ts
+export default defineEventHandler(async (event) => {
+  // event.context.user is automatically populated if a valid token is present
+  // No error is thrown if missing or invalid - just undefined
+  const user = event.context.user
+  
+  if (user) {
+    // Return personalized posts for authenticated users
+    return await getPersonalizedPosts(user.sub)
+  }
+  
+  // Return public posts for anonymous users
+  return await getPublicPosts()
+})
+```
+
+Alternatively, use `getAuthUser()` which provides the same behavior explicitly:
 
 ```typescript
 // server/routes/api/posts.get.ts
@@ -92,6 +131,14 @@ export default defineEventHandler(async (event) => {
   return await getPublicPosts()
 })
 ```
+
+::: tip Token Verification on Public Routes
+The middleware automatically verifies Bearer tokens on public routes and populates `event.context.user` if valid. You don't need to explicitly call `getAuthUser()` unless you prefer the explicit API style.
+:::
+
+::: warning Invalid Tokens on Public Routes
+On public routes, invalid or expired tokens fail silently - `event.context.user` will be `undefined`. On protected routes, they throw a 401 error.
+:::
 
 ## Client-Side Route Protection
 

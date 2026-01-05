@@ -35,18 +35,12 @@ export default defineEventHandler(async (event) => {
   const authConfig = routeRules.nuxtAegis?.auth
 
   // Normalize auth value
-  // true | 'required' | 'protected' => protect route
-  // false | 'public' | 'skip' => skip authentication
-  // undefined => skip (opt-in behavior)
+  // true | 'required' | 'protected' => protect route (require authentication)
+  // false | 'public' | 'skip' => public route (optional authentication)
+  // undefined => public route (opt-in behavior, optional authentication)
   const shouldProtect = authConfig === true || authConfig === 'required' || authConfig === 'protected'
-  const shouldSkip = authConfig === false || authConfig === 'public' || authConfig === 'skip'
 
-  // MW-15: If route is not explicitly protected, skip (opt-in behavior)
-  if (!shouldProtect || shouldSkip) {
-    return
-  }
-
-  // Try to extract token
+  // Always try to extract token from the request
   let token: string | undefined
 
   // Try to read from Authorization header (Bearer token)
@@ -55,16 +49,21 @@ export default defineEventHandler(async (event) => {
     token = authHeader.substring(7) // Remove 'Bearer ' prefix
   }
 
+  // If no token is present
+  // Only throw 401 if route is protected
   if (!token) {
-    // MW-5: Return 401 if no token found
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
-      message: 'Authentication required',
-    })
+    if (shouldProtect) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Authentication required',
+      })
+    }
+    // For public routes without token, continue without authentication
+    return
   }
 
-  // Verify the token
+  // At this point, we have a token to verify
   if (!tokenConfig || !tokenConfig.secret) {
     logger.error('Token configuration is missing')
     throw createError({
@@ -74,30 +73,38 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // MW-1, MW-2, MW-3: Validate JWT (signature, expiration)
+  // Verify JWT signature and expiration
   const payload = await verifyToken(token, tokenConfig.secret)
 
   if (!payload) {
-    // EH-2: Log failure reason at debug level
     logger.debug('Token verification failed for path:', requestURL.pathname)
 
-    // MW-5: Return 401 if JWT is invalid or expired
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
-      message: 'Invalid or expired token',
-    })
+    // Only throw 401 if route is protected
+    if (shouldProtect) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid or expired token',
+      })
+    }
+    // For public routes, continue without authentication
+    return
   }
 
-  // MW-4: Verify the token's issuer claim matches the configured issuer
+  // Verify the token's issuer claim if configured
   if (tokenConfig.issuer && payload.iss !== tokenConfig.issuer) {
     logger.debug('Token issuer mismatch. Expected:', tokenConfig.issuer, 'Got:', payload.iss)
 
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
-      message: 'Invalid token issuer',
-    })
+    // Only throw 401 if route is protected
+    if (shouldProtect) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized',
+        message: 'Invalid token issuer',
+      })
+    }
+    // For public routes, continue without authentication
+    return
   }
 
   // Verify the token's audience claim if configured
@@ -109,15 +116,20 @@ export default defineEventHandler(async (event) => {
     if (!audienceMatch) {
       logger.debug('Token audience mismatch. Expected:', tokenConfig.audience, 'Got:', payload.aud)
 
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
-        message: 'Invalid token audience',
-      })
+      // Only throw 401 if route is protected
+      if (shouldProtect) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Unauthorized',
+          message: 'Invalid token audience',
+        })
+      }
+      // For public routes, continue without authentication
+      return
     }
   }
 
-  // MW-9, MW-10, MW-11: Inject decoded user data into request context
+  // Token is valid - ALWAYS set context.user (for both protected and public routes)
   // Filter JWT metadata claims (iat, exp, iss, aud) to prevent hydration mismatches
   // These are token metadata, not user properties
   const { iat, exp, iss, aud, ...userData } = payload
