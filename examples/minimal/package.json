@@ -9,8 +9,8 @@
         "preview": "nuxt preview"
     },
     "dependencies": {
-        "@peterbud/nuxt-aegis": "1.1.0-alpha.1",
-        "nuxt": "^4.2.2"
+        "@peterbud/nuxt-aegis": "1.1.0-alpha.3",
+        "nuxt": "^4.3.0"
     },
     "devDependencies": {
         "vue": "latest"
