@@ -123,7 +123,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (options.tokenRefresh?.encryption?.enabled) {
       const encryptionKey = options.tokenRefresh.encryption.key
 
-      if (!encryptionKey) {
+      if (!encryptionKey && nuxt.options._prepare !== true) {
         // Warn during build time, but don't throw - validation happens at runtime
         logger.warn(
           '[Nuxt Aegis] Encryption is enabled but no encryption key is configured. '
