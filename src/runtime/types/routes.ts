@@ -26,8 +26,8 @@ export interface ClientMiddlewareConfig {
   global?: boolean
   /** Redirect destination for unauthenticated users (required when enabled) */
   redirectTo: string
-  /** Redirect destination for authenticated users on logged-out pages (required when enabled) */
-  loggedOutRedirectTo: string
+  /** Redirect destination for authenticated users on logged-out pages */
+  loggedOutRedirectTo?: string
   /** Array of route patterns excluded from authentication (glob patterns supported) */
   publicRoutes?: string[]
 }
