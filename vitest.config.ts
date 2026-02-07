@@ -46,6 +46,8 @@ export default defineConfig({
             'test/redirect-config.test.ts',
             'test/ssr-enabled.test.ts',
             'test/rotation-disabled.test.ts',
+            'test/minimal-e2e.test.ts',
+            // 'test/update-claims.test.ts',
           ],
           pool: 'forks',
           poolOptions: {
