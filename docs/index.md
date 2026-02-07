@@ -44,6 +44,9 @@ features:
   - icon: 🎨
     title: Custom Claims
     details: Add application-specific claims to JWT tokens
+  - icon: 🗄️
+    title: Database Agnostic
+    details: No forced ORM or database - provides integration hooks to work with any storage layer (Prisma, Drizzle, raw SQL, MongoDB, etc.)
   - icon: 🍪
     title: Secure Cookie Management
     details: HTTP-only, secure cookies for refresh tokens

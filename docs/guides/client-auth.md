@@ -213,20 +213,23 @@ await logout()
 await logout('/goodbye')
 ```
 
-### `refresh()`
+### `refresh(options?)`
 
-Manually refreshes the access token using the refresh token.
+Manually refreshes the access token using the refresh token. Optionally recomputes custom claims.
 
 ```typescript
 const { refresh, user } = useAuth()
 
-// Refresh token manually
+// Basic refresh
 try {
   await refresh()
   console.log('Token refreshed:', user.value)
 } catch (error) {
   console.error('Refresh failed:', error)
 }
+
+// Refresh with updated claims (after role/permission change)
+await refresh({ updateClaims: true })
 ```
 
 ::: tip Automatic Refresh

@@ -56,6 +56,10 @@ export interface TokenRefreshConfig {
   automaticRefresh?: boolean
   /** Enable refresh token rotation on every refresh (default: true) */
   rotationEnabled?: boolean
+  /** Enable claims update endpoint and functionality (default: true) */
+  enableClaimsUpdate?: boolean
+  /** Re-execute onUserPersist hook when updating claims for fresh database data (default: false) */
+  recomputeOnUserPersist?: boolean
   /** Refresh token cookie configuration */
   cookie?: CookieConfig
   /** Encryption configuration for stored user data */

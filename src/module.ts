@@ -179,6 +179,9 @@ export default defineNuxtModule<ModuleOptions>({
       { name: 'deleteUserRefreshTokens', from: resolver.resolve('./runtime/server/utils/refreshToken') },
       { name: 'hashRefreshToken', from: resolver.resolve('./runtime/server/utils/refreshToken') },
 
+      // Claims recomputation utilities (from recomputeClaims.ts)
+      { name: 'recomputeCustomClaims', from: resolver.resolve('./runtime/server/utils/recomputeClaims') },
+
       // Cookie utilities (from cookies.ts)
       { name: 'setRefreshTokenCookie', from: resolver.resolve('./runtime/server/utils/cookies') },
 
@@ -215,6 +218,13 @@ export default defineNuxtModule<ModuleOptions>({
     addServerHandler({
       route: runtimeConfig.public.nuxtAegis.refreshPath,
       handler: resolver.resolve('./runtime/server/routes/refresh.post'),
+      method: 'post',
+    })
+
+    // Claims update endpoint
+    addServerHandler({
+      route: `${runtimeConfig.public.nuxtAegis.authPath}/update-claims`,
+      handler: resolver.resolve('./runtime/server/routes/update-claims.post'),
       method: 'post',
     })
 

@@ -42,7 +42,7 @@ interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
   /** Method to end the user session */
   logout: (redirectTo?: string) => Promise<void>
   /** Method to refresh the authentication state */
-  refresh: () => Promise<void>
+  refresh: (options?: { updateClaims?: boolean }) => Promise<void>
   /** Method to impersonate another user (admin only) */
   impersonate: (targetUserId: string, reason?: string) => Promise<void>
   /** Method to stop impersonation and restore original session */
@@ -75,7 +75,7 @@ interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
  * Methods:
  * - login(provider) - Initiate OAuth flow
  * - logout() - End user session
- * - refresh() - Restore authentication state
+ * - refresh(options?) - Restore authentication state, optionally with updated claims
  *
  * @template T - Custom token payload type extending BaseTokenClaims
  * @returns {UseAuthReturn<T>} Authentication state and methods
@@ -153,15 +153,26 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
    * 4. Store new access token in memory
    * 5. Decode token to update user state
    *
-   * @throws Clears auth state on 401 (invalid/expired refresh token)
+   * @param {Object} options - Optional configuration
+   * @param {boolean} options.updateClaims - When true, recomputes custom claims before refreshing (default: false)
+   * @throws {Error} If refresh or claims update fails
    */
-  async function refresh(): Promise<void> {
+  async function refresh(options?: { updateClaims?: boolean }): Promise<void> {
     authState.value.isLoading = true
     authState.value.error = null
 
-    logger.debug('Refreshing authentication state...')
+    logger.debug('Refreshing authentication state...', { updateClaims: options?.updateClaims })
 
     try {
+      // Optionally recompute custom claims before refreshing
+      if (options?.updateClaims) {
+        logger.debug('Updating custom claims before refresh...')
+        await $fetch<{ success: boolean, message: string }>(`${authPath}/update-claims`, {
+          method: 'POST',
+        })
+        logger.debug('Claims updated successfully in storage')
+      }
+
       // EP-27: Call refresh endpoint (refresh token sent automatically via httpOnly cookie)
       // RS-1: No old access token needed - server uses stored user object
       // IMPORTANT: Use $fetch directly instead of $api to avoid triggering the 401 interceptor
@@ -198,8 +209,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       clearAccessToken()
 
       logger.error('Auth refresh failed:', error)
-
-      // Don't throw - just clear state and let app handle unauthenticated state
+      throw error
     }
     finally {
       authState.value.isLoading = false

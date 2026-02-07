@@ -69,6 +69,59 @@
       "createdAt": "2024-05-12T16:45:00Z",
       "lastLogin": "2025-10-07T13:15:00Z",
       "organizationId": "Support"
+    },
+    {
+      "id": "mock-admin-001",
+      "sub": "mock-admin-001",
+      "email": "admin@example.com",
+      "name": "Admin User",
+      "given_name": "Admin",
+      "family_name": "User",
+      "picture": "https://i.pravatar.cc/150?img=6",
+      "role": "admin",
+      "permissions": [
+        "read",
+        "write",
+        "delete"
+      ],
+      "email_verified": true,
+      "createdAt": "2024-06-01T10:00:00Z",
+      "lastLogin": "2025-10-11T15:30:00Z",
+      "organizationId": "Admin"
+    },
+    {
+      "id": "mock-user-002",
+      "sub": "mock-user-002",
+      "email": "user@example.com",
+      "name": "Regular User",
+      "given_name": "Regular",
+      "family_name": "User",
+      "picture": "https://i.pravatar.cc/150?img=7",
+      "role": "user",
+      "subscription": "basic",
+      "permissions": [
+        "read"
+      ],
+      "email_verified": true,
+      "createdAt": "2024-06-02T11:00:00Z",
+      "lastLogin": "2025-10-11T14:20:00Z",
+      "organizationId": "Users"
+    },
+    {
+      "id": "mock-premium-003",
+      "sub": "mock-premium-003",
+      "email": "premium@example.com",
+      "name": "Premium User",
+      "picture": "https://i.pravatar.cc/150?img=8",
+      "role": "user",
+      "subscription": "premium",
+      "permissions": [
+        "read"
+      ],
+      "email_verified": true,
+      "createdAt": "2024-06-03T12:00:00Z",
+      "lastLogin": "2025-10-11T16:45:00Z",
+      "organizationId": "Premium"
     }
   ]
 }

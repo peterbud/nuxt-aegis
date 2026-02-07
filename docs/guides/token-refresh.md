@@ -287,25 +287,43 @@ Manual refresh is rarely needed when `automaticRefresh: true` is configured. The
 
 ## Custom Claims on Refresh
 
-When tokens are refreshed, the custom claims callback is invoked again:
+Custom claims are **resolved once during initial authentication** and then **stored with the refresh token**. When tokens are refreshed, the stored claims are reused - the customClaims callback is **not re-executed**.
 
 ```typescript
-// server/routes/auth/google.get.ts
-export default defineOAuthGoogleEventHandler({
-  customClaims: async (user, tokens) => {
-    // This runs on BOTH initial login AND token refresh
-    const userRole = await db.getUserRole(user.email)
-    
-    return {
-      role: userRole,
-      premium: await checkPremiumStatus(user.email),
-    }
-  },
+// server/plugins/aegis.ts
+export default defineNitroPlugin(() => {
+  defineAegisHandler({
+    customClaims: async (user) => {
+      // This runs ONLY during initial login
+      // The result is stored and reused on every refresh
+      const userRole = await db.getUserRole(user.email)
+      
+      return {
+        role: userRole,
+        premium: await checkPremiumStatus(user.email),
+      }
+    },
+  })
 })
 ```
 
-::: warning Provider Tokens Unavailable
-During token refresh, the OAuth provider's tokens are NOT available since we're not re-authenticating. Only the stored user object is passed to the callback.
+**Why claims are stored:**
+- ✅ **Fast refresh** - No database queries during token refresh
+- ✅ **Consistent claims** - Claims don't change unexpectedly
+- ✅ **Reliable state** - No chance of callback errors during refresh
+
+**When claims are stored:**
+- Initial login (OAuth flow)
+- Password authentication
+- User impersonation
+
+**When stored claims are reused:**
+- Every token refresh (automatic or manual)
+- SSR token generation
+- Until user logs out or session expires
+
+::: tip Updating Claims
+If user data changes (role, permissions, etc.) and you need to update the JWT claims without logout/login, use `refresh({ updateClaims: true })`. See the [Updating Claims](/guides/updating-claims) guide.
 :::
 
 ## Token Rotation

@@ -11,7 +11,14 @@ const publicApiResponse = ref()
 const publicApiError = ref<string | null>(null)
 const unauthApiResponse = ref()
 const unauthApiError = ref<string | null>(null)
-const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation } = useAuth<AppTokenClaims>()
+const { isLoggedIn, user, login, logout, isImpersonating, originalUser, impersonate, stopImpersonation, refresh } = useAuth<AppTokenClaims>()
+
+// Claims update state
+const selectedRole = ref<'user' | 'admin' | 'moderator'>('user')
+const selectedPermissions = ref<string[]>(['read'])
+const claimsUpdateResponse = ref<string | null>(null)
+const claimsUpdateError = ref<string | null>(null)
+const isUpdatingClaims = ref(false)
 
 // Password authentication state
 const passwordMode = ref<'login' | 'register' | 'reset' | null>(null)
@@ -26,6 +33,14 @@ const passwordSuccess = ref<string | null>(null)
 const showPasswordChange = ref(false)
 const resetSessionId = ref<string | null>(null)
 const pendingVerification = ref(false)
+
+// Sync selected role and permissions with current user
+watch(user, (newUser) => {
+  if (newUser) {
+    selectedRole.value = (newUser.role || 'user') as 'user' | 'admin' | 'moderator'
+    selectedPermissions.value = newUser.permissions || ['read']
+  }
+}, { immediate: true })
 
 const loginWithGoogle = async () => {
   login('google')
@@ -340,6 +355,77 @@ const testUnauthenticatedProtectedApi = async () => {
   }
   catch (err: unknown) {
     unauthApiError.value = (err as { statusCode?: number, statusMessage?: string, message?: string }).statusMessage || (err as Error).message || 'Failed to fetch protected route'
+  }
+}
+
+// Claims update handlers
+const handleUpdateRole = async () => {
+  claimsUpdateResponse.value = null
+  claimsUpdateError.value = null
+  isUpdatingClaims.value = true
+
+  try {
+    // Update role in database
+    const response = await useNuxtApp().$api('/api/admin/update-role', {
+      method: 'POST',
+      body: {
+        userId: user.value?.sub,
+        role: selectedRole.value,
+      },
+    })
+
+    claimsUpdateResponse.value = response.message
+
+    // Update claims and refresh JWT
+    await refresh({ updateClaims: true })
+
+    claimsUpdateResponse.value += '\n✅ JWT updated successfully! Check the user card above to see the new role.'
+  }
+  catch (err: unknown) {
+    claimsUpdateError.value = (err as Error).message || 'Failed to update role'
+  }
+  finally {
+    isUpdatingClaims.value = false
+  }
+}
+
+const handleUpdatePermissions = async () => {
+  claimsUpdateResponse.value = null
+  claimsUpdateError.value = null
+  isUpdatingClaims.value = true
+
+  try {
+    // Update permissions in database
+    const response = await useNuxtApp().$api('/api/admin/update-permissions', {
+      method: 'POST',
+      body: {
+        userId: user.value?.sub,
+        permissions: selectedPermissions.value,
+      },
+    })
+
+    claimsUpdateResponse.value = response.message
+
+    // Update claims and refresh JWT
+    await refresh({ updateClaims: true })
+
+    claimsUpdateResponse.value += '\n✅ JWT updated successfully! Check the user card above to see the new permissions.'
+  }
+  catch (err: unknown) {
+    claimsUpdateError.value = (err as Error).message || 'Failed to update permissions'
+  }
+  finally {
+    isUpdatingClaims.value = false
+  }
+}
+
+const togglePermission = (permission: string) => {
+  const index = selectedPermissions.value.indexOf(permission)
+  if (index > -1) {
+    selectedPermissions.value.splice(index, 1)
+  }
+  else {
+    selectedPermissions.value.push(permission)
   }
 }
 </script>
@@ -1038,6 +1124,149 @@ const testUnauthenticatedProtectedApi = async () => {
             >
               <h4>Impersonation Demo Response:</h4>
               <pre>{{ JSON.stringify(demoResponse, null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Claims Update -->
+        <div
+          v-if="isLoggedIn"
+          class="card section-claims"
+        >
+          <h3 class="section-title">
+            🔄 Update JWT Claims
+          </h3>
+          <p class="section-description">
+            Modify user role and permissions in the database, then update the JWT without re-authenticating.
+          </p>
+
+          <div class="form">
+            <label class="label">Role</label>
+            <select
+              v-model="selectedRole"
+              class="input"
+            >
+              <option value="user">
+                User
+              </option>
+              <option value="admin">
+                Admin
+              </option>
+              <option value="moderator">
+                Moderator
+              </option>
+            </select>
+
+            <label class="label">Permissions</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="selectedPermissions.includes('read')"
+                  @change="togglePermission('read')"
+                >
+                <span>Read</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="selectedPermissions.includes('write')"
+                  @change="togglePermission('write')"
+                >
+                <span>Write</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="selectedPermissions.includes('delete')"
+                  @change="togglePermission('delete')"
+                >
+                <span>Delete</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="selectedPermissions.includes('admin')"
+                  @change="togglePermission('admin')"
+                >
+                <span>Admin</span>
+              </label>
+            </div>
+
+            <div class="current-claims">
+              <strong>Current Claims:</strong>
+              <div class="claim-item">
+                Role: <code>{{ user?.role || 'N/A' }}</code>
+              </div>
+              <div class="claim-item">
+                Permissions: <code>{{ user?.permissions?.join(', ') || 'None' }}</code>
+              </div>
+            </div>
+
+            <div class="btn-group">
+              <button
+                class="btn btn-primary"
+                :disabled="isUpdatingClaims"
+                @click="handleUpdateRole"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle
+                    cx="12"
+                    cy="7"
+                    r="4"
+                  />
+                </svg>
+                {{ isUpdatingClaims ? 'Updating...' : 'Update Role' }}
+              </button>
+              <button
+                class="btn btn-primary"
+                :disabled="isUpdatingClaims"
+                @click="handleUpdatePermissions"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect
+                    x="3"
+                    y="11"
+                    width="18"
+                    height="11"
+                    rx="2"
+                    ry="2"
+                  />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                {{ isUpdatingClaims ? 'Updating...' : 'Update Permissions' }}
+              </button>
+            </div>
+
+            <div
+              v-if="claimsUpdateResponse"
+              class="response-box success"
+            >
+              <h4>✅ Success</h4>
+              <pre>{{ claimsUpdateResponse }}</pre>
+            </div>
+
+            <div
+              v-if="claimsUpdateError"
+              class="response-box error"
+            >
+              <h4>❌ Error</h4>
+              <pre>{{ claimsUpdateError }}</pre>
             </div>
           </div>
         </div>
@@ -1789,6 +2018,78 @@ const testUnauthenticatedProtectedApi = async () => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
+}
+
+.response-box.success {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.response-box.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Checkbox Group */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  user-select: none;
+}
+
+/* Current Claims */
+.current-claims {
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.current-claims strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.claim-item {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 0.375rem;
+}
+
+.claim-item code {
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.8125rem;
+  color: #10b981;
 }
 
 /* Session Data */

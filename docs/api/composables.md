@@ -27,7 +27,7 @@ function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): {
   originalUser: Ref<OriginalUser | null>
   login: (provider?: string, redirectTo?: string) => Promise<void>
   logout: (redirectTo?: string) => Promise<void>
-  refresh: () => Promise<void>
+  refresh: (options?: { updateClaims?: boolean }) => Promise<void>
   impersonate: (targetUserId: string, reason?: string) => Promise<void>
   stopImpersonation: () => Promise<void>
 }
@@ -232,26 +232,91 @@ await logout('/goodbye')
 
 **Returns:** `Promise<void>`
 
-### `refresh()`
+### `refresh(options?)`
 
-**Type:** `() => Promise<void>`
+**Type:** `(options?: { updateClaims?: boolean }) => Promise<void>`
 
-Manually refreshes the access token using the refresh token cookie.
+Manually refreshes the access token using the refresh token cookie. Optionally recomputes custom claims before refreshing.
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `options` | `{ updateClaims?: boolean }` | ❌ | `undefined` | Pass `{ updateClaims: true }` to recompute custom claims before refreshing |
 
 ```typescript
 const { refresh } = useAuth()
 
+// Basic refresh (reuse existing claims)
 try {
   await refresh()
   console.log('Token refreshed successfully')
 } catch (error) {
   console.error('Refresh failed:', error)
 }
+
+// Refresh with updated claims (after role/permission change)
+await refresh({ updateClaims: true })
 ```
 
 ::: info Automatic Refresh
 When `automaticRefresh: true` is configured, tokens are refreshed automatically. Manual refresh is rarely needed.
 :::
+
+::: tip Updating Claims
+Call `refresh({ updateClaims: true })` after changing user data (role, permissions, subscription) in your database. This recomputes custom claims using your global handler's `customClaims` callback, then issues a new JWT.
+:::
+
+**How Claims Update Works:**
+
+1. Calls `/auth/update-claims` to recompute custom claims
+2. Re-executes global handler's `customClaims` callback
+3. Updates stored refresh token data with new claims
+4. Calls `/auth/refresh` to get new JWT with updated claims
+5. Updates client state with new user data
+
+**Real-World Example:**
+
+```typescript
+const { refresh } = useAuth()
+
+async function promoteUserToAdmin(userId: string) {
+  // Update user in database
+  await $api(`/api/admin/users/${userId}/promote`, { method: 'POST' })
+  
+  // Refresh with updated claims
+  await refresh({ updateClaims: true })
+  
+  // User now has admin claims in JWT
+}
+```
+
+::: warning Global Handler Required
+Claims update requires `customClaims` to be defined in the global handler (`server/plugins/aegis.ts`). Provider-level custom claims cannot be recomputed at runtime.
+:::
+
+**Returns:** `Promise<void>`
+
+**Throws:**
+
+- `401` - No refresh token found or invalid token
+- `403` - Claims update feature disabled
+- `500` - Failed to recompute claims
+
+**Configuration:**
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      enableClaimsUpdate: true,        // Default: true
+      recomputeOnUserPersist: false,   // Default: false
+    },
+  },
+})
+```
+
+**See Also:** [Updating JWT Claims Guide](/guides/updating-claims)
 
 **Returns:** `Promise<void>`
 

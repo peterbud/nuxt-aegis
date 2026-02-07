@@ -939,7 +939,7 @@ interface UseAuthReturn<TUser = User> {
   isLoading: Ref<boolean>
   login: (provider: string, options?: LoginOptions) => Promise<void>
   logout: (options?: LogoutOptions) => Promise<void>
-  refresh: () => Promise<void>
+  refresh: (options?: { updateClaims?: boolean }) => Promise<void>
 }
 ```
 

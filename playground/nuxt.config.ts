@@ -103,6 +103,8 @@ export default defineNuxtConfig({
     tokenRefresh: {
       enabled: true,
       automaticRefresh: true,
+      enableClaimsUpdate: true,
+      recomputeOnUserPersist: true,
     },
     // Impersonation configuration (opt-in feature)
     impersonation: {
