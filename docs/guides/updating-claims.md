@@ -218,45 +218,6 @@ Claims defined in individual provider route handlers (e.g., `server/routes/auth/
 Move your dynamic custom claims logic to the global handler in `server/plugins/aegis.ts`.
 :::
 
-## Advanced: Custom Update Endpoint
-
-For advanced use cases, create your own update endpoint using the exported utilities:
-
-```typescript
-// server/api/admin/update-user-claims.post.ts
-import { defineEventHandler } from 'h3'
-import { requireAuth, recomputeCustomClaims, hashRefreshToken, getRefreshTokenData, storeRefreshTokenData } from '#nuxt-aegis-server'
-
-export default defineEventHandler(async (event) => {
-  // Require admin access
-  const authedEvent = requireAuth(event)
-  if (authedEvent.context.user.role !== 'admin') {
-    throw createError({ statusCode: 403, message: 'Admin access required' })
-  }
-
-  // Get target user's refresh token
-  const { userId } = await readBody(event)
-  const refreshToken = await getRefreshTokenForUser(userId)
-  
-  if (!refreshToken) {
-    throw createError({ statusCode: 404, message: 'User not found' })
-  }
-
-  // Recompute claims
-  const hashedToken = hashRefreshToken(refreshToken)
-  const storedData = await getRefreshTokenData(hashedToken, event)
-  const newClaims = await recomputeCustomClaims(storedData, event)
-  
-  // Update storage
-  await storeRefreshTokenData(hashedToken, {
-    ...storedData,
-    customClaims: newClaims,
-  }, event)
-
-  return { success: true }
-})
-```
-
 ## When to Update Claims
 
 Trigger `refresh({ updateClaims: true })` when:
@@ -273,6 +234,56 @@ Trigger `refresh({ updateClaims: true })` when:
 - ❌ User preferences or settings
 - ❌ Real-time data that changes frequently
 
+## Security Considerations
+
+### CSRF Protection
+
+The `/auth/update-claims` endpoint modifies server-side state (refresh token data). Since the refresh token is stored in an `httpOnly` cookie, the endpoint is protected against CSRF attacks through the cookie's `SameSite` attribute.
+
+Nuxt Aegis sets `SameSite=Lax` by default on the refresh token cookie, which prevents cross-site `POST` requests from including the cookie:
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      cookie: {
+        sameSite: 'lax', // Default — prevents CSRF on POST requests
+      },
+    },
+  },
+})
+```
+
+For stricter protection, use `sameSite: 'strict'`:
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      cookie: {
+        sameSite: 'strict', // Blocks cookie on all cross-site requests
+      },
+    },
+  },
+})
+```
+
+::: tip SameSite Values
+- **`lax`** (default) — Cookie sent on top-level navigations and same-site requests. Cross-site `POST` requests (the CSRF vector) **do not** include the cookie.
+- **`strict`** — Cookie only sent on same-site requests. Provides the strongest CSRF protection but may affect UX when users follow links from external sites.
+- **`none`** — **Not recommended.** Cookie sent on all requests, requiring `Secure` flag. Only use if your architecture requires cross-origin authentication.
+:::
+
+### Rate Limiting
+
+The `/auth/update-claims` endpoint can trigger database queries (via `customClaims` and optionally `onUserPersist`). Without rate limiting, an authenticated user could abuse this endpoint to generate excessive database load.
+
+Nuxt Aegis does not include built-in rate limiting. You should add rate limiting middleware for the claims update endpoint in production.
+
+::: warning Production Requirement
+Rate limiting is strongly recommended for any deployment where `enableClaimsUpdate` is `true`. This is especially important when `recomputeOnUserPersist: true`, as each request may trigger a database query via the `onUserPersist` hook.
+:::
+
 ## Best Practices
 
 ::: tip Keep Claims Small
@@ -288,6 +299,7 @@ When claims like `role` or `permissions` change, ensure users cannot exploit the
 - Validating permissions on server-side for sensitive operations
 - Calling `refresh({ updateClaims: true })` in the same transaction as the database update
 - Using short JWT expiration times for high-security applications
+- Adding [rate limiting](#rate-limiting) to the claims update endpoint
 :::
 
 ::: info Alternative: Shorter Expiration
@@ -326,153 +338,7 @@ await refresh()
 await refresh({ updateClaims: true })
 ```
 
-## Troubleshooting
 
-### Claims Not Updating
-
-**Problem:** Claims stay the same after calling `refresh({ updateClaims: true })`
-
-**Solutions:**
-- Ensure you're defining `customClaims` in the **global handler** (`server/plugins/aegis.ts`), not in provider route handlers
-- Verify `tokenRefresh.enableClaimsUpdate` is `true` (default)
-- Check that `customClaims` callback returns the updated data
-- Verify database changes are committed before calling `refresh({ updateClaims: true })`
-- Enable `recomputeOnUserPersist: true` if you need fresh DB data
-
-### Feature Disabled Error
-
-**Problem:** `403 Forbidden: Claims update feature is disabled`
-
-**Solution:** Enable the feature in your config:
-
-```typescript
-export default defineNuxtConfig({
-  nuxtAegis: {
-    tokenRefresh: {
-      enableClaimsUpdate: true,
-    },
-  },
-})
-```
-
-### No Global Handler
-
-**Problem:** Claims return to old values after update
-
-**Solution:** Register a global handler in `server/plugins/aegis.ts`:
-
-```typescript
-export default defineNitroPlugin(() => {
-  defineAegisHandler({
-    customClaims: async (user) => {
-      // Your claims logic here
-      return { role: user.role }
-    },
-  })
-})
-```
-
-## Next Steps
-
-- [Understand token refresh](/guides/token-refresh)
-- [Learn about custom claims](/guides/custom-claims)
-- [Set up global handlers](/guides/handlers)
-- [Implement route protection](/guides/route-protection)
-
-  const authedEvent = requireAuth(event)
-  const userId = authedEvent.context.user.sub
-
-  // Get the refresh token from cookie
-  const config = useRuntimeConfig(event)
-  const cookieName = config.nuxtAegis?.tokenRefresh?.cookie?.cookieName || 'nuxt-aegis-refresh'
-  const refreshToken = getCookie(event, cookieName)
-
-  if (!refreshToken) {
-    throw createError({
-      statusCode: 401,
-      message: 'No refresh token found',
-    })
-  }
-
-  // Hash the token
-  const hashedToken = hashRefreshToken(refreshToken)
-
-  // Get existing refresh token data
-  const existingData = await getRefreshTokenData(hashedToken, event)
-
-  if (!existingData || existingData.sub !== userId) {
-    throw createError({
-      statusCode: 403,
-      message: 'Invalid refresh token',
-    })
-  }
-
-  // Fetch fresh user data and compute new claims
-  // This is YOUR application logic
-  const userRole = await db.getUserRole(userId)
-  const permissions = await db.getUserPermissions(userId)
-
-  const newCustomClaims = {
-    role: userRole,
-    permissions: permissions,
-    // ... other claims
-  }
-
-  // Update stored refresh token data with new claims
-  await storeRefreshTokenData(hashedToken, {
-    ...existingData,
-    customClaims: newCustomClaims,
-  }, event)
-
-  return {
-    success: true,
-    message: 'Claims updated successfully',
-  }
-})
-```
-
-Then call this endpoint before refreshing:
-
-```typescript
-const { refresh } = useAuth()
-
-// Update stored claims
-await $api('/api/auth/update-claims', { method: 'POST' })
-
-// Now refresh to get a new JWT with updated claims
-await refresh()
-
-// user.value now has the updated claims!
-```
-
-**Pros:**
-- No re-authentication needed
-- Seamless user experience
-- Claims update immediately
-
-**Cons:**
-- Requires custom endpoint
-- Must manually trigger update
-- Need access to nuxt-aegis internals
-
-### Option 3: Re-authenticate Silent Flow (OAuth 2.0)
-
-Some OAuth providers support silent re-authentication. This would require extending nuxt-aegis with a silent refresh flow that goes through the OAuth provider again but without user interaction (if they still have an active session with the provider).
-
-This is **not currently implemented** in nuxt-aegis but could be added as a feature request.
-
-## When to Update Claims
-
-Trigger claim updates when:
-- User role changes (admin promotion/demotion)
-- Permissions change
-- Subscription status changes
-- User profile data changes that's included in claims
-
-## Best Practices
-
-::: warning Keep Claims Small
-Claims are included in every request. Only store essential data in claims and fetch detailed data from your API when needed.
 ## Next Steps
 
 - [Understand token refresh](/guides/token-refresh)

@@ -87,6 +87,7 @@ export default defineConfig({
           { text: 'Logic Handlers', link: '/guides/handlers' },
           { text: 'Authentication Hooks', link: '/guides/hooks' },
           { text: 'Token Refresh', link: '/guides/token-refresh' },
+          { text: 'Updating Claims', link: '/guides/updating-claims' },
           { text: 'Authorization CODE Flow', link: '/guides/authorization-code' },
           { text: 'Impersonation', link: '/guides/impersonation' },
           { text: 'Password Authentication', link: '/guides/password-auth' },
