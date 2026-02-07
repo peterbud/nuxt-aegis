@@ -153,7 +153,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
    * 4. Store new access token in memory
    * 5. Decode token to update user state
    *
-   * @param {Object} options - Optional configuration
+   * @param {object} options - Optional configuration
    * @param {boolean} options.updateClaims - When true, recomputes custom claims before refreshing (default: false)
    * @throws {Error} If refresh or claims update fails
    */

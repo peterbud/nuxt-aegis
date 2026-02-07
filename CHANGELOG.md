@@ -1,6 +1,28 @@
 # Changelog
 
 
+## v1.1.0-alpha.4
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.3...v1.1.0-alpha.4)
+
+### 🚀 Enhancements
+
+- Add minimal E2E test suite for nuxt-aegis authentication flow ([5c156be](https://github.com/peterbud/nuxt-aegis/commit/5c156be))
+- Add claims update functionality ([494e9fd](https://github.com/peterbud/nuxt-aegis/commit/494e9fd))
+
+### 🩹 Fixes
+
+- Don't throw warning at prepare ([3f06b89](https://github.com/peterbud/nuxt-aegis/commit/3f06b89))
+- Make loggedOutRedirectTo optional in ClientMiddlewareConfig ([cee00ff](https://github.com/peterbud/nuxt-aegis/commit/cee00ff))
+
+### 🏡 Chore
+
+- Update dependencies ([ee91d93](https://github.com/peterbud/nuxt-aegis/commit/ee91d93))
+
+### Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.3
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.2...v1.1.0-alpha.3)
