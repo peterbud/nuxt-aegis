@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v1.1.0-alpha.5
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.4...v1.1.0-alpha.5)
+
+### 🚀 Enhancements
+
+- Enhance impersonation feature with original user lookup claim and related updates ([c7f9c17](https://github.com/peterbud/nuxt-aegis/commit/c7f9c17))
+
+### 📖 Documentation
+
+- Add 'Updating Claims' section and extend security considerations ([968a1e7](https://github.com/peterbud/nuxt-aegis/commit/968a1e7))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.4
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.3...v1.1.0-alpha.4)
