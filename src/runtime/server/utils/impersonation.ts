@@ -42,6 +42,21 @@ function getClientInfo(event: H3Event): { ip?: string, userAgent?: string } {
   return { ip, userAgent }
 }
 
+function resolveOriginalUserLookupId(requester: BaseTokenClaims): string {
+  const config = useRuntimeConfig()
+  const lookupClaim = config.nuxtAegis?.impersonation?.originalUserLookupClaim || 'sub'
+  const lookupValue = requester[lookupClaim]
+
+  if (typeof lookupValue !== 'string' || lookupValue.length === 0) {
+    throw createError({
+      statusCode: 500,
+      message: `Impersonation originalUserLookupClaim "${lookupClaim}" must resolve to a non-empty string on the requester token`,
+    })
+  }
+
+  return lookupValue
+}
+
 /**
  * Check if the requester is allowed to impersonate other users
  * @param requester - The user requesting impersonation
@@ -140,6 +155,7 @@ export async function fetchTargetUser(
  * @param requester - The user performing impersonation
  * @param targetUserData - Target user data from database
  * @param reason - Optional reason for impersonation
+ * @param originalUserLookupId - Original user lookup ID used for restoration
  * @param _event - H3 event for context
  * @returns JWT access token (no refresh token)
  */
@@ -147,6 +163,7 @@ export async function generateImpersonatedToken(
   requester: BaseTokenClaims,
   targetUserData: Record<string, unknown>,
   reason: string | undefined,
+  originalUserLookupId: string,
   _event: H3Event,
 ): Promise<string> {
   const config = useRuntimeConfig()
@@ -172,7 +189,8 @@ export async function generateImpersonatedToken(
   }
 
   const impersonationContext: ImpersonationContext = {
-    originalUserId: requester.sub,
+    originalUserSub: requester.sub,
+    originalUserLookupId,
     originalUserEmail: requester.email,
     originalUserName: requester.name,
     impersonatedAt: new Date().toISOString(),
@@ -241,10 +259,13 @@ export async function startImpersonation(
   // 2. Fetch target user data
   const targetUserData = await fetchTargetUser(requester, targetUserId, event)
 
-  // 3. Generate impersonated token
-  const accessToken = await generateImpersonatedToken(requester, targetUserData, reason, event)
+  // 3. Resolve original user lookup id for restoration
+  const originalUserLookupId = resolveOriginalUserLookupId(requester)
 
-  // 4. Emit audit hook (fire-and-forget, after successful token generation)
+  // 4. Generate impersonated token
+  const accessToken = await generateImpersonatedToken(requester, targetUserData, reason, originalUserLookupId, event)
+
+  // 5. Emit audit hook (fire-and-forget, after successful token generation)
   const { ip, userAgent } = getClientInfo(event)
 
   const targetPayload: BaseTokenClaims = {
@@ -305,7 +326,7 @@ export async function endImpersonation(
   try {
     originalUserData = await fetchTargetUser(
       currentToken, // Pass current token as requester (for context)
-      impersonation.originalUserId,
+      impersonation.originalUserLookupId,
       event,
     )
   }
@@ -314,7 +335,7 @@ export async function endImpersonation(
     // If user not found (404), use stored context
     if (err.statusCode === 404) {
       logger.warn('Original user not found in database, using stored context', {
-        userId: impersonation.originalUserId,
+        userLookupId: impersonation.originalUserLookupId,
       })
       // Will use stored context below
     }
@@ -339,7 +360,7 @@ export async function endImpersonation(
   const originalPayload: BaseTokenClaims = {
     sub: originalUserData
       ? ((originalUserData.sub || originalUserData.id || originalUserData.email) as string)
-      : impersonation.originalUserId,
+      : impersonation.originalUserSub,
     email: originalUserData
       ? (originalUserData.email as string | undefined)
       : impersonation.originalUserEmail,

@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     })
 
     logger.security('Impersonation ended', {
-      originalUser: currentToken.impersonation?.originalUserId,
+      originalUser: currentToken.impersonation?.originalUserSub,
       wasImpersonating: currentToken.sub,
     })
 

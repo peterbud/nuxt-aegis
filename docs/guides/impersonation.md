@@ -35,6 +35,9 @@ export default defineNuxtConfig({
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `false` | Enable or disable impersonation feature |
 | `tokenExpiration` | `number` | `900` | Impersonated token expiration in seconds |
+| `originalUserLookupClaim` | `string` | `'sub'` | Token claim used to refetch the original user when ending impersonation |
+
+`originalUserLookupClaim` is useful when your JWT `sub` is a provider-specific identifier but your `impersonation.fetchTarget()` handler expects an application-level identifier such as `userId`.
 
 ## Required Handlers
 
@@ -196,7 +199,7 @@ async function handleStopImpersonation() {
 #### Properties
 
 - **`isImpersonating`**: `ComputedRef<boolean>` - True when currently impersonating
-- **`originalUser`**: `ComputedRef<{ originalUserId, originalUserEmail, originalUserName } | null>` - Original user data when impersonating
+- **`originalUser`**: `ComputedRef<{ originalUserSub, originalUserEmail, originalUserName } | null>` - Original user subject and profile data when impersonating
 
 #### Methods
 
@@ -315,7 +318,8 @@ When impersonating, the JWT includes an `impersonation` object:
   "name": "Target User",
   "role": "user",
   "impersonation": {
-    "originalUserId": "admin-user-id",
+    "originalUserSub": "auth-provider-admin-sub",
+    "originalUserLookupId": "database-admin-id",
     "originalUserEmail": "admin@example.com",
     "originalUserName": "Admin User",
     "impersonatedAt": "2024-01-15T10:30:00.000Z",
@@ -435,7 +439,8 @@ interface ImpersonateEndPayload {
 
 // Impersonation context in JWT
 interface ImpersonationContext {
-  originalUserId: string
+  originalUserSub: string
+  originalUserLookupId: string
   originalUserEmail?: string
   originalUserName?: string
   impersonatedAt: string

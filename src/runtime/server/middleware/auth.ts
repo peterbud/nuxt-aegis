@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
   // If impersonating, also inject original user data for audit trails and permission checks
   if (payload.impersonation) {
     event.context.originalUser = {
-      sub: payload.impersonation.originalUserId,
+      sub: payload.impersonation.originalUserSub,
       email: payload.impersonation.originalUserEmail,
       name: payload.impersonation.originalUserName,
     }

@@ -148,7 +148,7 @@ Original user information when impersonating. Returns `null` when not impersonat
 const { originalUser, isImpersonating } = useAuth()
 
 if (isImpersonating.value) {
-  console.log('Original user ID:', originalUser.value?.originalUserId)
+  console.log('Original user sub:', originalUser.value?.originalUserSub)
   console.log('Original user email:', originalUser.value?.originalUserEmail)
   console.log('Original user name:', originalUser.value?.originalUserName)
 }
@@ -158,7 +158,7 @@ if (isImpersonating.value) {
 
 ```typescript
 interface OriginalUser {
-  originalUserId: string      // Original user's ID
+  originalUserSub: string     // Original user's JWT subject
   originalUserEmail?: string  // Original user's email
   originalUserName?: string   // Original user's name
 }

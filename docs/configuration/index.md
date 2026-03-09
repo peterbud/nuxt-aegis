@@ -254,6 +254,7 @@ Configure the user impersonation feature.
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `false` | Enable user impersonation feature |
 | `tokenExpiration` | `number` | `900` | Impersonation token expiration in seconds (15 mins) |
+| `originalUserLookupClaim` | `string` | `'sub'` | Token claim used to restore the original user through `impersonation.fetchTarget()` |
 
 ::: warning Security Implication
 Impersonation is a powerful feature. Ensure only authorized administrators can access the impersonation endpoints.

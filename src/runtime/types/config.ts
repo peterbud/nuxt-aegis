@@ -64,6 +64,8 @@ export interface ImpersonationConfig {
   enabled?: boolean
   /** Token expiration time for impersonated sessions in seconds (default: 900 = 15 minutes) */
   tokenExpiration?: number
+  /** Token claim name used to resolve the original user when ending impersonation (default: 'sub') */
+  originalUserLookupClaim?: string
 }
 
 /**

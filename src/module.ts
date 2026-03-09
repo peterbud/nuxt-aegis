@@ -81,6 +81,11 @@ export default defineNuxtModule<ModuleOptions>({
       level: 'info',
       security: false,
     },
+    impersonation: {
+      enabled: false,
+      tokenExpiration: 900,
+      originalUserLookupClaim: 'sub',
+    },
   },
   setup(options, nuxt) {
     // Runtime Config
@@ -289,7 +294,7 @@ export default defineNuxtModule<ModuleOptions>({
 
         // CL-29: Automatically include redirect destinations in publicRoutes to prevent loops
         const redirectRoutes = [cm.redirectTo, cm.loggedOutRedirectTo]
-        const allPublicRoutes = [...new Set([...userPublicRoutes, ...redirectRoutes])]
+        const allPublicRoutes = [...new Set([...userPublicRoutes, ...redirectRoutes].filter((route): route is string => Boolean(route)))]
 
         // Update the config with normalized publicRoutes
         options.clientMiddleware.publicRoutes = allPublicRoutes

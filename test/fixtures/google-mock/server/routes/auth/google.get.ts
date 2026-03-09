@@ -17,12 +17,15 @@
  * This allows testing the complete OAuth flow without external dependencies.
  */
 export default defineOAuthMockEventHandler({
-  // Optional: Add custom claims to the JWT tokens
-  // These will be merged into the JWT payload after authentication
-  customClaims: {
-    role: 'user',
-    permissions: ['read', 'write'],
-  },
+  customClaims: providerUserInfo => ({
+    role: providerUserInfo.role as string | undefined,
+    permissions: providerUserInfo.permissions as string[] | undefined,
+    userId: providerUserInfo.userId as string | undefined,
+    userName: providerUserInfo.userName as string | undefined,
+    subscriptionTier: providerUserInfo.subscriptionTier as string | undefined,
+    subscriptionStatus: providerUserInfo.subscriptionStatus as string | undefined,
+    preferredLanguage: providerUserInfo.preferredLanguage as string | undefined,
+  }),
 
   // Optional: Error handler for OAuth errors
   // onError: async (error, event) => {

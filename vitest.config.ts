@@ -41,6 +41,7 @@ export default defineConfig({
             'test/basic.test.ts',
             'test/google-mock.test.ts',
             'test/google-mock-errors.test.ts',
+            'test/google-mock-impersonation.test.ts',
             'test/google-mock-protected.test.ts',
             'test/password-auth.test.ts',
             'test/redirect-config.test.ts',

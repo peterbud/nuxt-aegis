@@ -8,8 +8,10 @@
  * Contains essential information about the original user when impersonating
  */
 export interface ImpersonationContext {
-  /** Original user ID (sub) who is performing the impersonation */
-  originalUserId: string
+  /** Original user subject (`sub`) who is performing the impersonation */
+  originalUserSub: string
+  /** Original user lookup ID used to refetch the user when ending impersonation */
+  originalUserLookupId: string
   /** Original user email */
   originalUserEmail?: string
   /** Original user name */

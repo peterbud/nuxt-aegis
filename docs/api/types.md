@@ -219,7 +219,8 @@ Context information stored in JWT when a user is impersonating another user.
 
 ```typescript
 interface ImpersonationContext {
-  originalUserId: string                // Original user ID performing impersonation
+  originalUserSub: string               // Original user's JWT subject performing impersonation
+  originalUserLookupId: string          // Original user lookup ID used during unimpersonate
   originalUserEmail?: string            // Original user email
   originalUserName?: string             // Original user name
   impersonatedAt: string                // Timestamp when impersonation started
@@ -234,7 +235,7 @@ interface ImpersonationContext {
 const user = getAuthUser(event)
 
 if (user.impersonation) {
-  console.log(`User ${user.impersonation.originalUserId} is impersonating ${user.sub}`)
+  console.log(`User ${user.impersonation.originalUserSub} is impersonating ${user.sub}`)
   console.log(`Reason: ${user.impersonation.reason}`)
 }
 ```

@@ -36,7 +36,7 @@ interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
   /** Reactive property indicating if currently impersonating another user */
   isImpersonating: ComputedRef<boolean>
   /** Reactive property containing original user data when impersonating */
-  originalUser: ComputedRef<{ originalUserId: string, originalUserEmail?: string, originalUserName?: string } | null>
+  originalUser: ComputedRef<{ originalUserSub: string, originalUserEmail?: string, originalUserName?: string } | null>
   /** Method to initiate the authentication flow */
   login: (provider?: string, redirectTo?: string) => Promise<void>
   /** Method to end the user session */
@@ -126,7 +126,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       return null
     }
     return {
-      originalUserId: impersonation.originalUserId,
+      originalUserSub: impersonation.originalUserSub,
       originalUserEmail: impersonation.originalUserEmail,
       originalUserName: impersonation.originalUserName,
     }
@@ -332,7 +332,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
 
           logger.debug('Impersonation started successfully', {
             targetUser: payload.sub,
-            originalUser: payload.impersonation?.originalUserId,
+            originalUser: payload.impersonation?.originalUserSub,
           })
         }
       }

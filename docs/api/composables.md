@@ -171,7 +171,7 @@ if (isImpersonating.value) {
 
 ```typescript
 interface OriginalUser {
-  originalUserId: string      // Original user's ID
+  originalUserSub: string     // Original user's JWT subject
   originalUserEmail?: string  // Original user's email
   originalUserName?: string   // Original user's name
 }
@@ -601,7 +601,8 @@ export interface AppUser {
   organizationId: string
   premium: boolean
   impersonation?: {
-    originalUserId: string
+    originalUserSub: string
+    originalUserLookupId: string
     originalUserEmail?: string
     originalUserName?: string
     impersonatedAt: string
