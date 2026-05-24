@@ -446,6 +446,26 @@ export default defineEventHandler(async (event) => {
 
 ## Testing Token Refresh
 
+If your app test suite is **not** exercising Nuxt Aegis auth routes, disable automatic refresh during tests. Otherwise the client plugin will attempt `POST /auth/refresh` on startup and log a 404 warning when that route is not registered in the test app.
+
+```typescript
+const isTest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'
+
+export default defineNuxtConfig({
+  nuxtAegis: {
+    tokenRefresh: {
+      automaticRefresh: !isTest,
+    },
+  },
+})
+```
+
+Use this only for application tests that do not cover authentication flows. Keep `automaticRefresh: true` in integration or end-to-end tests that validate login, refresh, or session restoration behavior.
+
+::: tip
+Disable `automaticRefresh`, not `enabled`. Automatic startup refresh and retry behavior are controlled by `tokenRefresh.automaticRefresh`.
+:::
+
 Test refresh functionality in your test suite:
 
 ```typescript

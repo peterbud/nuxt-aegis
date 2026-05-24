@@ -61,12 +61,12 @@ export default defineNuxtConfig({
   
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      secret: process.env.NUXT_NUXT_AEGIS_TOKEN_SECRET!,
     },
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: process.env.NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET!,
       },
     },
   },
@@ -114,6 +114,7 @@ const { user, isLoggedIn, login, logout } = useAuth()
 
 Ready to dive deeper? Check out the full documentation:
 
+- **[Documentation Home](https://peterbud.github.io/nuxt-aegis/)** - Main documentation site.
 - **[Getting Started](https://peterbud.github.io/nuxt-aegis/getting-started/installation)** - Installation and setup guides.
 - **[Architecture](https://peterbud.github.io/nuxt-aegis/architecture/)** - Overview of the system architecture.
 - **[Providers](https://peterbud.github.io/nuxt-aegis/providers/)** - Configure Google, GitHub, Auth0, Password, and Mock providers.
