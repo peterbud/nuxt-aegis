@@ -24,10 +24,8 @@ export default defineConfig({
           name: 'unit',
           include: ['test/unit/**/*.test.ts'],
           pool: 'forks',
-          poolOptions: {
-            forks: {
-              singleFork: false, // Allow parallel execution
-            },
+          sequence: {
+            groupOrder: 0,
           },
           testTimeout: 10000,
           hookTimeout: 10000,
@@ -50,10 +48,10 @@ export default defineConfig({
             'test/minimal-e2e.test.ts',
           ],
           pool: 'forks',
-          poolOptions: {
-            forks: {
-              singleFork: true, // Force sequential execution
-            },
+          maxWorkers: 1,
+          isolate: false,
+          sequence: {
+            groupOrder: 1,
           },
           testTimeout: 60000,
           hookTimeout: 60000,
