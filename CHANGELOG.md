@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v1.1.0-alpha.6
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.5...v1.1.0-alpha.6)
+
+### 💅 Refactors
+
+- Update test configuration by removing poolOptions and adjusting sequence settings ([aa22bf7](https://github.com/peterbud/nuxt-aegis/commit/aa22bf7))
+
+### 📖 Documentation
+
+- Unify environment variable names for token management ([891ac27](https://github.com/peterbud/nuxt-aegis/commit/891ac27))
+
+### 🏡 Chore
+
+- Update dependencies ([3b3d1b3](https://github.com/peterbud/nuxt-aegis/commit/3b3d1b3))
+- Run pnpm dedupe ([e3ef071](https://github.com/peterbud/nuxt-aegis/commit/e3ef071))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.5
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.4...v1.1.0-alpha.5)
