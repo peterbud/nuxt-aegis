@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v1.1.0-alpha.7
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.6...v1.1.0-alpha.7)
+
+### 🚀 Enhancements
+
+- Implement custom redirect handling in OAuth flow ([955b9fa](https://github.com/peterbud/nuxt-aegis/commit/955b9fa))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.6
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.5...v1.1.0-alpha.6)
