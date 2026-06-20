@@ -175,7 +175,7 @@ Initiates the OAuth login flow for the specified provider.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `provider` | `string` | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`). Defaults to `'google'` |
-| `redirectTo` | `string` | Optional redirect path after login (not currently implemented) |
+| `redirectTo` | `string` | Optional relative redirect path after login. Overrides `redirect.success` for that login attempt |
 
 **Example:**
 
@@ -189,6 +189,9 @@ await login()
 await login('google')
 await login('github')
 await login('auth0')
+
+// Login with a custom post-login destination for this request
+await login('google', '/dashboard?from=auth')
 ```
 
 ### `logout(redirectTo?)`

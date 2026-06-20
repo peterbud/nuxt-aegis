@@ -11,6 +11,30 @@ import { useAegisHandler } from '../utils/handler'
 
 const logger = createLogger('OAuth')
 
+const OAUTH_STATE_PREFIX = 'nuxt-aegis:'
+
+interface OAuthStatePayload {
+  redirectTo?: string
+  state?: string
+}
+
+function encodeOAuthState(payload: OAuthStatePayload): string {
+  return `${OAUTH_STATE_PREFIX}${JSON.stringify(payload)}`
+}
+
+function decodeOAuthState(state?: string): OAuthStatePayload {
+  if (!state?.startsWith(OAUTH_STATE_PREFIX)) {
+    return { state }
+  }
+
+  try {
+    return JSON.parse(state.slice(OAUTH_STATE_PREFIX.length)) as OAuthStatePayload
+  }
+  catch {
+    return { state }
+  }
+}
+
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0' | 'mock'
 
@@ -173,7 +197,8 @@ export function defineOAuthEventHandler<
         })
       }
 
-      const query = getQuery<{ code?: string, state?: string, error?: string }>(event)
+      const query = getQuery<{ code?: string, state?: string, error?: string, redirectTo?: string }>(event)
+      const statePayload = decodeOAuthState(query.state)
 
       // Handle OAuth error responses
       if (query.error) {
@@ -187,7 +212,13 @@ export function defineOAuthEventHandler<
       const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
       // EP-2: Step 1 - Redirect to authorization server if no code
       if (!query.code) {
-        const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, query.state)
+        const authState = query.redirectTo || query.state
+          ? encodeOAuthState({
+            redirectTo: query.redirectTo,
+            state: query.state,
+          })
+          : undefined
+        const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
       }
 
@@ -326,6 +357,10 @@ export function defineOAuthEventHandler<
         // PR-13: Redirect to client-side callback with authorization CODE
         const callbackUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
         callbackUrl.searchParams.set('code', authCode)
+
+        if (statePayload.redirectTo) {
+          callbackUrl.searchParams.set('redirectTo', statePayload.redirectTo)
+        }
 
         return sendRedirect(event, callbackUrl.href)
       }

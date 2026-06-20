@@ -54,6 +54,12 @@ const loginWithAuth0 = async () => {
   login('auth0')
 }
 
+const redirectDemoPath = '/login-redirect-demo?from=playground'
+
+const loginWithRedirectDemo = async () => {
+  await login('mock', redirectDemoPath)
+}
+
 const loginWithMock = async (userType?: string) => {
   // Navigate to mock provider with optional user parameter
   const url = userType ? `/auth/mock?user=${userType}` : '/auth/mock'
@@ -638,6 +644,21 @@ const togglePermission = (permission: string) => {
                 @click="loginWithMock('premium')"
               >
                 Login as Premium
+              </button>
+            </div>
+
+            <div class="redirect-demo">
+              <h4 class="redirect-demo-title">
+                Redirect Demo
+              </h4>
+              <p class="redirect-demo-description">
+                This button uses <code>login('mock', '{{ redirectDemoPath }}')</code> and should land on a dedicated success page after authentication.
+              </p>
+              <button
+                class="btn btn-primary"
+                @click="loginWithRedirectDemo"
+              >
+                Login and Redirect to Demo Page
               </button>
             </div>
           </div>
@@ -1816,6 +1837,34 @@ const togglePermission = (permission: string) => {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
+}
+
+.redirect-demo {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.redirect-demo-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.redirect-demo-description {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.redirect-demo-description code {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 0.8125rem;
 }
 
 /* Buttons */

@@ -38,6 +38,7 @@ onMounted(async () => {
     const urlParams = new URLSearchParams(window.location.search)
     const code = urlParams.get('code')
     const errorParam = urlParams.get('error')
+    const redirectTo = urlParams.get('redirectTo')
 
     // CL-24: Handle error from query params
     if (errorParam) {
@@ -115,8 +116,10 @@ onMounted(async () => {
 
     processing.value = false
 
-    // Redirect to configured success URL
-    const successUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.success || '/')
+    // Redirect to requested success URL for this login attempt, then fallback to configured success URL
+    const successUrl = redirectTo
+      ? validateRedirectPath(redirectTo)
+      : validateRedirectPath(config.public.nuxtAegis.redirect?.success || '/')
     await navigateTo(successUrl)
   }
   catch (err) {

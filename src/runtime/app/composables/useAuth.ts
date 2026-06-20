@@ -225,10 +225,10 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
    * The callback page will exchange this CODE for JWT tokens.
    *
    * @param {string} provider - OAuth provider name (e.g., 'google', 'github', 'auth0')
-   * @param {string} _redirectTo - Reserved for future use; redirect path after authentication
+   * @param {string} redirectTo - Optional redirect path after authentication
    * @throws {Error} If provider is invalid
    */
-  async function login(provider = 'google', _redirectTo?: string): Promise<void> {
+  async function login(provider = 'google', redirectTo?: string): Promise<void> {
     try {
       authState.value.error = null
 
@@ -237,8 +237,15 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
         throw new Error('Provider must be a non-empty string')
       }
 
-      // Build login URL with optional redirect
-      await navigateTo(`${loginPath}/${provider}`, { external: true })
+      const loginUrl = `${loginPath}/${provider}`
+
+      if (redirectTo) {
+        const validatedRedirect = validateRedirectPath(redirectTo)
+        await navigateTo(`${loginUrl}?redirectTo=${encodeURIComponent(validatedRedirect)}`, { external: true })
+        return
+      }
+
+      await navigateTo(loginUrl, { external: true })
     }
     catch (error) {
       authState.value.error = 'Failed to initiate login'

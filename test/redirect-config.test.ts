@@ -61,6 +61,33 @@ describe('Aegis Module - Redirect Configuration', async () => {
       // We cannot test client-side navigateTo() behavior in server-side tests
       // But we verified the OAuth flow works and tokens are issued
     })
+
+    it('should preserve redirectTo through the OAuth flow', async () => {
+      const baseUrl = getUrl('/')
+      const requestedRedirect = '/custom-success?from=login'
+
+      // Step 1: Initiate OAuth flow with a per-request success redirect
+      const authResponse = await fetch(`${baseUrl}auth/mock?redirectTo=${encodeURIComponent(requestedRedirect)}`, { redirect: 'manual' })
+      expect(authResponse.status).toBe(302)
+      const authorizeUrl = authResponse.headers.get('location')
+      expect(authorizeUrl).toBeDefined()
+
+      // Step 2: Mock provider authorization
+      const mockAuthorizeResponse = await fetch(authorizeUrl!, { redirect: 'manual' })
+      expect(mockAuthorizeResponse.status).toBe(302)
+      const callbackUrl = mockAuthorizeResponse.headers.get('location')
+      expect(callbackUrl).toBeDefined()
+      expect(callbackUrl).toContain('/auth/mock')
+      expect(callbackUrl).toContain('code=')
+
+      // Step 3: Complete the Aegis callback handoff
+      const finalResponse = await fetch(callbackUrl!, { redirect: 'manual' })
+      expect(finalResponse.status).toBe(302)
+      const finalLocation = finalResponse.headers.get('location')
+      expect(finalLocation).toBeDefined()
+      expect(finalLocation).toContain('/auth/callback?code=')
+      expect(finalLocation).toContain(`redirectTo=${encodeURIComponent(requestedRedirect)}`)
+    })
   })
 
   describe('Logout Redirect', () => {
