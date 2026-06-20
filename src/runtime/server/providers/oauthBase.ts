@@ -214,9 +214,9 @@ export function defineOAuthEventHandler<
       if (!query.code) {
         const authState = query.redirectTo || query.state
           ? encodeOAuthState({
-            redirectTo: query.redirectTo,
-            state: query.state,
-          })
+              redirectTo: query.redirectTo,
+              state: query.state,
+            })
           : undefined
         const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
