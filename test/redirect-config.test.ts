@@ -19,7 +19,7 @@ import {
 describe('Aegis Module - Redirect Configuration', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('./fixtures/redirect-config', import.meta.url)),
-    dev: true,
+    server: true,
   })
 
   describe('Success Redirect', () => {
