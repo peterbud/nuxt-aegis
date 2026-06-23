@@ -6,6 +6,11 @@
 // Re-export augmentations (they auto-apply when imported)
 import './augmentations'
 
+// Auth state types
+export type {
+  AuthStatus,
+} from './auth'
+
 // Token types
 export type {
   BaseTokenClaims,

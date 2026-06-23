@@ -51,8 +51,9 @@ sequenceDiagram
 
 | Operation | Client API | Server API |
 |-----------|------------|------------|
-| Check auth | `const { isAuthenticated } = useAuth()` | `await getAuthUser(event)` |
+| Check auth | `const { authStatus, isLoggedIn } = useAuth()` | `await getAuthUser(event)` |
 | Get user | `const { user } = useAuth()` | `await requireAuth(event)` |
 | Login | `await login('google')` | N/A |
 | Logout | `await logout()` | N/A |
 | Refresh | `await refresh()` | N/A |
+| Resolve startup auth | `await ensureResolved()` | N/A |

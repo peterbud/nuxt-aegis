@@ -59,7 +59,7 @@ export default defineNuxtConfig({
       },
     },
   },
-  ssr: false,
+  ssr: true,
   devtools: { enabled: true },
   compatibilityDate: '2025-10-04',
   // Server-side route protection via Nitro route rules

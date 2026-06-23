@@ -12,7 +12,7 @@ Or use auto-import (recommended):
 
 ```vue
 <script setup lang="ts">
-const { user, isAuthenticated, login, logout } = useAuth()
+const { user, isLoggedIn, authStatus, isResolved, login, logout } = useAuth()
 </script>
 ```
 
@@ -20,14 +20,17 @@ const { user, isAuthenticated, login, logout } = useAuth()
 
 ```typescript
 function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): {
+  authStatus: Ref<'unknown' | 'authenticated' | 'guest'>
+  isResolved: Ref<boolean>
   user: Ref<T | null>
-  isAuthenticated: Ref<boolean>
+  isLoggedIn: Ref<boolean>
   isLoading: Ref<boolean>
   isImpersonating: Ref<boolean>
   originalUser: Ref<OriginalUser | null>
   login: (provider?: string, redirectTo?: string) => Promise<void>
   logout: (redirectTo?: string) => Promise<void>
   refresh: (options?: { updateClaims?: boolean }) => Promise<void>
+  ensureResolved: () => Promise<void>
   impersonate: (targetUserId: string, reason?: string) => Promise<void>
   stopImpersonation: () => Promise<void>
 }
@@ -95,7 +98,39 @@ if (user.value?.role === 'admin') {
 See [Token Types guide](/guides/types/) for comprehensive examples of type-safe custom claims.
 :::
 
-### `isAuthenticated`
+### `authStatus`
+
+**Type:** `Ref<'unknown' | 'authenticated' | 'guest'>`
+
+Explicit client-side authentication state.
+
+- `'unknown'`: initial state before Nuxt Aegis has determined whether a session can be restored
+- `'authenticated'`: user is authenticated and `user.value` is populated
+- `'guest'`: auth has been resolved and no authenticated session is available
+
+```vue
+<template>
+  <p v-if="authStatus === 'unknown'">Checking session...</p>
+  <p v-else-if="authStatus === 'authenticated'">Welcome back!</p>
+  <p v-else>Please log in.</p>
+</template>
+```
+
+### `isResolved`
+
+**Type:** `Ref<boolean>`
+
+Boolean indicating whether the initial authentication state has been determined.
+
+```typescript
+const { isResolved, authStatus } = useAuth()
+
+if (isResolved.value && authStatus.value === 'guest') {
+  console.log('No active session')
+}
+```
+
+### `isLoggedIn`
 
 **Type:** `Ref<boolean>`
 
@@ -103,7 +138,7 @@ Boolean indicating whether the user is currently authenticated.
 
 ```vue
 <template>
-  <div v-if="isAuthenticated">
+  <div v-if="isLoggedIn">
     <p>Welcome back!</p>
   </div>
   <div v-else>
@@ -116,22 +151,40 @@ Boolean indicating whether the user is currently authenticated.
 
 **Type:** `Ref<boolean>`
 
-Boolean indicating whether authentication state is being loaded.
+Boolean indicating whether an auth operation is currently in progress, such as refresh, impersonation, or logout.
 
 ```vue
 <template>
   <div v-if="isLoading">
     <LoadingSpinner />
   </div>
-  <div v-else-if="isAuthenticated">
+  <div v-else-if="isLoggedIn">
     <UserProfile :user="user" />
   </div>
 </template>
 ```
 
-::: warning Always Check Loading
-Always check `isLoading` before rendering authentication-dependent content to avoid flashing incorrect UI states.
+::: warning Readiness vs Loading
+`isLoading` does not mean initial auth is unresolved. Use `isResolved`, `authStatus`, or `await ensureResolved()` when you need a deterministic startup auth decision.
 :::
+
+### `ensureResolved()`
+
+**Type:** `() => Promise<void>`
+
+Ensures the initial auth state has been determined. On cold start, this may restore the session using the refresh token cookie. Once auth is already resolved, repeated calls are effectively no-ops.
+
+This method deduplicates concurrent callers, so middleware, layouts, and components can safely await the same in-flight resolution work.
+
+```typescript
+const { ensureResolved, authStatus } = useAuth()
+
+await ensureResolved()
+
+if (authStatus.value === 'authenticated') {
+  console.log('Session restored')
+}
+```
 
 ### `isImpersonating`
 
@@ -188,7 +241,7 @@ Initiates the OAuth login flow for the specified provider.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `provider` | `string` | ❌ | Provider name (`'google'`, `'auth0'`, `'github'`, `'mock'`). Defaults to `'google'` |
-| `redirectTo` | `string` | ❌ | Custom redirect path after login (not currently implemented) |
+| `redirectTo` | `string` | ❌ | Custom redirect path after login for this request |
 
 **Example:**
 
@@ -202,6 +255,9 @@ await login()
 await login('google')
 await login('github')
 await login('auth0')
+
+// Login with a custom post-login destination
+await login('google', '/dashboard?from=auth')
 ```
 
 **Returns:** `Promise<void>`
@@ -406,15 +462,15 @@ try {
 
 ```vue
 <script setup lang="ts">
-const { user, isAuthenticated, isLoading, login, logout } = useAuth()
+const { user, authStatus, isResolved, login, logout } = useAuth()
 </script>
 
 <template>
   <div>
-    <div v-if="isLoading">
-      Loading...
+    <div v-if="!isResolved">
+      Checking session...
     </div>
-    <div v-else-if="isAuthenticated">
+    <div v-else-if="authStatus === 'authenticated'">
       <p>Welcome, {{ user?.name }}!</p>
       <button @click="logout">Logout</button>
     </div>

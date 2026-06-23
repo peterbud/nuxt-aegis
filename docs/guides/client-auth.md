@@ -10,17 +10,20 @@ The `useAuth()` composable provides reactive authentication state and methods fo
 
 ```vue
 <script setup lang="ts">
-const { user, isLoggedIn, login, logout } = useAuth()
+const { user, authStatus, isResolved, isLoggedIn, login, logout } = useAuth()
 </script>
 
 <template>
   <div>
-    <div v-if="isLoggedIn">
+    <div v-if="authStatus === 'authenticated'">
       <p>Welcome, {{ user?.name }}!</p>
       <button @click="logout">Logout</button>
     </div>
-    <div v-else>
+    <div v-else-if="isResolved">
       <button @click="login('google')">Login with Google</button>
+    </div>
+    <div v-else>
+      <p>Checking session...</p>
     </div>
   </div>
 </template>
@@ -72,21 +75,43 @@ const { isLoggedIn } = useAuth()
 </template>
 ```
 
+### `authStatus`
+
+Explicit auth state with three values:
+
+- `'unknown'` while Nuxt Aegis is still determining whether a session can be restored
+- `'authenticated'` when a user is logged in
+- `'guest'` when auth has been resolved and no session is available
+
+```typescript
+const { authStatus } = useAuth()
+
+if (authStatus.value === 'guest') {
+  console.log('Show public experience')
+}
+```
+
+### `isResolved`
+
+Boolean indicating whether the initial auth state has been determined.
+
+Use this when your UI needs to distinguish between “still checking” and “known guest”.
+
 ### `isLoading`
 
-Boolean indicating whether authentication state is being loaded.
+Boolean indicating whether an auth operation is currently running.
 
 ```vue
 <script setup lang="ts">
-const { isLoading, isLoggedIn, user } = useAuth()
+const { isLoading, authStatus, user } = useAuth()
 </script>
 
 <template>
   <div>
     <div v-if="isLoading">
-      <p>Loading...</p>
+      <p>Refreshing session...</p>
     </div>
-    <div v-else-if="isLoggedIn">
+    <div v-else-if="authStatus === 'authenticated'">
       <p>Welcome, {{ user?.name }}!</p>
     </div>
     <div v-else>
@@ -96,9 +121,23 @@ const { isLoading, isLoggedIn, user } = useAuth()
 </template>
 ```
 
-::: tip Loading State
-Always check `isLoading` before rendering authentication-dependent content to avoid flashes of incorrect content.
+::: tip Initial Auth Resolution
+Use `isResolved` or `await ensureResolved()` when you need a deterministic startup auth decision. `isLoading` is for active auth operations, not for distinguishing unknown from guest.
 :::
+
+### `ensureResolved()`
+
+Resolves the initial auth state on demand. This is especially useful in middleware, layouts, or guarded pages that must wait for cold-start session restoration before deciding what to render or where to redirect.
+
+```typescript
+const { ensureResolved, authStatus } = useAuth()
+
+await ensureResolved()
+
+if (authStatus.value === 'authenticated') {
+  console.log('Session is ready')
+}
+```
 
 ### `error`
 

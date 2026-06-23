@@ -935,34 +935,28 @@ Return type of `useAuth()` composable.
 
 ```typescript
 interface UseAuthReturn<TUser = User> {
+  authStatus: Ref<'unknown' | 'authenticated' | 'guest'>
+  isResolved: Ref<boolean>
   user: Ref<TUser | null>
-  isAuthenticated: Ref<boolean>
+  isLoggedIn: Ref<boolean>
   isLoading: Ref<boolean>
-  login: (provider: string, options?: LoginOptions) => Promise<void>
-  logout: (options?: LogoutOptions) => Promise<void>
+  isImpersonating: Ref<boolean>
+  originalUser: Ref<OriginalUser | null>
+  login: (provider?: string, redirectTo?: string) => Promise<void>
+  logout: (redirectTo?: string) => Promise<void>
   refresh: (options?: { updateClaims?: boolean }) => Promise<void>
+  ensureResolved: () => Promise<void>
+  impersonate: (targetUserId: string, reason?: string) => Promise<void>
+  stopImpersonation: () => Promise<void>
 }
 ```
 
-### `LoginOptions`
+### `AuthStatus`
 
-Login method options.
-
-```typescript
-interface LoginOptions {
-  redirect?: string                   // Custom redirect URL after login
-  authorizationParams?: Record<string, string> // Custom OAuth parameters
-}
-```
-
-### `LogoutOptions`
-
-Logout method options.
+Explicit client-side auth resolution state.
 
 ```typescript
-interface LogoutOptions {
-  redirect?: string                   // Custom redirect URL after logout
-}
+type AuthStatus = 'unknown' | 'authenticated' | 'guest'
 ```
 
 ## Event Handler Types

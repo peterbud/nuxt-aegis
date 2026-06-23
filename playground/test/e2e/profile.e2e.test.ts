@@ -52,6 +52,31 @@ userTest.describe('Authentication State - Regular User', () => {
     expect(responseText).toContain('Regular User')
     expect(responseText).toContain('"role": "user"')
   })
+
+  userTest('should restore auth on cold start before protected middleware decides', async ({ page, browser }) => {
+    const cookies = await page.context().cookies()
+    const refreshCookie = cookies.find(cookie => cookie.name === 'nuxt-aegis-refresh')
+
+    expect(refreshCookie).toBeDefined()
+
+    const freshContext = await browser.newContext()
+
+    try {
+      await freshContext.addCookies(cookies)
+
+      const coldStartPage = await freshContext.newPage()
+      await coldStartPage.goto('/protected-page', { waitUntil: 'load' })
+      await coldStartPage.waitForLoadState('networkidle')
+
+      await expect(coldStartPage).toHaveURL(/\/protected-page$/)
+      await expect(coldStartPage.getByRole('heading', { name: 'Protected Page' })).toBeVisible({ timeout: 10000 })
+      await expect(coldStartPage.locator('.user-info')).toContainText('Regular User')
+      await expect(coldStartPage.locator('.response-box')).toContainText('user@example.com')
+    }
+    finally {
+      await freshContext.close()
+    }
+  })
 })
 
 adminTest.describe('Authentication State - Admin User', () => {

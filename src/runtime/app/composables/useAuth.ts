@@ -1,12 +1,24 @@
 import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
-import type { BaseTokenClaims } from '../../types'
+import type { AuthStatus, BaseTokenClaims } from '../../types'
 import { clearAccessToken, setAccessToken, getAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
 import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
 
 const logger = createLogger('Auth')
+let initialResolutionPromise: Promise<void> | null = null
+let refreshPromise: Promise<void> | null = null
+
+function decodeAccessToken(accessToken: string): BaseTokenClaims {
+  const tokenParts = accessToken.split('.')
+
+  if (!tokenParts[1]) {
+    throw new Error('Invalid access token payload')
+  }
+
+  return JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
+}
 
 /**
  * Internal authentication state interface
@@ -14,6 +26,8 @@ const logger = createLogger('Auth')
 interface AuthState {
   /** Current user data from JWT token */
   user: BaseTokenClaims | null
+  /** Explicit auth resolution state */
+  authStatus: AuthStatus
   /** Loading state indicator */
   isLoading: boolean
   /** Error message if authentication fails */
@@ -25,6 +39,10 @@ interface AuthState {
  * @template T - Token payload type extending BaseTokenClaims (defaults to BaseTokenClaims)
  */
 interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
+  /** Explicit authentication status */
+  authStatus: ComputedRef<AuthStatus>
+  /** Reactive property indicating whether initial auth state is resolved */
+  isResolved: ComputedRef<boolean>
   /** Reactive property indicating whether a user is logged in */
   isLoggedIn: ComputedRef<boolean>
   /** Reactive property indicating the authentication state is being initialized */
@@ -43,6 +61,8 @@ interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
   logout: (redirectTo?: string) => Promise<void>
   /** Method to refresh the authentication state */
   refresh: (options?: { updateClaims?: boolean }) => Promise<void>
+  /** Method to resolve initial authentication state */
+  ensureResolved: () => Promise<void>
   /** Method to impersonate another user (admin only) */
   impersonate: (targetUserId: string, reason?: string) => Promise<void>
   /** Method to stop impersonation and restore original session */
@@ -103,14 +123,95 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
   const authState = useState<AuthState>(
     'auth-state',
     () => {
-      return { user: null, isLoading: false, error: null }
+      return { user: null, authStatus: 'unknown', isLoading: false, error: null }
     },
   )
+
+  function setAuthenticatedState(user: BaseTokenClaims): void {
+    authState.value.user = filterTimeSensitiveClaims(user)
+    authState.value.authStatus = 'authenticated'
+    authState.value.error = null
+  }
+
+  function setGuestState(error: string | null = null): void {
+    authState.value.user = null
+    authState.value.authStatus = 'guest'
+    authState.value.error = error
+  }
+
+  function applyAccessToken(accessToken: string): void {
+    setAccessToken(accessToken)
+    setAuthenticatedState(decodeAccessToken(accessToken))
+  }
+
+  async function performRefresh(
+    options?: { updateClaims?: boolean },
+    settings?: { silentFailure?: boolean },
+  ): Promise<void> {
+    authState.value.isLoading = true
+    authState.value.error = null
+
+    logger.debug('Refreshing authentication state...', { updateClaims: options?.updateClaims })
+
+    try {
+      if (options?.updateClaims) {
+        logger.debug('Updating custom claims before refresh...')
+        await $fetch<{ success: boolean, message: string }>(`${authPath}/update-claims`, {
+          method: 'POST',
+        })
+        logger.debug('Claims updated successfully in storage')
+      }
+
+      const response = await $fetch<{ accessToken: string }>(`${refreshPath}`, {
+        method: 'POST',
+      })
+
+      if (response?.accessToken) {
+        applyAccessToken(response.accessToken)
+        logger.debug('Auth state refreshed successfully')
+        return
+      }
+
+      clearAccessToken()
+      setGuestState()
+    }
+    catch (error: unknown) {
+      clearAccessToken()
+      setGuestState(settings?.silentFailure ? null : 'Failed to refresh authentication')
+
+      logger.error('Auth refresh failed:', error)
+      throw error
+    }
+    finally {
+      authState.value.isLoading = false
+    }
+  }
+
+  function queueRefresh(
+    options?: { updateClaims?: boolean },
+    settings?: { silentFailure?: boolean },
+  ): Promise<void> {
+    if (refreshPromise) {
+      return refreshPromise
+    }
+
+    refreshPromise = performRefresh(options, settings)
+      .finally(() => {
+        refreshPromise = null
+      })
+
+    return refreshPromise
+  }
 
   /**
    * Computed property indicating if user is logged in
    */
-  const isLoggedIn = computed(() => authState.value?.user !== null)
+  const isLoggedIn = computed(() => authState.value?.authStatus === 'authenticated')
+
+  /**
+   * Computed property indicating if initial auth state is resolved
+   */
+  const isResolved = computed(() => authState.value?.authStatus !== 'unknown')
 
   /**
    * Computed property indicating if currently impersonating another user
@@ -158,62 +259,57 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
    * @throws {Error} If refresh or claims update fails
    */
   async function refresh(options?: { updateClaims?: boolean }): Promise<void> {
-    authState.value.isLoading = true
+    await queueRefresh(options)
+  }
+
+  async function resolveInitialAuthState(): Promise<void> {
     authState.value.error = null
 
-    logger.debug('Refreshing authentication state...', { updateClaims: options?.updateClaims })
+    const currentToken = getAccessToken()
+    if (currentToken) {
+      try {
+        setAuthenticatedState(decodeAccessToken(currentToken))
+        logger.debug('Resolved auth state from in-memory access token')
+        return
+      }
+      catch (error) {
+        clearAccessToken()
+        logger.error('Failed to decode in-memory access token during initial resolution:', error)
+      }
+    }
 
     try {
-      // Optionally recompute custom claims before refreshing
-      if (options?.updateClaims) {
-        logger.debug('Updating custom claims before refresh...')
-        await $fetch<{ success: boolean, message: string }>(`${authPath}/update-claims`, {
-          method: 'POST',
-        })
-        logger.debug('Claims updated successfully in storage')
-      }
-
-      // EP-27: Call refresh endpoint (refresh token sent automatically via httpOnly cookie)
-      // RS-1: No old access token needed - server uses stored user object
-      // IMPORTANT: Use $fetch directly instead of $api to avoid triggering the 401 interceptor
-      // which would cause an infinite refresh loop
-      const response = await $fetch<{ accessToken: string }>(`${refreshPath}`, {
-        method: 'POST',
-      })
-
-      if (response?.accessToken) {
-        // CL-18: Store new access token in memory (NOT sessionStorage)
-        setAccessToken(response.accessToken)
-
-        // Decode token to get user payload
-        const tokenParts = response.accessToken.split('.')
-        if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
-          // Filter time-sensitive JWT metadata to prevent hydration mismatches
-          authState.value.user = filterTimeSensitiveClaims(payload)
-          authState.value.error = null
-
-          logger.debug('Auth state refreshed successfully')
-        }
-      }
-      else {
-        // No token received, clear state
-        authState.value.user = null
-        clearAccessToken()
-      }
+      await queueRefresh(undefined, { silentFailure: true })
     }
-    catch (error: unknown) {
-      // CL-13: Clear state on refresh failure (401 means refresh token expired/invalid)
-      authState.value.user = null
-      authState.value.error = 'Failed to refresh authentication'
-      clearAccessToken()
-
-      logger.error('Auth refresh failed:', error)
-      throw error
+    catch {
+      logger.debug('Initial auth resolution determined user is a guest')
     }
     finally {
-      authState.value.isLoading = false
+      if (authState.value.authStatus === 'unknown') {
+        setGuestState()
+      }
     }
+  }
+
+  /**
+   * Resolve the initial authentication state.
+   *
+   * This method is idempotent after the auth state is known and deduplicates
+   * concurrent cold-start resolution work across callers.
+   */
+  async function ensureResolved(): Promise<void> {
+    if (authState.value.authStatus !== 'unknown') {
+      return
+    }
+
+    if (!initialResolutionPromise) {
+      initialResolutionPromise = resolveInitialAuthState()
+        .finally(() => {
+          initialResolutionPromise = null
+        })
+    }
+
+    return initialResolutionPromise
   }
 
   /**
@@ -268,12 +364,11 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       await $fetch(`${logoutPath}`, { method: 'POST' })
 
       // Clear local auth state
-      authState.value.user = null
+      setGuestState()
     }
     catch (error) {
       // Clear state even if API call fails
-      authState.value.user = null
-      authState.value.error = 'Logout completed with errors'
+      setGuestState('Logout completed with errors')
       logger.error('Logout error:', error)
     }
     finally {
@@ -326,22 +421,13 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       })
 
       if (response?.accessToken) {
-        // Store new impersonated access token
-        setAccessToken(response.accessToken)
+        applyAccessToken(response.accessToken)
+        const payload = authState.value.user
 
-        // Decode token to get impersonated user payload
-        const tokenParts = response.accessToken.split('.')
-        if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
-          // Filter time-sensitive JWT metadata to prevent hydration mismatches
-          authState.value.user = filterTimeSensitiveClaims(payload)
-          authState.value.error = null
-
-          logger.debug('Impersonation started successfully', {
-            targetUser: payload.sub,
-            originalUser: payload.impersonation?.originalUserSub,
-          })
-        }
+        logger.debug('Impersonation started successfully', {
+          targetUser: payload?.sub,
+          originalUser: payload?.impersonation?.originalUserSub,
+        })
       }
     }
     catch (error: unknown) {
@@ -386,21 +472,12 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       })
 
       if (response?.accessToken) {
-        // Store restored access token
-        setAccessToken(response.accessToken)
+        applyAccessToken(response.accessToken)
+        const payload = authState.value.user
 
-        // Decode token to get restored user payload
-        const tokenParts = response.accessToken.split('.')
-        if (tokenParts[1]) {
-          const payload = JSON.parse(atob(tokenParts[1])) as BaseTokenClaims
-          // Filter time-sensitive JWT metadata to prevent hydration mismatches
-          authState.value.user = filterTimeSensitiveClaims(payload)
-          authState.value.error = null
-
-          logger.debug('Impersonation stopped, original session restored', {
-            restoredUser: payload.sub,
-          })
-        }
+        logger.debug('Impersonation stopped, original session restored', {
+          restoredUser: payload?.sub,
+        })
       }
     }
     catch (error: unknown) {
@@ -415,6 +492,8 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
   }
 
   return {
+    authStatus: computed(() => authState.value.authStatus),
+    isResolved,
     isLoggedIn,
     isLoading: computed(() => authState.value.isLoading),
     user: computed(() => authState.value.user as T | null),
@@ -424,6 +503,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     login,
     logout,
     refresh,
+    ensureResolved,
     impersonate,
     stopImpersonation,
   }

@@ -353,19 +353,16 @@ Create custom middleware for additional logic (e.g., role-based access):
 
 ```typescript
 // middleware/admin.ts
-export default defineNuxtRouteMiddleware((to, from) => {
-  const { user, isLoggedIn, isLoading } = useAuth()
-  
-  // Wait for auth to load
-  if (isLoading.value) {
-    return
-  }
-  
+export default defineNuxtRouteMiddleware(async () => {
+  const { user, authStatus, ensureResolved } = useAuth()
+
+  await ensureResolved()
+
   // Redirect to login if not authenticated
-  if (!isLoggedIn.value) {
+  if (authStatus.value === 'guest') {
     return navigateTo('/login')
   }
-  
+
   // Check for admin role
   if (user.value?.role !== 'admin') {
     return navigateTo('/')
@@ -401,22 +398,19 @@ If you need custom global protection logic, create your own global middleware in
 
 ```typescript
 // middleware/auth.global.ts
-export default defineNuxtRouteMiddleware((to, from) => {
-  const { isLoggedIn, isLoading } = useAuth()
-  
+export default defineNuxtRouteMiddleware(async (to) => {
+  const { authStatus, ensureResolved } = useAuth()
+
   // Public routes - customize as needed
   const publicRoutes = ['/login', '/register', '/about', '/']
   if (publicRoutes.includes(to.path)) {
     return
   }
-  
-  // Wait for auth to load
-  if (isLoading.value) {
-    return
-  }
-  
+
+  await ensureResolved()
+
   // Protect all other routes
-  if (!isLoggedIn.value) {
+  if (authStatus.value === 'guest') {
     return navigateTo('/login')
   }
 })
@@ -437,6 +431,10 @@ export default defineNuxtConfig({
 - You need custom logic (e.g., checking subscription status)
 - You want different behavior for different route patterns
 - You need to integrate with other middleware or plugins
+:::
+
+::: tip Cold-Start Auth Decisions
+For custom client middleware, prefer `await ensureResolved()` before redirecting. This avoids treating a cold-start user as logged out before Nuxt Aegis has had a chance to restore a session from the refresh token cookie.
 :::
 
 ## Role-Based Access Control (RBAC)
@@ -480,15 +478,15 @@ export default defineEventHandler(async (event) => {
 
 ```typescript
 // middleware/admin.ts
-export default defineNuxtRouteMiddleware((to, from) => {
-  const { user, isAuthenticated, isLoading } = useAuth()
-  
-  if (isLoading.value) return
-  
-  if (!isAuthenticated.value) {
+export default defineNuxtRouteMiddleware(async () => {
+  const { user, authStatus, ensureResolved } = useAuth()
+
+  await ensureResolved()
+
+  if (authStatus.value === 'guest') {
     return navigateTo('/login')
   }
-  
+
   if (user.value?.role !== 'admin') {
     return navigateTo('/')
   }

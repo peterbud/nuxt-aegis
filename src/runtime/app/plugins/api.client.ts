@@ -15,18 +15,13 @@ const logger = createLogger('API:Client')
 export default defineNuxtPlugin({
   name: 'nuxt-aegis-api-client',
   async setup(nuxtApp) {
-    let isRefreshing = false
-    let refreshPromise: Promise<string | null> | null = null
     let isInitialized = false
     const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
 
     async function attemptTokenRefresh(): Promise<string | null> {
-      if (isRefreshing) return refreshPromise
-
       logger.debug('Attempting token refresh...')
 
-      isRefreshing = true
-      refreshPromise = nuxtApp.runWithContext(async () => {
+      return nuxtApp.runWithContext(async () => {
         const auth = useAuth()
         try {
           await auth.refresh()
@@ -36,13 +31,7 @@ export default defineNuxtPlugin({
           logger.error('Token refresh failed:', error)
           return null
         }
-        finally {
-          isRefreshing = false
-          refreshPromise = null
-        }
       })
-
-      return refreshPromise
     }
 
     // CL-17, CL-18: Attach in-memory access token to API requests
@@ -124,8 +113,7 @@ export default defineNuxtPlugin({
           }
 
           try {
-            // Try to refresh using the httpOnly refresh token cookie
-            await useAuth().refresh()
+            await useAuth().ensureResolved()
           }
           catch {
             // Silent failure - user is just not authenticated

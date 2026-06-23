@@ -12,6 +12,7 @@ export default defineNuxtPlugin({
       const user = event.context.user
       useState('auth-state', () => ({
         user: filterTimeSensitiveClaims(user),
+        authStatus: 'authenticated',
         isLoading: false,
         error: null,
       }))

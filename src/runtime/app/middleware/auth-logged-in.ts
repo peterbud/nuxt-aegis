@@ -15,8 +15,8 @@ import { isRouteMatch } from '../utils/routeMatching'
  * Note: This is client-side only and improves UX. Server-side validation
  * via Nitro routeRules is still required for security.
  */
-export default defineNuxtRouteMiddleware((to) => {
-  const { isLoggedIn, isLoading } = useAuth()
+export default defineNuxtRouteMiddleware(async (to) => {
+  const auth = useAuth()
   const config = useRuntimeConfig()
   const clientMiddleware = config.public.nuxtAegis?.clientMiddleware
 
@@ -25,10 +25,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  // Wait for auth state to load
-  if (isLoading.value) {
-    return
-  }
+  await auth.ensureResolved()
 
   // Only check publicRoutes if middleware is registered globally
   // When used per-page via definePageMeta, the developer explicitly chooses
@@ -43,7 +40,7 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // Redirect to login if not authenticated
-  if (!isLoggedIn.value) {
+  if (auth.authStatus.value === 'guest') {
     return navigateTo(clientMiddleware.redirectTo || '/login')
   }
 })

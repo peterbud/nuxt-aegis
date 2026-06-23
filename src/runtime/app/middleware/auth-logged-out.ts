@@ -18,8 +18,8 @@ import { useAuth } from '../composables/useAuth'
  *
  * Note: This is client-side only and improves UX.
  */
-export default defineNuxtRouteMiddleware(() => {
-  const { isLoggedIn, isLoading } = useAuth()
+export default defineNuxtRouteMiddleware(async () => {
+  const auth = useAuth()
   const config = useRuntimeConfig()
   const clientMiddleware = config.public.nuxtAegis?.clientMiddleware
 
@@ -28,13 +28,10 @@ export default defineNuxtRouteMiddleware(() => {
     return
   }
 
-  // Wait for auth state to load
-  if (isLoading.value) {
-    return
-  }
+  await auth.ensureResolved()
 
   // Redirect to configured destination if authenticated
-  if (isLoggedIn.value) {
+  if (auth.authStatus.value === 'authenticated') {
     return navigateTo(clientMiddleware.loggedOutRedirectTo || '/')
   }
 })

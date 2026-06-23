@@ -104,7 +104,12 @@ onMounted(async () => {
       const { useState } = await import('#app')
       const authState = useState('auth-state')
       // Filter time-sensitive JWT metadata to prevent hydration mismatches
-      authState.value = { user: filterTimeSensitiveClaims(payload), isLoading: false, error: null }
+      authState.value = {
+        user: filterTimeSensitiveClaims(payload),
+        authStatus: 'authenticated',
+        isLoading: false,
+        error: null,
+      }
     }
 
     // Clear the code from URL to prevent reuse
