@@ -1,6 +1,26 @@
 # Changelog
 
 
+## v1.1.0-alpha.8
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.7...v1.1.0-alpha.8)
+
+### 🚀 Enhancements
+
+- Enhance useAuth composable with explicit auth status and resolution handling ([d8ace36](https://github.com/peterbud/nuxt-aegis/commit/d8ace36))
+
+### 🩹 Fixes
+
+- Update setup configuration to use server mode for redirect tests ([f139eaa](https://github.com/peterbud/nuxt-aegis/commit/f139eaa))
+
+### 🏡 Chore
+
+- Lint ([8b9abc3](https://github.com/peterbud/nuxt-aegis/commit/8b9abc3))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-alpha.7
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.6...v1.1.0-alpha.7)
