@@ -15,7 +15,6 @@ const logger = createLogger('API:Client')
 export default defineNuxtPlugin({
   name: 'nuxt-aegis-api-client',
   async setup(nuxtApp) {
-    let isInitialized = false
     const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
 
     async function attemptTokenRefresh(): Promise<string | null> {
@@ -77,9 +76,7 @@ export default defineNuxtPlugin({
 
     // CL-12, CL-20: Initialize auth state on plugin startup by attempting token refresh
     // EP-27, RS-1: Refresh endpoint uses httpOnly cookie, no token needed in memory
-    if (!isInitialized && autoRefreshEnabled) {
-      isInitialized = true
-
+    if (autoRefreshEnabled) {
       logger.debug('Initializing auth state on startup...')
 
       // Use app:mounted to ensure the plugin is fully initialized
