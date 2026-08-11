@@ -2,3 +2,7 @@ packages:
   - playground
   - docs
   - examples/*
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  unrs-resolver: false
