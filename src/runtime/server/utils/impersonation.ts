@@ -5,6 +5,7 @@ import type {
   ImpersonationContext,
   ImpersonateStartPayload,
   ImpersonateEndPayload,
+  TokenConfig,
 } from '../../types'
 import { generateToken } from './jwt'
 import { useRuntimeConfig } from '#imports'
@@ -167,7 +168,7 @@ export async function generateImpersonatedToken(
   _event: H3Event,
 ): Promise<string> {
   const config = useRuntimeConfig()
-  const tokenConfig = config.nuxtAegis?.token
+  const tokenConfig = config.nuxtAegis?.token as TokenConfig | undefined
   const impersonationConfig = config.nuxtAegis?.impersonation
 
   if (!tokenConfig || !tokenConfig.secret) {

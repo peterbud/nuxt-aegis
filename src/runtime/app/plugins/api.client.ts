@@ -1,5 +1,5 @@
 import { defineNuxtPlugin, navigateTo, useRuntimeConfig } from '#app'
-import { useAuth } from '#imports'
+import { useAuth } from '../composables/useAuth'
 import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
 import { isRouteMatch } from '../utils/routeMatching'
 import { createLogger } from '../utils/logger'
@@ -14,7 +14,7 @@ const logger = createLogger('API:Client')
  */
 export default defineNuxtPlugin({
   name: 'nuxt-aegis-api-client',
-  async setup(nuxtApp) {
+  async setup(nuxtApp): Promise<{ provide: { api: typeof $fetch } }> {
     const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
 
     async function attemptTokenRefresh(): Promise<string | null> {

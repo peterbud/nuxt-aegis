@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { RefreshTokenData } from '../../src/runtime/types'
 
+vi.mock('nitropack/runtime', () => ({
+  useStorage: vi.fn(),
+}))
+
 /**
  * Unit Tests for Refresh Token Encryption
  *
@@ -167,7 +171,11 @@ describe('Refresh Token Encryption', () => {
       // Tamper with the auth tag portion (bytes 12-28 in the combined buffer)
       // Decode, modify a byte in the auth tag, re-encode
       const combined = Buffer.from(encrypted, 'base64')
-      combined[12] = combined[12] ^ 0xFF // Flip bits in first byte of auth tag
+      const firstAuthTagByte = combined[12]
+      if (firstAuthTagByte === undefined) {
+        throw new Error('Encrypted payload is missing an authentication tag')
+      }
+      combined[12] = firstAuthTagByte ^ 0xFF // Flip bits in first byte of auth tag
       const tampered = combined.toString('base64')
 
       expect(() => {
@@ -226,7 +234,7 @@ describe('Refresh Token Encryption', () => {
     it('should transparently encrypt when storing and decrypt when retrieving', async () => {
       const mockStorage = new Map<string, { encrypted: string } | RefreshTokenData>()
 
-      vi.doMock('#imports', () => ({
+      vi.doMock('nitropack/runtime', () => ({
         useStorage: vi.fn(() => ({
           setItem: vi.fn(async (key: string, value: { encrypted: string } | RefreshTokenData) => {
             mockStorage.set(key, value)
@@ -238,6 +246,9 @@ describe('Refresh Token Encryption', () => {
             mockStorage.delete(key)
           }),
         })),
+      }))
+
+      vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -287,12 +298,15 @@ describe('Refresh Token Encryption', () => {
     it('should throw error when trying to decrypt without key', async () => {
       const mockStorage = new Map<string, { encrypted: string }>()
 
-      vi.doMock('#imports', () => ({
+      vi.doMock('nitropack/runtime', () => ({
         useStorage: vi.fn(() => ({
           getItem: vi.fn(async (key: string) => {
             return mockStorage.get(key) || null
           }),
         })),
+      }))
+
+      vi.doMock('#imports', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },

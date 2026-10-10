@@ -1,6 +1,6 @@
 import { eventHandler, getRequestURL } from 'h3'
 import type { H3Event } from 'h3'
-import type { OAuthConfig, MockProviderConfig, OAuthProviderConfig } from '../../types'
+import type { NuxtAegisRuntimeConfig, OAuthConfig, MockProviderConfig, OAuthProviderConfig } from '../../types'
 import { defineOAuthEventHandler, defineOAuthProvider, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
 import { useRuntimeConfig } from '#imports'
 import { createLogger } from '../utils/logger'
@@ -230,7 +230,7 @@ export function defineOAuthMockEventHandler({
 
     // Get runtime config to check production mode and validate config
     const runtimeConfig = useRuntimeConfig(event)
-    const mockConfig = runtimeConfig.nuxtAegis?.providers?.mock
+    const mockConfig = (runtimeConfig.nuxtAegis as NuxtAegisRuntimeConfig | undefined)?.providers?.mock
 
     if (mockConfig) {
       // PR-3.5, PR-3.6: Check if mock provider is allowed (production blocking)

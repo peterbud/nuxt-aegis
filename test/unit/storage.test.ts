@@ -13,7 +13,7 @@ import type { RefreshTokenData } from '../../src/runtime/types'
 
 // Mock the useStorage function
 const mockStorage = new Map<string, RefreshTokenData>()
-vi.mock('#imports', () => ({
+vi.mock('nitropack/runtime', () => ({
   useStorage: vi.fn(() => ({
     setItem: vi.fn(async (key: string, value: RefreshTokenData) => {
       mockStorage.set(key, value)
@@ -25,6 +25,9 @@ vi.mock('#imports', () => ({
       mockStorage.delete(key)
     }),
   })),
+}))
+
+vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({
     nuxtAegis: {
       tokenRefresh: {
@@ -52,7 +55,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: {
+        providerUserInfo: {
           sub: 'user123',
           email: 'test@example.com',
           name: 'Test User',
@@ -66,7 +69,7 @@ describe('Refresh Token Storage', () => {
       const storedData = mockStorage.get('abc123hash')
       expect(storedData).toBeDefined()
       expect(storedData!.sub).toBe('user123')
-      expect(storedData!.user.email).toBe('test@example.com')
+      expect(storedData!.providerUserInfo.email).toBe('test@example.com')
     })
 
     it('should store complete user object', async () => {
@@ -76,7 +79,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: {
+        providerUserInfo: {
           sub: 'user123',
           email: 'test@example.com',
           name: 'Test User',
@@ -90,9 +93,9 @@ describe('Refresh Token Storage', () => {
 
       const storedData = mockStorage.get('hash123')
       expect(storedData).toBeDefined()
-      expect(storedData!.user).toEqual(data.user)
-      expect(storedData!.user.customField).toBe('customValue')
-      expect(storedData!.user.roles).toEqual(['admin', 'user'])
+      expect(storedData!.providerUserInfo).toEqual(data.providerUserInfo)
+      expect(storedData!.providerUserInfo.customField).toBe('customValue')
+      expect(storedData!.providerUserInfo.roles).toEqual(['admin', 'user'])
     })
 
     it('should store metadata fields correctly', async () => {
@@ -104,7 +107,7 @@ describe('Refresh Token Storage', () => {
         expiresAt,
         isRevoked: false,
         previousTokenHash: 'oldtoken456',
-        user: { sub: 'user123' },
+        providerUserInfo: { sub: 'user123' },
         provider: 'google',
       }
 
@@ -127,7 +130,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: { sub: 'user123', email: 'test@example.com' },
+        providerUserInfo: { sub: 'user123', email: 'test@example.com' },
         provider: 'google',
       }
 
@@ -136,7 +139,7 @@ describe('Refresh Token Storage', () => {
 
       expect(retrieved).toBeDefined()
       expect(retrieved?.sub).toBe('user123')
-      expect(retrieved?.user.email).toBe('test@example.com')
+      expect(retrieved?.providerUserInfo.email).toBe('test@example.com')
     })
 
     it('should return null for non-existent token', async () => {
@@ -154,7 +157,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: {
+        providerUserInfo: {
           sub: 'user123',
           email: 'test@example.com',
           profile: {
@@ -169,8 +172,8 @@ describe('Refresh Token Storage', () => {
       await storeRefreshTokenData('hash123', data)
       const retrieved = await getRefreshTokenData('hash123')
 
-      expect(retrieved?.user.profile).toEqual(data.user.profile)
-      expect(retrieved?.user.permissions).toEqual(data.user.permissions)
+      expect(retrieved?.providerUserInfo.profile).toEqual(data.providerUserInfo.profile)
+      expect(retrieved?.providerUserInfo.permissions).toEqual(data.providerUserInfo.permissions)
     })
   })
 
@@ -182,7 +185,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: { sub: 'user123' },
+        providerUserInfo: { sub: 'user123' },
         provider: 'google',
       }
 
@@ -216,7 +219,7 @@ describe('Refresh Token Storage', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000,
         isRevoked: false,
-        user: { sub: 'user123' },
+        providerUserInfo: { sub: 'user123' },
         provider: 'google',
       }
 
@@ -226,7 +229,7 @@ describe('Refresh Token Storage', () => {
       const retrieved = await getRefreshTokenData('hash123')
       expect(retrieved).toBeDefined()
       expect(retrieved?.isRevoked).toBe(true)
-      expect(retrieved?.user).toEqual(data.user)
+      expect(retrieved?.providerUserInfo).toEqual(data.providerUserInfo)
     })
 
     it('should handle revoking non-existent token gracefully', async () => {
@@ -245,7 +248,7 @@ describe('Refresh Token Storage', () => {
         expiresAt,
         isRevoked: false,
         previousTokenHash: 'oldtoken',
-        user: { sub: 'user123', email: 'test@example.com', roles: ['admin'] },
+        providerUserInfo: { sub: 'user123', email: 'test@example.com', roles: ['admin'] },
         provider: 'google',
       }
 
@@ -256,7 +259,7 @@ describe('Refresh Token Storage', () => {
       expect(retrieved?.sub).toBe('user123')
       expect(retrieved?.expiresAt).toBe(expiresAt)
       expect(retrieved?.previousTokenHash).toBe('oldtoken')
-      expect(retrieved?.user.roles).toEqual(['admin'])
+      expect(retrieved?.providerUserInfo.roles).toEqual(['admin'])
       expect(retrieved?.isRevoked).toBe(true)
     })
   })

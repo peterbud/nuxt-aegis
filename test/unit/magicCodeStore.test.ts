@@ -12,7 +12,7 @@ const mockStorage = {
   removeItem: vi.fn(),
 }
 
-vi.mock('#imports', () => ({
+vi.mock('nitropack/runtime', () => ({
   useStorage: () => mockStorage,
 }))
 

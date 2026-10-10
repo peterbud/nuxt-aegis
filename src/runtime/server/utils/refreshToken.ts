@@ -1,7 +1,8 @@
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
+import { useStorage } from 'nitropack/runtime'
 import type { RefreshTokenData, TokenRefreshConfig, EncryptionConfig } from '../../types'
-import { useStorage, useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from '#imports'
 
 /**
  * Hash a refresh token using SHA-256
@@ -87,7 +88,9 @@ export function decryptData(encrypted: string, key: string): unknown {
  */
 export function getEncryptionConfig(event?: H3Event): EncryptionConfig {
   const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  return config.nuxtAegis?.tokenRefresh?.encryption || { enabled: false }
+  const encryption = config.nuxtAegis?.tokenRefresh?.encryption as EncryptionConfig | undefined
+
+  return encryption || { enabled: false }
 }
 
 /**
@@ -206,7 +209,7 @@ export async function generateAndStoreRefreshToken(
   previousTokenHash?: string,
   customClaims?: Record<string, unknown>,
   event?: H3Event,
-): Promise<string | undefined> {
+): Promise<string> {
   const refreshToken = randomBytes(32).toString('base64url')
 
   const expiresIn = config.cookie?.maxAge || 604800

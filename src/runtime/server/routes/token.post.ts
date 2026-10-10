@@ -3,7 +3,11 @@ import { retrieveAndDeleteAuthCode } from '../utils/authCodeStore'
 import { useRuntimeConfig } from '#imports'
 import { generateAuthTokens } from '../utils/auth'
 import { setRefreshTokenCookie } from '../utils/cookies'
-import type { TokenExchangeRequest, TokenExchangeResponse } from '../../types'
+import type {
+  CookieConfig,
+  TokenExchangeRequest,
+  TokenExchangeResponse,
+} from '../../types'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('TokenExchange')
@@ -85,7 +89,7 @@ export default defineEventHandler(async (event) => {
 
     // EP-16: Set refresh token as secure, HttpOnly cookie
     if (refreshToken) {
-      const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie
+      const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie as CookieConfig | undefined
       setRefreshTokenCookie(event, refreshToken, cookieConfig)
     }
 

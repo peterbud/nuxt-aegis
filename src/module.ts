@@ -110,6 +110,15 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     const runtimeConfig = nuxt.options.runtimeConfig
+    const mutableRuntimeConfig = runtimeConfig as {
+      nuxtAegis?: {
+        tokenRefresh?: {
+          encryption?: {
+            key?: string
+          }
+        }
+      }
+    }
 
     // Get logger for validation warnings/errors
     const logger = useLogger('nuxt-aegis')
@@ -138,16 +147,16 @@ export default defineNuxtModule<ModuleOptions>({
       }
 
       // Store encryption key in runtime config for server access
-      if (!runtimeConfig.nuxtAegis) {
-        runtimeConfig.nuxtAegis = {}
+      if (!mutableRuntimeConfig.nuxtAegis) {
+        mutableRuntimeConfig.nuxtAegis = {}
       }
-      if (!runtimeConfig.nuxtAegis.tokenRefresh) {
-        runtimeConfig.nuxtAegis.tokenRefresh = {}
+      if (!mutableRuntimeConfig.nuxtAegis.tokenRefresh) {
+        mutableRuntimeConfig.nuxtAegis.tokenRefresh = {}
       }
-      if (!runtimeConfig.nuxtAegis.tokenRefresh.encryption) {
-        runtimeConfig.nuxtAegis.tokenRefresh.encryption = {}
+      if (!mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption) {
+        mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption = {}
       }
-      runtimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
+      mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
     }
 
     addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))

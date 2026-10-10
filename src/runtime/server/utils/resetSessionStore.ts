@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { useStorage } from '#imports'
+import { useStorage } from 'nitropack/runtime'
 import { createLogger } from './logger'
 
 const logger = createLogger('ResetSession')

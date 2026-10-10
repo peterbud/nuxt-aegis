@@ -4,7 +4,7 @@
  */
 
 // Re-export augmentations (they auto-apply when imported)
-import './augmentations'
+import './augmentation'
 
 // Auth state types
 export type {

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { useStorage } from '#imports'
 import type { H3Event } from 'h3'
+import { useStorage } from 'nitropack/runtime'
 import type { AuthCodeData } from '../../types'
 import { createLogger } from './logger'
 

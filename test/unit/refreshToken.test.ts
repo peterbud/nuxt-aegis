@@ -13,7 +13,7 @@ import type { RefreshTokenData, TokenRefreshConfig } from '../../src/runtime/typ
 
 // Mock storage
 const mockStorage = new Map<string, RefreshTokenData>()
-vi.mock('#imports', () => ({
+vi.mock('nitropack/runtime', () => ({
   useStorage: vi.fn(() => ({
     setItem: vi.fn(async (key: string, value: RefreshTokenData) => {
       mockStorage.set(key, value)
@@ -25,6 +25,9 @@ vi.mock('#imports', () => ({
       mockStorage.delete(key)
     }),
   })),
+}))
+
+vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({
     nuxtAegis: {
       tokenRefresh: {
@@ -203,7 +206,7 @@ describe('Refresh Token Generation', () => {
         sub: 'user123',
         expiresAt: Date.now() - 1000, // Expired 1 second ago
         isRevoked: false,
-        user: { sub: 'user123' },
+        providerUserInfo: { sub: 'user123' },
         provider: 'google',
       }
 
@@ -221,7 +224,7 @@ describe('Refresh Token Generation', () => {
         sub: 'user123',
         expiresAt: Date.now() + 86400000, // Expires in 1 day
         isRevoked: false,
-        user: { sub: 'user123' },
+        providerUserInfo: { sub: 'user123' },
         provider: 'google',
       }
 
