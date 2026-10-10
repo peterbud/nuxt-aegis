@@ -6,7 +6,9 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-**OAuth-based authentication with JWT token management for Nuxt 3/4**
+**OAuth-based authentication with JWT token management for Nuxt 4.6+**
+
+Requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases, and Node.js 25 are not supported; Nuxt 5 has not yet been validated.
 
 > [!WARNING]
 > **Experimental Module**: Nuxt Aegis is currently in active development and should be considered as work in progress. It is **not recommended for production use** at this time. APIs and features may change without notice.

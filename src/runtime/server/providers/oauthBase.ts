@@ -3,7 +3,8 @@ import type { H3Event, H3Error } from 'h3'
 import type { OAuthConfig, OAuthProviderConfig, NuxtAegisRuntimeConfig } from '../../types'
 import type { UserInfoHookPayload, SuccessHookPayload } from '../../types/hooks'
 import { defu } from 'defu'
-import { useNitroApp, useRuntimeConfig } from '#imports'
+import { useNitroApp } from 'nitropack/runtime'
+import { useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { createLogger } from '../utils/logger'
@@ -184,7 +185,7 @@ export function defineOAuthEventHandler<
   return eventHandler(async (event: H3Event) => {
     try {
       // Merge configuration with runtime config and defaults
-      const runtimeConfig = useRuntimeConfig(event).nuxtAegis
+      const runtimeConfig = (useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig | undefined) || {}
       const providerRuntimeConfig = (runtimeConfig.providers?.[implementation.runtimeConfigKey] || {}) as Partial<TConfig>
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 
@@ -214,9 +215,9 @@ export function defineOAuthEventHandler<
       if (!query.code) {
         const authState = query.redirectTo || query.state
           ? encodeOAuthState({
-              redirectTo: query.redirectTo,
-              state: query.state,
-            })
+            redirectTo: query.redirectTo,
+            state: query.state,
+          })
           : undefined
         const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))

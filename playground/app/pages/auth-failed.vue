@@ -6,7 +6,7 @@ const errorCode = computed(() => route.query.error as string || 'unknown_error')
 const errorDescription = computed(() => route.query.error_description as string || 'An authentication error occurred. Please try again.')
 
 // Map error codes to user-friendly messages
-const errorMessages: Record<string, { title: string, description: string }> = {
+const errorMessages = {
   authentication_failed: {
     title: 'Authentication Failed',
     description: 'We could not verify your identity. Please try logging in again.',
@@ -38,7 +38,7 @@ const errorMessages: Record<string, { title: string, description: string }> = {
 }
 
 const displayError = computed(() => {
-  return errorMessages[errorCode.value] || errorMessages['unknown_error']
+  return errorMessages[errorCode.value as keyof typeof errorMessages] || errorMessages.unknown_error
 })
 </script>
 

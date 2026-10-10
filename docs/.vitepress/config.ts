@@ -4,7 +4,7 @@ import MermaidExample from './mermaid-markdown-all'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: 'Nuxt Aegis',
-  description: 'OAuth-based authentication with JWT token management for Nuxt 3/4',
+  description: 'OAuth-based authentication with JWT token management for Nuxt 4.6+',
   head: [['link', { rel: 'icon', href: '/nuxt-aegis/favicon.ico' }]],
 
   base: '/nuxt-aegis/',

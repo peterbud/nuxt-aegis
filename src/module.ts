@@ -20,6 +20,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-aegis',
     configKey: 'nuxtAegis',
+    compatibility: {
+      nuxt: '^4.6.0',
+    },
   },
   // Default configuration options of the Nuxt module
   defaults: {
@@ -451,6 +454,27 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Register type augmentations for Nitro route rules
     const typesPath = resolver.resolve('./runtime/types')
+    addTypeTemplate({
+      filename: 'types/nuxt-aegis-app.d.ts',
+      getContents: () => `import type {} from 'nuxt/app'
+
+declare module 'nuxt/app' {
+  interface NuxtApp {
+    $api: typeof $fetch
+  }
+}
+
+declare module 'vue' {
+  interface ComponentCustomProperties {
+    $api: typeof $fetch
+  }
+}
+`,
+    }, {
+      nuxt: true,
+      nitro: false,
+      node: false,
+    })
     addTypeTemplate({
       filename: 'types/nuxt-aegis-nitro.d.ts',
       getContents: () => {

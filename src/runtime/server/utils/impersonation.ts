@@ -6,6 +6,7 @@ import type {
   ImpersonateStartPayload,
   ImpersonateEndPayload,
   TokenConfig,
+  NuxtAegisRuntimeConfig,
 } from '../../types'
 import { generateToken } from './jwt'
 import { useRuntimeConfig } from '#imports'
@@ -347,7 +348,8 @@ export async function endImpersonation(
   }
 
   const config = useRuntimeConfig()
-  const tokenConfig = config.nuxtAegis?.token
+  const aegisConfig = config.nuxtAegis as NuxtAegisRuntimeConfig | undefined
+  const tokenConfig = aegisConfig?.token
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw createError({
@@ -396,7 +398,7 @@ export async function endImpersonation(
   const accessToken = await generateToken(originalPayload, tokenConfig, customClaims)
 
   // Generate refresh token for restored session
-  const refreshTokenConfig = config.nuxtAegis?.tokenRefresh
+  const refreshTokenConfig = aegisConfig?.tokenRefresh
   if (!refreshTokenConfig) {
     throw createError({
       statusCode: 500,

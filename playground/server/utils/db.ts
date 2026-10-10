@@ -67,7 +67,11 @@ export function dbUpdateUser(id: string, data: Partial<DatabaseUser>): DatabaseU
   if (userIndex === -1) {
     return null
   }
-  const updatedUser = { ...userDb.users[userIndex], ...data, lastLogin: new Date().toISOString() }
+  const user = userDb.users[userIndex]
+  if (!user) {
+    return null
+  }
+  const updatedUser = { ...user, ...data, lastLogin: new Date().toISOString() }
   userDb.users[userIndex] = updatedUser
   return updatedUser
 }
@@ -112,6 +116,9 @@ export function dbLinkProviderToUser(userId: string, provider: Provider): Databa
   }
 
   const user = userDb.users[userIndex]
+  if (!user) {
+    return null
+  }
   if (!user.providers) {
     user.providers = []
   }

@@ -1,5 +1,4 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { requireAuth } from '#imports'
 import { dbUpdateUser } from '../../../utils/db'
 import type { AppTokenClaims } from '~~/shared/types/token'
 

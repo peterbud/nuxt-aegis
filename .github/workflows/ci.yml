@@ -41,6 +41,9 @@ jobs:
       - name: 🛝 Build playground
         run: pnpm dev:build
 
+      - name: Typecheck module and applications
+        run: pnpm test:types
+
       - name: 👀 Lint project
         run: pnpm lint
 

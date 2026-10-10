@@ -90,7 +90,7 @@
       <div class="actions">
         <button
           class="logout-button"
-          @click="logout"
+          @click="logout()"
         >
           Log Out
         </button>

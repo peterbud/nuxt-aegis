@@ -6,7 +6,9 @@ This document specifies the functional and non-functional requirements for a Nux
 
 ## 2. Ubiquitous Requirements
 
-**UR-1:** The module SHALL support Nuxt 3 and Nuxt 4 applications.
+**UR-1:** The module SHALL support Nuxt 4 applications from version 4.6.0 onward. Nuxt 3 and older Nuxt 4 versions are not supported. Nuxt 5 compatibility requires separate validation.
+
+**UR-1.1:** The module SHALL require Node.js versions matching `^24.15.0 || >=26.0.0`, following Nuxt's supported Node.js range with a minimum major version of 24.
 
 **UR-2:** The module SHALL comply with OAuth 2.0 and OpenID Connect standards WHERE authentication providers support these protocols.
 

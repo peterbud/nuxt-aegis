@@ -14,22 +14,22 @@ export default defineEventHandler(async (event) => {
     isImpersonating: !!currentUser?.impersonation,
     currentUser: currentUser
       ? {
-          sub: currentUser.sub,
-          email: currentUser.email,
-          name: currentUser.name,
-          role: currentUser.role,
-          permissions: currentUser.permissions,
-        }
+        sub: currentUser.sub,
+        email: currentUser.email,
+        name: currentUser.name,
+        role: currentUser.role,
+        permissions: currentUser.permissions,
+      }
       : null,
     originalUser: originalUser
       ? {
-          sub: originalUser.sub,
-          email: originalUser.email,
-          name: originalUser.name,
-        }
+        sub: originalUser.sub,
+        email: originalUser.email,
+        name: originalUser.name,
+      }
       : null,
     impersonationContext: currentUser?.impersonation || null,
-    hint: originalUser
+    hint: originalUser && currentUser
       ? `You are ${originalUser.email} impersonating ${currentUser.email}`
       : currentUser
         ? `You are ${currentUser.email} (not impersonating)`

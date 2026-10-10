@@ -113,20 +113,20 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const cookieHeader = `nuxt-aegis-refresh=${refreshTokenCookie}`
 
       // Tab 1: Refresh token
-      const tab1Refresh = await $fetch('/auth/refresh', {
+      const tab1Refresh = await $fetch<{ success: boolean }>('/auth/refresh', {
         method: 'POST',
         headers: { Cookie: cookieHeader },
-      }) as { success: boolean }
+      })
 
       expect(tab1Refresh.success).toBe(true)
 
       // Tab 2: Refresh token with same cookie (simulates multi-tab)
       // With rotation enabled, this would fail because tab 1 revoked the token
       // With rotation disabled, this should succeed
-      const tab2Refresh = await $fetch('/auth/refresh', {
+      const tab2Refresh = await $fetch<{ success: boolean }>('/auth/refresh', {
         method: 'POST',
         headers: { Cookie: cookieHeader },
-      }) as { success: boolean }
+      })
 
       expect(tab2Refresh.success).toBe(true)
 
@@ -155,10 +155,10 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const cookieHeader = `nuxt-aegis-refresh=${refreshTokenCookie}`
 
       // Verify token works initially
-      const refresh = await $fetch('/auth/refresh', {
+      const refresh = await $fetch<{ success: boolean }>('/auth/refresh', {
         method: 'POST',
         headers: { Cookie: cookieHeader },
-      }) as { success: boolean }
+      })
 
       expect(refresh.success).toBe(true)
 

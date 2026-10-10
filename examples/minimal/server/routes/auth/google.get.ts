@@ -1,5 +1,3 @@
-import { defineOAuthGoogleEventHandler } from '#imports'
-
 export default defineOAuthGoogleEventHandler({
   onUserInfo: (providerUserInfo, _tokens, _event) => {
     return {

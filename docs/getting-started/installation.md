@@ -2,6 +2,11 @@
 
 Get started with Nuxt Aegis in just a few steps.
 
+## Requirements
+
+- Nuxt 4.6.0 or newer within Nuxt 4. Nuxt 3 and older Nuxt 4 releases are not supported; Nuxt 5 has not yet been validated.
+- Node.js `^24.15.0 || >=26.0.0`. Node.js 25 is excluded to match Nuxt's supported range.
+
 ## Add the Module
 
 Install Nuxt Aegis to your Nuxt application using the Nuxt CLI:
