@@ -3,6 +3,14 @@ packages:
   - docs
   - examples/*
 allowBuilds:
-  '@parcel/watcher': false
+  "@parcel/watcher": false
   esbuild: false
   unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - nuxt
+  - "@nuxt/kit"
+  - "@nuxt/nitro-server"
+  - "@nuxt/schema"
+  - "@nuxt/vite-builder"
+  - "@nuxt/vite-server"
