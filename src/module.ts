@@ -1,11 +1,11 @@
 import {
   addImports,
+  addNitroPlugin,
   addPlugin,
   addRouteMiddleware,
   addServerHandler,
   addServerImports,
   addServerImportsDir,
-  addServerPlugin,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -290,7 +290,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Register Nitro server and app plugins for SSR authentication (if enabled)
     if (options.enableSSR) {
-      addServerPlugin(resolver.resolve('./runtime/server/plugins/ssr-auth'))
+      addNitroPlugin({
+        nitro2: resolver.resolve('./runtime/server/plugins/ssr-auth'),
+      })
       addPlugin(resolver.resolve('./runtime/app/plugins/api.server'))
       addPlugin(resolver.resolve('./runtime/app/plugins/ssr-state.server'))
     }

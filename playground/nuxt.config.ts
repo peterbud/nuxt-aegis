@@ -61,16 +61,14 @@ export default defineNuxtConfig({
   },
   ssr: true,
   devtools: { enabled: true },
-  compatibilityDate: '2025-10-04',
-  // Server-side route protection via Nitro route rules
-  nitro: {
-    routeRules: {
-      // Protect all API routes (server-side)
-      '/api/**': { nuxtAegis: { auth: true } },
-      // Public API routes override
-      '/api/public/**': { nuxtAegis: { auth: false } },
-    },
+  // Server-side route protection via Nuxt route rules
+  routeRules: {
+    // Protect all API routes (server-side)
+    '/api/**': { nuxtAegis: { auth: true } },
+    // Public API routes override
+    '/api/public/**': { nuxtAegis: { auth: false } },
   },
+  compatibilityDate: '2025-10-04',
   nuxtAegis: {
     providers: {
       google: {
