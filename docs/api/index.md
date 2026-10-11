@@ -7,6 +7,7 @@ Complete API reference for Nuxt Aegis.
 ### Composables
 
 - [`useAuth()`](/api/composables) - Authentication state and methods
+- [`useAegisFetch()`](/api/fetch-plugin#useaegisfetch) - Reactive authenticated fetching with SSR/hydration reuse
 
 ## Server-Side API
 

@@ -22,6 +22,36 @@ const userData = await $api('/api/user/profile')
 - ✅ Type-safe with TypeScript generics
 - ✅ Same API as Nuxt's `$fetch`
 
+## useAegisFetch
+
+`useAegisFetch` is an auto-imported authenticated version of Nuxt's `useFetch`,
+created with `createUseFetch`. It resolves the current app's `$api` when called
+and reuses its token injection and client refresh/retry behavior unchanged.
+It can also be imported explicitly from `#imports`.
+
+```vue
+<script setup lang="ts">
+const { data, status, error, refresh, execute, clear } = await useAegisFetch('/api/user/profile', {
+  key: 'profile',
+})
+</script>
+```
+
+Standard `useFetch` options, response inference, refs, and controls are preserved,
+including reactive requests and queries, `transform`, `pick`, `default`, and
+`immediate`. With SSR enabled, Nuxt transfers fetched data in its payload and
+reuses it during hydration without a duplicate request. Authentication behavior
+is the same as `$api` on each platform.
+
+Nuxt generates normal call-site keys when `key` is omitted. An explicit key
+shares data between calls, following ordinary `useFetch` semantics. Keys are not
+authentication-scoped, and changing identity does not automatically clear or
+refetch cached data. Manage identity-sensitive data explicitly; do not include
+tokens in keys or returned data.
+
+Keep using `$api` for imperative requests and mutations. `useAegisFetch` adds no
+authentication options or separate data lifecycle.
+
 ## Type Signature
 
 ```typescript

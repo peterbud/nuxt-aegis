@@ -1,30 +1,13 @@
 <script setup lang="ts">
-import { useAuth } from '#imports'
+import { useAuth, useAegisFetch } from '#imports'
 
 definePageMeta({
   middleware: 'auth-logged-in',
 })
 
 const { user, isImpersonating, originalUser } = useAuth()
-const protectedData = ref<Record<string, unknown> | null>(null)
-const error = ref<string | null>(null)
-
-const fetchProtectedData = async () => {
-  protectedData.value = null
-  error.value = null
-
-  try {
-    const data = await useNuxtApp().$api('/api/user/profile')
-    protectedData.value = data
-  }
-  catch (err: unknown) {
-    error.value = (err as Error).message || 'Failed to fetch protected data'
-  }
-}
-
-// Fetch data on mount
-onMounted(() => {
-  fetchProtectedData()
+const { data: protectedData, error, status, refresh: fetchProtectedData } = await useAegisFetch('/api/user/profile', {
+  key: 'protected-page-profile',
 })
 </script>
 
@@ -147,7 +130,8 @@ onMounted(() => {
 
           <button
             class="btn btn-primary"
-            @click="fetchProtectedData"
+            :disabled="status === 'pending'"
+            @click="fetchProtectedData()"
           >
             <svg
               width="16"
@@ -159,7 +143,7 @@ onMounted(() => {
             >
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
             </svg>
-            Refresh Data
+            {{ status === 'pending' ? 'Loading...' : 'Refresh Data' }}
           </button>
 
           <div
@@ -175,7 +159,7 @@ onMounted(() => {
             class="alert alert-error"
           >
             <h4>Error:</h4>
-            <pre>{{ error }}</pre>
+            <pre>{{ error.message }}</pre>
           </div>
         </div>
 

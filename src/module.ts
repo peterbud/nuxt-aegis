@@ -170,7 +170,18 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'useAuth',
         from: resolver.resolve('./runtime/app/composables/useAuth'),
       },
+      {
+        name: 'useAegisFetch',
+        from: resolver.resolve('./runtime/app/composables/useAegisFetch'),
+      },
     ])
+
+    // Register call-site keys explicitly: Nuxt's factory scanner skips module runtime composables.
+    nuxt.options.optimization.keyedComposables.push({
+      name: 'useAegisFetch',
+      source: resolver.resolve('./runtime/app/composables/useAegisFetch'),
+      argumentLength: 3,
+    })
 
     extendPages((pages) => {
       pages.push({
