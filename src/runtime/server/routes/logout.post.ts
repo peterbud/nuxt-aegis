@@ -1,7 +1,6 @@
-import { defineEventHandler, getCookie } from 'h3'
+import { defineEventHandler, getCookie, useRuntimeConfig } from 'nuxt/server'
 import { hashRefreshToken, revokeRefreshToken } from '../utils/refreshToken'
 import { clearToken } from '../utils/cookies'
-import { useRuntimeConfig } from '#imports'
 import type { CookieConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
@@ -12,7 +11,7 @@ const logger = createLogger('Logout')
  * Ends the user session by clearing authentication cookies and revoking refresh token
  */
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
+  const config = useRuntimeConfig()
   const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
 
   try {
@@ -23,7 +22,7 @@ export default defineEventHandler(async (event) => {
     // RS-7: Revoke the refresh token if it exists
     if (refreshToken) {
       const hashedRefreshToken = hashRefreshToken(refreshToken)
-      await revokeRefreshToken(hashedRefreshToken, event)
+      await revokeRefreshToken(hashedRefreshToken)
     }
 
     // EP-20: Clear refresh token cookie

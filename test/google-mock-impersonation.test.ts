@@ -18,6 +18,7 @@ describe('Aegis Module - Mock Google OAuth Impersonation', async () => {
     const authResponse = await fetch(`${baseUrl}auth/google?user=admin`, {
       redirect: 'manual',
     })
+    expect(authResponse.status, await authResponse.text()).toBe(302)
     const authorizeUrl = authResponse.headers.get('location')!
 
     const mockAuthorizeResponse = await fetch(authorizeUrl, {
@@ -58,6 +59,7 @@ describe('Aegis Module - Mock Google OAuth Impersonation', async () => {
       }),
     })
     const impersonateData = await impersonateResponse.json()
+    expect(impersonateResponse.headers.get('x-aegis-impersonation-hook')).toBe('start')
     const impersonatedAccessToken = impersonateData.accessToken as string
     const impersonatedPayload = decodeJwt(impersonatedAccessToken)
 
@@ -77,6 +79,7 @@ describe('Aegis Module - Mock Google OAuth Impersonation', async () => {
       },
     })
     const unimpersonateData = await unimpersonateResponse.json()
+    expect(unimpersonateResponse.headers.get('x-aegis-impersonation-hook')).toBe('end')
     const restoredAccessToken = unimpersonateData.accessToken as string
     const restoredPayload = decodeJwt(restoredAccessToken)
 

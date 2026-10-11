@@ -1,6 +1,5 @@
-import { defineEventHandler, getCookie, createError } from 'h3'
+import { defineEventHandler, getCookie, createError, isNuxtError, useRuntimeConfig } from 'nuxt/server'
 import { hashRefreshToken, getRefreshTokenData, storeRefreshTokenData } from '../utils/refreshToken'
-import { useRuntimeConfig } from '#imports'
 import type { CookieConfig, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 import { recomputeCustomClaims } from '../utils/recomputeClaims'
@@ -36,7 +35,7 @@ const logger = createLogger('UpdateClaims')
  * @throws 403 if feature is disabled
  */
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
+  const config = useRuntimeConfig()
   const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
   const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
@@ -44,8 +43,8 @@ export default defineEventHandler(async (event) => {
   const enableClaimsUpdate = tokenRefreshConfig?.enableClaimsUpdate ?? true // Default: enabled
   if (!enableClaimsUpdate) {
     throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
+      status: 403,
+      statusText: 'Forbidden',
       message: 'Claims update feature is disabled',
     })
   }
@@ -56,8 +55,8 @@ export default defineEventHandler(async (event) => {
 
   if (!refreshToken) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'No refresh token found',
     })
   }
@@ -67,7 +66,7 @@ export default defineEventHandler(async (event) => {
     const hashedRefreshToken = hashRefreshToken(refreshToken)
 
     // Retrieve stored refresh token data and metadata
-    const storedRefreshToken = await getRefreshTokenData(hashedRefreshToken, event)
+    const storedRefreshToken = await getRefreshTokenData(hashedRefreshToken)
 
     // Validate token exists, not revoked, and not expired
     const isRevoked = storedRefreshToken?.isRevoked || false
@@ -75,8 +74,8 @@ export default defineEventHandler(async (event) => {
 
     if (!storedRefreshToken || isRevoked || isExpired) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
+        status: 401,
+        statusText: 'Unauthorized',
         message: 'Invalid or expired refresh token',
       })
     }
@@ -93,7 +92,6 @@ export default defineEventHandler(async (event) => {
         ...storedRefreshToken,
         customClaims: newCustomClaims,
       },
-      event,
     )
 
     logger.debug('Claims updated successfully. User should call refresh() to get new JWT.')
@@ -104,16 +102,16 @@ export default defineEventHandler(async (event) => {
     }
   }
   catch (error) {
-    // Re-throw if already an H3Error
-    if (error && typeof error === 'object' && 'statusCode' in error) {
+    // Re-throw if already an NuxtErrorLike
+    if (isNuxtError(error)) {
       throw error
     }
 
     // Log and throw generic error
     logger.error('Claims update failed:', error)
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: 'Failed to update claims',
     })
   }

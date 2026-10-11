@@ -1,7 +1,5 @@
 {
     "name": "password-auth-fixture",
     "private": true,
-    "dependencies": {
-        "nuxt": "^3.10.0"
-    }
+    "type": "module"
 }

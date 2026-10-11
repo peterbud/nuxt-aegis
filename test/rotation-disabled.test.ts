@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
+import type { RefreshResponse } from '../src/runtime/types'
 import {
   extractCodeFromUrl,
 } from './helpers/mockAuth'
@@ -55,7 +56,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const cookieHeader = `nuxt-aegis-refresh=${refreshTokenCookie}`
 
       // Step 2: First refresh - should reuse same token
-      const firstRefresh = await $fetch('/auth/refresh', {
+      const firstRefresh = await $fetch<RefreshResponse>('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: cookieHeader,
@@ -66,7 +67,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       expect(firstRefresh.accessToken).toBeDefined()
 
       // Step 3: Second refresh - should still reuse same token
-      const secondRefresh = await $fetch('/auth/refresh', {
+      const secondRefresh = await $fetch<RefreshResponse>('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: cookieHeader, // Use original cookie
@@ -77,7 +78,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       expect(secondRefresh.accessToken).toBeDefined()
 
       // Step 4: Third refresh - token should still be valid
-      const thirdRefresh = await $fetch('/auth/refresh', {
+      const thirdRefresh = await $fetch<RefreshResponse>('/auth/refresh', {
         method: 'POST',
         headers: {
           Cookie: cookieHeader, // Still use original

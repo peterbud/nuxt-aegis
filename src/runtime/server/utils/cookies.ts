@@ -1,15 +1,15 @@
-import { setCookie, deleteCookie } from 'h3'
-import type { H3Event } from 'h3'
+import { setCookie, deleteCookie } from 'nuxt/server'
+import type { RequestEvent } from 'nuxt/server'
 import type { CookieConfig } from '../../types'
 
 /**
  * Set the authentication token as an HTTP-only cookie
- * @param event - H3Event object
+ * @param event - RequestEvent object
  * @param token - JWT token to set as cookie
  * @param cookieConfig - Optional cookie configuration
  */
 export function setRefreshTokenCookie(
-  event: H3Event,
+  event: RequestEvent,
   token: string,
   cookieConfig?: CookieConfig,
 ): void {
@@ -32,10 +32,10 @@ export function setRefreshTokenCookie(
 
 /**
  * Clear the authentication token cookie
- * @param event - H3Event object
+ * @param event - RequestEvent object
  * @param cookieConfig - Optional cookie configuration
  */
-export function clearToken(event: H3Event, cookieConfig?: CookieConfig): void {
+export function clearToken(event: RequestEvent, cookieConfig?: CookieConfig): void {
   const cookieName = cookieConfig?.cookieName || 'nuxt-aegis-refresh'
   deleteCookie(event, cookieName)
 }

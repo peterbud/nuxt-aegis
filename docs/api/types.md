@@ -313,9 +313,9 @@ interface AegisHandler {
   }
   
   impersonation?: {
-    fetchTarget: (targetId: string, event: H3Event) => 
+    fetchTarget: (targetId: string, event: RequestEvent) =>
       Promise<Record<string, unknown> | null> | Record<string, unknown> | null
-    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: H3Event) => 
+    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: RequestEvent) =>
       Promise<boolean> | boolean
   }
 }
@@ -378,7 +378,7 @@ Context object passed to the `onUserPersist` handler.
 ```typescript
 interface UserPersistContext {
   provider: string    // Provider name (e.g., 'google', 'password', 'github')
-  event: H3Event      // H3 event for server context
+  event: RequestEvent      // Nuxt request event for server context
 }
 ```
 
@@ -421,6 +421,16 @@ const user: PasswordUser = {
 
 ## Hook Payload Types
 
+Hooks are declared on Nuxt's `NuxtServerHooks` and registered with `useServerHooks()` from `nuxt/server`. Their event type retains the configured Nuxt server event with a typed Nuxt context:
+
+```typescript
+import type { NuxtRequestEvent, RequestEventContext } from 'nuxt/schema'
+
+type AegisHookEvent = Omit<NuxtRequestEvent, 'context'> & { context: RequestEventContext }
+```
+
+The `userInfo`, `impersonate:check`, and `impersonate:fetchTarget` hook names are reserved, not dispatched. Use Aegis handlers for transformation, authorization, and lookup. Hook return values are not collected.
+
 ### `ImpersonateCheckPayload`
 
 Payload for `nuxt-aegis:impersonate:check` hook.
@@ -430,7 +440,7 @@ interface ImpersonateCheckPayload {
   requester: BaseTokenClaims      // User requesting impersonation
   targetUserId: string         // Target user ID to impersonate
   reason?: string              // Reason for impersonation (for audit)
-  event: H3Event               // H3 event for server context
+  event: AegisHookEvent        // Nuxt event with typed request context
   ip: string                   // Client IP address (for audit)
   userAgent: string            // User agent string (for audit)
 }
@@ -444,7 +454,7 @@ Payload for `nuxt-aegis:impersonate:fetchTarget` hook.
 interface ImpersonateFetchTargetPayload {
   requester: BaseTokenClaims      // User requesting impersonation
   targetUserId: string         // Target user ID to impersonate
-  event: H3Event               // H3 event for server context
+  event: AegisHookEvent        // Nuxt event with typed request context
 }
 ```
 
@@ -457,7 +467,7 @@ interface ImpersonateStartPayload {
   requester: BaseTokenClaims      // User who initiated impersonation
   targetUser: BaseTokenClaims     // Impersonated user
   reason?: string              // Reason for impersonation
-  event: H3Event               // H3 event for server context
+  event: AegisHookEvent        // Nuxt event with typed request context
   ip: string                   // Client IP address (for audit)
   userAgent: string            // User agent string (for audit)
   timestamp: Date              // Timestamp of impersonation
@@ -472,7 +482,7 @@ Payload for `nuxt-aegis:impersonate:end` hook (audit logging).
 interface ImpersonateEndPayload {
   restoredUser: BaseTokenClaims   // Restored original user
   impersonatedUser: BaseTokenClaims  // User who was being impersonated
-  event: H3Event               // H3 event for server context
+  event: AegisHookEvent        // Nuxt event with typed request context
   ip: string                   // Client IP address (for audit)
   userAgent: string            // User agent string (for audit)
   timestamp: Date              // Timestamp when impersonation ended
@@ -905,7 +915,7 @@ type UserInfoCallback = (
     id_token?: string
     expires_in?: number
   },
-  event: H3Event
+  event: RequestEvent
 ) => Record<string, unknown> | Promise<Record<string, unknown>>
 ```
 
@@ -923,7 +933,7 @@ type SuccessCallback = (payload: {
     expires_in?: number
   }
   provider: string
-  event: H3Event
+  event: RequestEvent
 }) => void | Promise<void>
 ```
 
@@ -988,7 +998,7 @@ Payload for `nuxt-aegis:userInfo` hook.
 
 ```typescript
 interface UserInfoHookPayload {
-  user: Record<string, unknown>
+  providerUserInfo: Record<string, unknown>
   tokens: {
     access_token: string
     refresh_token?: string
@@ -996,7 +1006,7 @@ interface UserInfoHookPayload {
     expires_in?: number
   }
   provider: string
-  event: H3Event
+  event: AegisHookEvent
 }
 ```
 
@@ -1006,7 +1016,7 @@ Payload for `nuxt-aegis:success` hook.
 
 ```typescript
 interface SuccessHookPayload {
-  user: Record<string, unknown>
+  providerUserInfo: Record<string, unknown>
   tokens: {
     access_token: string
     refresh_token?: string
@@ -1014,7 +1024,7 @@ interface SuccessHookPayload {
     expires_in?: number
   }
   provider: string
-  event: H3Event
+  event: AegisHookEvent
 }
 ```
 

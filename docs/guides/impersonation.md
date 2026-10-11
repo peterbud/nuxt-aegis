@@ -7,7 +7,7 @@ User impersonation allows authorized users (typically administrators) to tempora
 - **Opt-in Configuration**: Disabled by default, must be explicitly enabled
 - **Short-lived Sessions**: Impersonated sessions expire quickly (15 minutes default)
 - **No Token Refresh**: Impersonated sessions cannot be refreshed for security
-- **Audit Logging**: Full audit trail via Nitro hooks
+- **Audit Logging**: Full audit trail via Nuxt server hooks
 - **Chain Prevention**: Cannot impersonate while already impersonating
 - **Custom Authorization**: Implement your own authorization logic via hooks
 - **Original Context Access**: Server routes can access both current and original user
@@ -100,7 +100,9 @@ Implement these hooks for audit logging:
 ### Start Impersonation Hook
 
 ```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:start', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+useServerHooks().hook('nuxt-aegis:impersonate:start', async (payload) => {
   // Log impersonation start
   await auditLog.create({
     action: 'IMPERSONATION_START',
@@ -119,7 +121,9 @@ nitroApp.hooks.hook('nuxt-aegis:impersonate:start', async (payload) => {
 ### End Impersonation Hook
 
 ```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:end', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+useServerHooks().hook('nuxt-aegis:impersonate:end', async (payload) => {
   // Log impersonation end
   await auditLog.create({
     action: 'IMPERSONATION_END',
@@ -260,7 +264,7 @@ interface OriginalUserContext {
 
 ### Best Practices
 
-1. **Restrict to Admins**: Implement strict role checks in the `impersonate:check` hook
+1. **Restrict to Admins**: Implement strict role checks in the `canImpersonate` handler
 2. **Require Reasons**: Always prompt for and log the reason for impersonation
 3. **Organization Boundaries**: Consider preventing impersonation across organization boundaries
 4. **Audit Everything**: Log all impersonation events with full context
@@ -271,39 +275,17 @@ interface OriginalUserContext {
 ### Example Authorization Logic
 
 ```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:check', async (payload) => {
-  // 1. Check if user has admin role
-  if (payload.requester.role !== 'admin' && payload.requester.role !== 'support') {
-    throw createError({
-      statusCode: 403,
-      message: 'Insufficient permissions',
-    })
-  }
-  
-  // 2. Check if user has specific permission
-  if (!payload.requester.permissions?.includes('impersonate')) {
-    throw createError({
-      statusCode: 403,
-      message: 'Missing impersonate permission',
-    })
-  }
-  
-  // 3. Rate limiting (optional)
-  const recentImpersonations = await getRecentImpersonations(payload.requester.sub)
-  if (recentImpersonations.length > 10) {
-    throw createError({
-      statusCode: 429,
-      message: 'Too many impersonation attempts',
-    })
-  }
-  
-  // 4. Require reason for audit
-  if (!payload.reason) {
-    throw createError({
-      statusCode: 400,
-      message: 'Reason is required for impersonation',
-    })
-  }
+defineAegisHandler({
+  impersonation: {
+    canImpersonate: async (requester, targetId) => {
+      if (requester.role !== 'admin' && requester.role !== 'support') return false
+      if (!requester.permissions?.includes('impersonate')) return false
+
+      const target = await db.users.findById(targetId)
+      return !!target && target.organizationId === requester.organizationId
+    },
+    fetchTarget: targetId => db.users.findById(targetId),
+  },
 })
 ```
 
@@ -394,6 +376,7 @@ Common error scenarios:
 ## TypeScript Types
 
 ```typescript
+import type { NuxtRequestEvent, RequestEventContext } from 'nuxt/schema'
 import type { 
   ImpersonateCheckPayload,
   ImpersonateFetchTargetPayload,
@@ -403,11 +386,13 @@ import type {
 } from 'nuxt-aegis'
 
 // Hook payload types
+type AegisHookEvent = Omit<NuxtRequestEvent, 'context'> & { context: RequestEventContext }
+
 interface ImpersonateCheckPayload {
   requester: BaseTokenClaims
   targetUserId: string
   reason?: string
-  event: H3Event
+  event: AegisHookEvent
   ip: string
   userAgent: string
 }
@@ -415,14 +400,14 @@ interface ImpersonateCheckPayload {
 interface ImpersonateFetchTargetPayload {
   requester: BaseTokenClaims
   targetUserId: string
-  event: H3Event
+  event: AegisHookEvent
 }
 
 interface ImpersonateStartPayload {
   requester: BaseTokenClaims
   targetUser: BaseTokenClaims
   reason?: string
-  event: H3Event
+  event: AegisHookEvent
   ip: string
   userAgent: string
   timestamp: Date
@@ -431,7 +416,7 @@ interface ImpersonateStartPayload {
 interface ImpersonateEndPayload {
   restoredUser: BaseTokenClaims
   impersonatedUser: BaseTokenClaims
-  event: H3Event
+  event: AegisHookEvent
   ip: string
   userAgent: string
   timestamp: Date

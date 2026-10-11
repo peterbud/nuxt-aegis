@@ -2,25 +2,29 @@
 
 Server-side utility functions for authentication in API routes and middleware.
 
+Import request handlers and their helpers explicitly from `nuxt/server`; Nuxt 4 server auto-imports still use h3. Event-taking Aegis utilities accept the portable `RequestEvent` from `nuxt/server`.
+
 ## Authentication Utilities
 
 ### `requireAuth(event)`
 
-Require authentication and get the current user from JWT token.
+Require authentication and return the event with a guaranteed authenticated user in its context.
 
 **Type Signature:**
 
 ```typescript
-async function requireAuth(event: H3Event): Promise<User>
+function requireAuth<T extends BaseTokenClaims = BaseTokenClaims>(
+  event: RequestEvent,
+): RequestEvent & { context: { user: T } }
 ```
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `event` | `H3Event` | Server request event |
+| `event` | `RequestEvent` | Server request event |
 
-**Returns:** `Promise<User>` - Authenticated user object
+**Returns:** The same event, with `context.user` narrowed to `T`.
 
 **Throws:** `401 Unauthorized` if user is not authenticated or token is invalid/expired
 
@@ -28,9 +32,11 @@ async function requireAuth(event: H3Event): Promise<User>
 
 ```typescript
 // server/routes/api/profile.get.ts
-export default defineEventHandler(async (event) => {
+import { defineEventHandler } from 'nuxt/server'
+
+export default defineEventHandler((event) => {
   // Require authentication (throws 401 if not authenticated)
-  const user = await requireAuth(event)
+  const { user } = requireAuth(event).context
   
   // User is guaranteed to be authenticated here
   return {
@@ -54,24 +60,26 @@ Optionally get the current user without throwing an error.
 **Type Signature:**
 
 ```typescript
-async function getAuthUser(event: H3Event): Promise<User | null>
+function getAuthUser<T extends BaseTokenClaims = BaseTokenClaims>(event: RequestEvent): T | null
 ```
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `event` | `H3Event` | Server request event |
+| `event` | `RequestEvent` | Server request event |
 
-**Returns:** `Promise<User | null>` - User object if authenticated, `null` otherwise
+**Returns:** `T | null` - User object if authenticated, `null` otherwise
 
 **Example:**
 
 ```typescript
 // server/routes/api/posts.get.ts
+import { defineEventHandler } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
   // Get user if authenticated (doesn't throw)
-  const user = await getAuthUser(event)
+  const user = getAuthUser(event)
   
   if (user) {
     // Return personalized content
@@ -187,13 +195,13 @@ export default defineEventHandler(async (event) => {
   const { refreshToken } = await readBody(event)
   
   const tokenHash = hashRefreshToken(refreshToken)
-  await revokeRefreshToken(tokenHash, event)
+  await revokeRefreshToken(tokenHash)
   
   return { success: true }
 })
 ```
 
-### `revokeRefreshToken(tokenHash, event?)`
+### `revokeRefreshToken(tokenHash)`
 
 Revoke a refresh token by marking it as revoked without deleting it. This preserves the token data for audit purposes while preventing its use.
 
@@ -201,8 +209,7 @@ Revoke a refresh token by marking it as revoked without deleting it. This preser
 
 ```typescript
 async function revokeRefreshToken(
-  tokenHash: string,
-  event?: H3Event
+  tokenHash: string
 ): Promise<void>
 ```
 
@@ -211,7 +218,6 @@ async function revokeRefreshToken(
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `tokenHash` | `string` | Hashed refresh token (use `hashRefreshToken()`) |
-| `event` | `H3Event` | Optional H3 event for runtime config |
 
 **Example:**
 
@@ -222,14 +228,14 @@ export default defineEventHandler(async (event) => {
   
   // Check admin permissions
   if (user.role !== 'admin') {
-    throw createError({ statusCode: 403, message: 'Admin access required' })
+    throw createError({ status: 403, message: 'Admin access required' })
   }
   
   const { refreshToken } = await readBody(event)
   const tokenHash = hashRefreshToken(refreshToken)
   
   // Revoke the token (marks as revoked, preserves for audit)
-  await revokeRefreshToken(tokenHash, event)
+  await revokeRefreshToken(tokenHash)
   
   return { 
     success: true,
@@ -242,7 +248,7 @@ export default defineEventHandler(async (event) => {
 Revoked tokens remain in storage with an `isRevoked` flag, maintaining an audit trail while preventing their use.
 :::
 
-### `deleteUserRefreshTokens(email, exceptTokenHash?, event?)`
+### `deleteUserRefreshTokens(email, exceptTokenHash?)`
 
 Delete all refresh tokens for a specific user. Useful for security operations like password changes or account deletion.
 
@@ -251,8 +257,7 @@ Delete all refresh tokens for a specific user. Useful for security operations li
 ```typescript
 async function deleteUserRefreshTokens(
   email: string,
-  exceptTokenHash?: string,
-  event?: H3Event
+  exceptTokenHash?: string
 ): Promise<void>
 ```
 
@@ -262,7 +267,6 @@ async function deleteUserRefreshTokens(
 |-----------|------|-------------|
 | `email` | `string` | User email to match |
 | `exceptTokenHash` | `string` | Optional token hash to preserve (e.g., current session) |
-| `event` | `H3Event` | Optional H3 event for runtime config |
 
 **Example:**
 
@@ -282,7 +286,7 @@ export default defineEventHandler(async (event) => {
     : undefined
   
   // Revoke all other sessions for security
-  await deleteUserRefreshTokens(user.email, currentTokenHash, event)
+  await deleteUserRefreshTokens(user.email, currentTokenHash)
   
   return { 
     success: true,
@@ -305,7 +309,7 @@ Set the refresh token cookie.
 
 ```typescript
 function setRefreshTokenCookie(
-  event: H3Event,
+  event: RequestEvent,
   token: string,
   maxAge: number
 ): void
@@ -315,7 +319,7 @@ function setRefreshTokenCookie(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `event` | `H3Event` | Server request event |
+| `event` | `RequestEvent` | Server request event |
 | `token` | `string` | Refresh token |
 | `maxAge` | `number` | Cookie max age in seconds |
 
@@ -323,7 +327,7 @@ function setRefreshTokenCookie(
 
 ```typescript
 // server/utils/customAuth.ts
-export async function loginUser(event: H3Event, user: User) {
+export async function loginUser(event: RequestEvent, user: User) {
   const refreshToken = await createRefreshToken(user)
   
   setRefreshTokenCookie(event, refreshToken, 60 * 60 * 24 * 7) // 7 days
@@ -341,14 +345,14 @@ Get the refresh token from cookie.
 **Type Signature:**
 
 ```typescript
-function getRefreshTokenFromCookie(event: H3Event): string | undefined
+function getRefreshTokenFromCookie(event: RequestEvent): string | undefined
 ```
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `event` | `H3Event` | Server request event |
+| `event` | `RequestEvent` | Server request event |
 
 **Returns:** `string | undefined` - Refresh token or `undefined` if not found
 
@@ -419,7 +423,7 @@ export default defineEventHandler(async (event) => {
   // Check if user has admin role
   if (user.role !== 'admin') {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Admin access required'
     })
   }
@@ -472,7 +476,7 @@ export default defineEventHandler(async (event) => {
     console.error('Auth error:', error)
     
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Authentication required'
     })
   }

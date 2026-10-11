@@ -1,6 +1,5 @@
-import { useRuntimeConfig } from '#imports'
-import type { H3Event } from 'h3'
-import { createError } from 'h3'
+import { useRuntimeConfig, createError } from 'nuxt/server'
+import type { RequestEvent } from 'nuxt/server'
 import type { TokenConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
 import { generateAndStoreRefreshToken } from './refreshToken'
 import { generateToken } from './jwt'
@@ -9,7 +8,7 @@ import { generateToken } from './jwt'
  * Generate authentication tokens from user data with optional custom claims
  * This is the recommended way to generate tokens after successful OAuth authentication
  *
- * @param event - H3Event object
+ * @param _event - RequestEvent object retained for caller compatibility
  * @param providerUserInfo - Complete user object from the OAuth provider (will be stored with refresh token)
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param customClaims - Optional custom claims to add to the JWT (already processed)
@@ -24,12 +23,12 @@ import { generateToken } from './jwt'
  * ```
  */
 export async function generateAuthTokens(
-  event: H3Event,
+  _event: RequestEvent,
   providerUserInfo: Record<string, unknown>,
   provider: string,
   customClaims?: Record<string, unknown>,
 ): Promise<{ accessToken: string, refreshToken?: string }> {
-  const config = useRuntimeConfig(event)
+  const config = useRuntimeConfig()
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
@@ -53,7 +52,6 @@ export async function generateAuthTokens(
     tokenRefreshConfig,
     undefined, // No previous token hash for initial auth
     customClaims, // Store resolved custom claims for consistent refresh
-    event,
   )
 
   // EP-13: Generate access token with custom claims
@@ -67,7 +65,7 @@ export async function generateAuthTokens(
  * Ensures the event has an authenticated user and narrows the type
  * Returns the event with narrowed context type for better type inference
  *
- * @param event - H3Event object
+ * @param event - RequestEvent object
  * @returns Event with guaranteed user context
  * @throws 401 Unauthorized if user is not authenticated
  *
@@ -96,24 +94,24 @@ export async function generateAuthTokens(
  * ```
  */
 export function requireAuth<T extends BaseTokenClaims = BaseTokenClaims>(
-  event: H3Event,
-): H3Event & { context: { user: T } } {
+  event: RequestEvent,
+): RequestEvent & { context: { user: T } } {
   if (!event.context.user) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Authentication required',
     })
   }
 
-  return event as H3Event & { context: { user: T } }
+  return event as RequestEvent & { context: { user: T } }
 }
 
 /**
  * Get the authenticated user from the event context
  * This is a convenience function that combines requireAuth and context extraction
  *
- * @param event - H3Event object
+ * @param event - RequestEvent object
  * @returns The authenticated user payload
  * @throws 401 Unauthorized if user is not authenticated
  *
@@ -141,7 +139,7 @@ export function requireAuth<T extends BaseTokenClaims = BaseTokenClaims>(
  * })
  * ```
  */
-export function getAuthUser<T extends BaseTokenClaims = BaseTokenClaims>(event: H3Event): T | null {
+export function getAuthUser<T extends BaseTokenClaims = BaseTokenClaims>(event: RequestEvent): T | null {
   if (!event.context.user) {
     return null
   }

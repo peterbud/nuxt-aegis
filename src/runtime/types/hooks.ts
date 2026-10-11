@@ -1,8 +1,8 @@
-import type { H3Event } from 'h3'
+import type { RequestEvent } from 'nuxt/server'
 import type { BaseTokenClaims } from './token'
 
 /**
- * Nitro hook type definitions for Nuxt Aegis
+ * Server hook type definitions for Nuxt Aegis
  * These hooks allow users to customize authentication behavior via server plugins
  */
 
@@ -24,8 +24,8 @@ export interface UserInfoHookPayload {
   }
   /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0') */
   provider: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
 }
 
 /**
@@ -46,8 +46,8 @@ export interface SuccessHookPayload {
   }
   /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0') */
   provider: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
 }
 
 /**
@@ -61,8 +61,8 @@ export interface ImpersonateCheckPayload {
   targetUserId: string
   /** Optional reason for impersonation (for audit) */
   reason?: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
   /** Client IP address (for audit) */
   ip: string
   /** User agent string (for audit) */
@@ -80,8 +80,8 @@ export interface ImpersonateFetchTargetPayload {
   requester: BaseTokenClaims
   /** Target user ID to impersonate */
   targetUserId: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
 }
 
 /**
@@ -95,8 +95,8 @@ export interface ImpersonateStartPayload {
   targetUser: BaseTokenClaims
   /** Reason for impersonation */
   reason?: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
   /** Client IP address (for audit) */
   ip: string
   /** User agent string (for audit) */
@@ -114,8 +114,8 @@ export interface ImpersonateEndPayload {
   restoredUser: BaseTokenClaims
   /** JWT payload of the user who was being impersonated */
   impersonatedUser: BaseTokenClaims
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
   /** Client IP address (for audit) */
   ip: string
   /** User agent string (for audit) */

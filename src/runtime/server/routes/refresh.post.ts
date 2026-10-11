@@ -1,4 +1,10 @@
-import { defineEventHandler, getCookie, createError } from 'h3'
+import {
+  defineEventHandler,
+  getCookie,
+  createError,
+  getRequestHeader,
+  useRuntimeConfig,
+} from 'nuxt/server'
 import { generateToken, verifyToken } from '../utils/jwt'
 import {
   generateAndStoreRefreshToken,
@@ -7,7 +13,6 @@ import {
   revokeRefreshToken,
 } from '../utils/refreshToken'
 import { setRefreshTokenCookie } from '../utils/cookies'
-import { useRuntimeConfig } from '#imports'
 import type { RefreshResponse, TokenConfig, CookieConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
@@ -19,15 +24,15 @@ const logger = createLogger('Refresh')
  * Rejects refresh requests for impersonated sessions
  */
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
+  const config = useRuntimeConfig()
   const cookieConfig = config.nuxtAegis?.tokenRefresh?.cookie as CookieConfig
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: 'Token configuration is missing',
     })
   }
@@ -39,8 +44,8 @@ export default defineEventHandler(async (event) => {
   if (!refreshToken) {
     // EP-29: Return 401 when no token provided
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'No refresh token found',
     })
   }
@@ -48,15 +53,15 @@ export default defineEventHandler(async (event) => {
   try {
     // Check if current session is impersonated (from Authorization header if present)
     // Impersonated sessions cannot be refreshed - user must call unimpersonate
-    const authHeader = event.node.req.headers.authorization
+    const authHeader = getRequestHeader(event, 'authorization')
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7)
       const currentToken = await verifyToken(token, tokenConfig.secret, false) // Don't check expiration
 
       if (currentToken?.impersonation) {
         throw createError({
-          statusCode: 403,
-          statusMessage: 'Forbidden',
+          status: 403,
+          statusText: 'Forbidden',
           message: 'Cannot refresh impersonated session. Please call unimpersonate to restore your original session.',
         })
       }
@@ -66,7 +71,7 @@ export default defineEventHandler(async (event) => {
     const hashedRefreshToken = hashRefreshToken(refreshToken)
 
     // EP-28: Retrieve stored user object and metadata from persistent storage
-    const storedRefreshToken = await getRefreshTokenData(hashedRefreshToken, event)
+    const storedRefreshToken = await getRefreshTokenData(hashedRefreshToken)
 
     // Validate token exists, not revoked, and not expired
     const isRevoked = storedRefreshToken?.isRevoked || false
@@ -75,8 +80,8 @@ export default defineEventHandler(async (event) => {
     if (!storedRefreshToken || isRevoked || isExpired) {
       // EP-29: Return 401 when token is invalid, revoked, or expired
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
+        status: 401,
+        statusText: 'Unauthorized',
         message: 'Invalid or expired refresh token',
       })
     }
@@ -114,7 +119,6 @@ export default defineEventHandler(async (event) => {
         tokenRefreshConfig,
         hashedRefreshToken, // Pass previous token hash for rotation tracking
         customClaims, // Preserve custom claims in new refresh token
-        event,
       )
 
       // Set new refresh token cookie
@@ -123,7 +127,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Revoke the old refresh token
-      await revokeRefreshToken(hashedRefreshToken, event)
+      await revokeRefreshToken(hashedRefreshToken)
     }
     else {
       // Reuse existing refresh token - re-set cookie to ensure it doesn't expire in browser
@@ -140,8 +144,8 @@ export default defineEventHandler(async (event) => {
   catch {
     // EP-21: Return 401 for any refresh errors
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Token refresh failed',
     })
   }

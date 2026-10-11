@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError } from 'nuxt/server'
 import { dbUpdateUser } from '../../../utils/db'
 import type { AppTokenClaims } from '~~/shared/types/token'
 
@@ -13,11 +13,11 @@ export default defineEventHandler(async (event) => {
 
   // For demo purposes, allow any authenticated user to update their own role
   // In production, you'd check if the user has admin permissions
-  const { userId, role } = await readBody(event)
+  const { userId, role } = await readBody<{ userId?: string, role?: string }>(event)
 
   if (!userId || !role) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'userId and role are required',
     })
   }
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const validRoles = ['user', 'admin', 'moderator']
   if (!validRoles.includes(role)) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: `Invalid role. Must be one of: ${validRoles.join(', ')}`,
     })
   }
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   // In production, add proper authorization checks
   if (userId !== currentUser.sub && currentUser.role !== 'admin') {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Only admins can update other users\' roles',
     })
   }
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
   if (!updatedUser) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'User not found',
     })
   }

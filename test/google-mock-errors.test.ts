@@ -26,6 +26,27 @@ describe('Aegis Module - Error Scenarios', async () => {
   })
 
   describe('OAuth Provider Errors', () => {
+    it('normalizes token exchange exceptions for the error callback', async () => {
+      const response = await fetch(getUrl('/auth/google?code=invalid-provider-code'), {
+        redirect: 'manual',
+      })
+
+      expect(response.status).toBe(302)
+      expect(response.headers.get('location')).toBe('/auth/callback?error=authentication_failed')
+      expect(response.headers.get('x-aegis-error-status')).toBe('500')
+    })
+
+    it('returns a custom error redirect with a portable HTTP error', async () => {
+      const response = await fetch(getUrl('/auth/google?error=access_denied'), {
+        redirect: 'manual',
+      })
+
+      expect(response.status).toBe(302)
+      expect(response.headers.get('location')).toBe('/auth/callback?error=authentication_failed')
+      expect(response.headers.get('x-aegis-error-status')).toBe('400')
+      expect(await response.text()).toContain('http-equiv="refresh"')
+    })
+
     it('should handle provider error parameter (PR-14)', async () => {
       // Simulate OAuth provider returning an error
       // Add mock_error parameter to trigger error in mock Google

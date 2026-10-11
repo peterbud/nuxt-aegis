@@ -88,6 +88,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       })
 
       expect(finalResponse.status).toBe(302)
+      expect(finalResponse.headers.get('x-aegis-hook-order')).toBe('provider,first,second')
       const finalLocation = finalResponse.headers.get('location')
       expect(finalLocation).toContain('/auth/callback')
 

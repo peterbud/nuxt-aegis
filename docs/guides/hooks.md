@@ -6,6 +6,10 @@ Customize authentication behavior globally using Nuxt Aegis hooks in server plug
 
 Hooks allow you to intercept and react to authentication events. Unlike [Handlers](/guides/handlers), hooks are primarily for side effects (logging, analytics, notifications) and do not affect the core authentication flow logic.
 
+Import `useServerHooks` from `nuxt/server` to register hooks. Handlers run sequentially in registration order; OAuth's provider-level `onSuccess` runs before the global success hooks. Impersonation audit hook errors do not block impersonation or restoration.
+
+Hook contracts are declared on `NuxtServerHooks` in `@nuxt/schema`. Payload events retain Nuxt's configured server event shape with a Nuxt-owned `RequestEventContext`. Use Aegis handlers for user-info transformation, impersonation authorization, and target lookup; the corresponding hook names are reserved and are not dispatched.
+
 ## Available Hooks
 
 ### `nuxt-aegis:success`
@@ -31,7 +35,7 @@ Called after successful authentication.
     expires_in?: number
   }
   provider: string                   // 'google', 'github', 'auth0', etc.
-  event: H3Event                     // Server event context
+  event: SuccessHookPayload['event'] // Nuxt server event context
 }
 ```
 
@@ -39,8 +43,10 @@ Called after successful authentication.
 
 ```typescript
 // server/plugins/aegis.ts
-export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('nuxt-aegis:success', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+export default defineNitroPlugin(() => {
+  useServerHooks().hook('nuxt-aegis:success', async (payload) => {
     console.log('User authenticated:', payload.providerUserInfo.email)
     
     // Update last login timestamp
@@ -70,14 +76,16 @@ Called after an impersonation session has successfully started.
   timestamp: Date               // When it started
   ip: string                    // Client IP
   userAgent: string             // Client User Agent
-  event: H3Event                // Server event context
+  event: ImpersonateStartPayload['event'] // Nuxt server event context
 }
 ```
 
 **Example:**
 
 ```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:start', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+useServerHooks().hook('nuxt-aegis:impersonate:start', async (payload) => {
   console.log(`[AUDIT] ${payload.requester.email} started impersonating ${payload.targetUser.email}`)
 })
 ```
@@ -99,14 +107,16 @@ Called after an impersonation session has ended (user reverted to original ident
   timestamp: Date
   ip: string
   userAgent: string
-  event: H3Event
+  event: ImpersonateEndPayload['event']
 }
 ```
 
 **Example:**
 
 ```typescript
-nitroApp.hooks.hook('nuxt-aegis:impersonate:end', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+useServerHooks().hook('nuxt-aegis:impersonate:end', async (payload) => {
   console.log(`[AUDIT] Impersonation ended for ${payload.impersonatedUser.email}`)
 })
 ```
@@ -118,8 +128,10 @@ nitroApp.hooks.hook('nuxt-aegis:impersonate:end', async (payload) => {
 
 ```typescript
 // server/plugins/aegis.ts
-export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('nuxt-aegis:success', async (payload) => {
+import { useServerHooks } from 'nuxt/server'
+
+export default defineNitroPlugin(() => {
+  useServerHooks().hook('nuxt-aegis:success', async (payload) => {
     console.log('Login success:', payload.providerUserInfo.email)
   })
 })

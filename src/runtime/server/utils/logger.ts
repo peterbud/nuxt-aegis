@@ -1,5 +1,5 @@
 import { consola } from 'consola'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from 'nuxt/server'
 
 /**
  * Logger instance for consistent logging across server-side code

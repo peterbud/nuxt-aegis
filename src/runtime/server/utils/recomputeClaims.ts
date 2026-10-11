@@ -1,5 +1,5 @@
-import type { H3Event } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import type { RequestEvent } from 'nuxt/server'
+import { useRuntimeConfig } from 'nuxt/server'
 import type { RefreshTokenData, TokenRefreshConfig } from '../../types'
 import { useAegisHandler, type UserPersistContext } from './handler'
 import { processCustomClaims } from './customClaims'
@@ -14,21 +14,21 @@ const logger = createLogger('RecomputeClaims')
  * Optionally re-executes onUserPersist to fetch fresh database data.
  *
  * @param refreshTokenData - Stored refresh token data containing user info
- * @param event - H3 event for context
+ * @param event - Nuxt request event for context
  * @returns Updated custom claims object
  *
  * @example
  * ```typescript
- * const storedData = await getRefreshTokenData(hashedToken, event)
+ * const storedData = await getRefreshTokenData(hashedToken)
  * const newClaims = await recomputeCustomClaims(storedData, event)
  * // newClaims now contains fresh data from database
  * ```
  */
 export async function recomputeCustomClaims(
   refreshTokenData: RefreshTokenData,
-  event: H3Event,
+  event: RequestEvent,
 ): Promise<Record<string, unknown>> {
-  const config = useRuntimeConfig(event)
+  const config = useRuntimeConfig()
   const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
   // Get global handler

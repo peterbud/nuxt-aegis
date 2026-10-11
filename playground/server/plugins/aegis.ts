@@ -1,7 +1,4 @@
-import type {
-  ImpersonateStartPayload,
-  ImpersonateEndPayload,
-} from '#nuxt-aegis'
+import { useServerHooks } from 'nuxt/server'
 import {
   dbAddUser,
   dbFindUserByProvider,
@@ -23,7 +20,7 @@ import {
  * by providing their own onUserInfo or onSuccess callbacks.
  */
 
-export default defineNitroPlugin((nitroApp) => {
+export default defineNitroPlugin(() => {
   /**
    * Register Aegis Handler for logic
    */
@@ -271,7 +268,7 @@ export default defineNitroPlugin((nitroApp) => {
    *
    * This is fire-and-forget - errors won't block impersonation
    */
-  nitroApp.hooks.hook('nuxt-aegis:impersonate:start', async (payload: ImpersonateStartPayload) => {
+  useServerHooks().hook('nuxt-aegis:impersonate:start', async (payload) => {
     console.log('[Aegis Plugin] 🎭 IMPERSONATION STARTED', {
       admin: payload.requester.email,
       adminId: payload.requester.sub,
@@ -296,7 +293,7 @@ export default defineNitroPlugin((nitroApp) => {
    *
    * This is fire-and-forget - errors won't block session restoration
    */
-  nitroApp.hooks.hook('nuxt-aegis:impersonate:end', async (payload: ImpersonateEndPayload) => {
+  useServerHooks().hook('nuxt-aegis:impersonate:end', async (payload) => {
     console.log('[Aegis Plugin] 🎭 IMPERSONATION ENDED', {
       admin: payload.restoredUser.email,
       adminId: payload.restoredUser.sub,

@@ -1,8 +1,6 @@
-import { eventHandler, getRequestURL } from 'h3'
-import type { H3Event } from 'h3'
+import { defineEventHandler, getRequestURL, useRuntimeConfig } from 'nuxt/server'
 import type { NuxtAegisRuntimeConfig, OAuthConfig, MockProviderConfig, OAuthProviderConfig } from '../../types'
 import { defineOAuthEventHandler, defineOAuthProvider, type OAuthProviderImplementation, validateAuthorizationParams } from './oauthBase'
-import { useRuntimeConfig } from '#imports'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('MockProvider')
@@ -212,13 +210,13 @@ export function defineOAuthMockEventHandler({
   onSuccess,
 }: OAuthConfig<MockProviderConfig>) {
   // Wrap it to add mock-specific logic
-  return eventHandler(async (event: H3Event) => {
+  return defineEventHandler(async (event) => {
     // Get the current server URL from the request
     const requestURL = getRequestURL(event)
     const baseUrl = `${requestURL.protocol}//${requestURL.host}`
 
     // Extract user and mock_error parameters from the incoming request
-    const { getQuery } = await import('h3')
+    const { getQuery } = await import('nuxt/server')
     const incomingQuery = getQuery(event)
     const userParam = incomingQuery.user as string | undefined
     const mockErrorParam = incomingQuery.mock_error as string | undefined
@@ -229,7 +227,7 @@ export function defineOAuthMockEventHandler({
     mockImplementation.userInfoUrl = `${baseUrl}/auth/mock/userinfo`
 
     // Get runtime config to check production mode and validate config
-    const runtimeConfig = useRuntimeConfig(event)
+    const runtimeConfig = useRuntimeConfig()
     const mockConfig = (runtimeConfig.nuxtAegis as NuxtAegisRuntimeConfig | undefined)?.providers?.mock
 
     if (mockConfig) {
@@ -242,7 +240,8 @@ export function defineOAuthMockEventHandler({
 
     // PR-3.2, PR-3.3: Merge the incoming user/error parameters into authorizationParams
     // This ensures they're passed to the authorization endpoint
-    const enhancedConfig = config || mockConfig
+    const baseConfig = config || mockConfig
+    const enhancedConfig = baseConfig ? { ...baseConfig } : undefined
     if (enhancedConfig && (userParam || mockErrorParam)) {
       const additionalParams: Record<string, string> = {}
       if (userParam) additionalParams.user = userParam // PR-3.2: User persona selection

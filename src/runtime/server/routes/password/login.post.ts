@@ -1,5 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, readBody, createError, useRuntimeConfig } from 'nuxt/server'
 import { createLogger } from '../../utils/logger'
 import { useAegisHandler } from '../../utils/handler'
 import {
@@ -17,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   if (!passwordConfig) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Password provider is not configured',
     })
   }
@@ -25,17 +24,17 @@ export default defineEventHandler(async (event) => {
   const handler = useAegisHandler()
   if (!handler?.password) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Password handler is not implemented',
     })
   }
 
-  const body = await readBody(event)
+  const body = await readBody<{ email?: string, password?: string }>(event)
   const { email, password } = body
 
   if (!email || !password) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Email and password are required',
     })
   }
@@ -56,7 +55,7 @@ export default defineEventHandler(async (event) => {
   if (!user || !isValidPassword) {
     // Generic error to prevent enumeration
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Invalid email or password',
     })
   }
@@ -79,7 +78,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     logger.error('Failed to send verification code', error)
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Failed to send verification code',
     })
   }

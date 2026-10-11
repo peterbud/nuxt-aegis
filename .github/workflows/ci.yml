@@ -42,7 +42,7 @@ jobs:
         run: pnpm dev:build
 
       - name: Typecheck module and applications
-        run: pnpm test:types
+        run: pnpm typecheck
 
       - name: 👀 Lint project
         run: pnpm lint

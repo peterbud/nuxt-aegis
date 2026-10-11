@@ -1,4 +1,4 @@
-import type { H3Error, H3Event } from 'h3'
+import type { NuxtErrorLike, RequestEvent } from 'nuxt/server'
 
 /**
  * Callback and error handler type definitions
@@ -7,7 +7,7 @@ import type { H3Error, H3Event } from 'h3'
 /**
  * Error handler callback type
  */
-export type OnError = (event: H3Event, error: H3Error) => Promise<void> | void
+export type OnError = (event: RequestEvent, error: NuxtErrorLike) => unknown
 
 /**
  * User information transformation hook
@@ -18,7 +18,7 @@ export type OnError = (event: H3Event, error: H3Error) => Promise<void> | void
  *
  * @param providerUserInfo - Complete user object from OAuth provider
  * @param tokens - Provider tokens (access_token, refresh_token, id_token, expires_in)
- * @param event - H3 event for server context access
+ * @param event - Nuxt request event for server context access
  * @returns Transformed user object that will be stored and used for custom claims
  */
 export type OnUserInfo = (
@@ -29,7 +29,7 @@ export type OnUserInfo = (
     id_token?: string
     expires_in?: number
   },
-  event: H3Event,
+  event: RequestEvent,
 ) => Promise<Record<string, unknown>> | Record<string, unknown>
 
 /**
@@ -47,8 +47,8 @@ export interface OnSuccessParams {
   }
   /** Provider name (e.g., 'google', 'github', 'microsoft', 'auth0') */
   provider: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
 }
 
 /**

@@ -24,7 +24,7 @@ describe('Refresh Token Encryption', () => {
 
   describe('encryptData and decryptData', () => {
     it('should encrypt and decrypt data correctly', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -57,7 +57,7 @@ describe('Refresh Token Encryption', () => {
     })
 
     it('should produce different ciphertext for same data (unique IV)', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -83,7 +83,7 @@ describe('Refresh Token Encryption', () => {
     })
 
     it('should handle complex nested objects', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -123,7 +123,7 @@ describe('Refresh Token Encryption', () => {
     })
 
     it('should fail to decrypt with wrong key', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -149,7 +149,7 @@ describe('Refresh Token Encryption', () => {
     })
 
     it('should fail to decrypt tampered ciphertext', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -186,7 +186,7 @@ describe('Refresh Token Encryption', () => {
 
   describe('getEncryptionConfig', () => {
     it('should return encryption config from runtime config', async () => {
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -212,7 +212,7 @@ describe('Refresh Token Encryption', () => {
 
     it('should default to disabled when not configured', async () => {
       vi.resetModules()
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -248,7 +248,7 @@ describe('Refresh Token Encryption', () => {
         })),
       }))
 
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },
@@ -306,7 +306,7 @@ describe('Refresh Token Encryption', () => {
         })),
       }))
 
-      vi.doMock('#imports', () => ({
+      vi.doMock('nuxt/server', () => ({
         useRuntimeConfig: vi.fn(() => ({
           nuxtAegis: {
             logging: { level: 'silent' },

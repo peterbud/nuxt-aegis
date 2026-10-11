@@ -1,5 +1,11 @@
-import { defineEventHandler, readBody, createError, getHeader, getCookie } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import {
+  defineEventHandler,
+  readBody,
+  createError,
+  getRequestHeader,
+  getCookie,
+  useRuntimeConfig,
+} from 'nuxt/server'
 import { useAegisHandler } from '../../utils/handler'
 import { verifyToken } from '../../utils/jwt'
 import { verifyPassword, validatePasswordStrength, hashPassword, normalizeEmail } from '../../utils/password'
@@ -11,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   if (!passwordConfig) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Password provider is not configured',
     })
   }
@@ -19,16 +25,16 @@ export default defineEventHandler(async (event) => {
   const handler = useAegisHandler()
   if (!handler?.password) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Password handler is not implemented',
     })
   }
 
   // Authenticate user
-  const authHeader = getHeader(event, 'authorization')
+  const authHeader = getRequestHeader(event, 'authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Authentication required',
     })
   }
@@ -38,21 +44,21 @@ export default defineEventHandler(async (event) => {
 
   if (!tokenConfig?.secret) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Token secret is not configured',
     })
   }
 
   const payload = await verifyToken(token, tokenConfig.secret).catch(() => {
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Invalid token',
     })
   })
 
   if (!payload) {
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Invalid token payload',
     })
   }
@@ -60,17 +66,17 @@ export default defineEventHandler(async (event) => {
   const email = payload.email as string
   if (!email) {
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Invalid token payload',
     })
   }
 
-  const body = await readBody(event)
+  const body = await readBody<{ currentPassword?: string, newPassword?: string }>(event)
   const { currentPassword, newPassword } = body
 
   if (!currentPassword || !newPassword) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Current and new password are required',
     })
   }
@@ -81,7 +87,7 @@ export default defineEventHandler(async (event) => {
   const user = await handler.password.findUser(normalizedEmail)
   if (!user) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'User not found',
     })
   }
@@ -93,7 +99,7 @@ export default defineEventHandler(async (event) => {
 
   if (!isValidPassword) {
     throw createError({
-      statusCode: 401,
+      status: 401,
       message: 'Current password is incorrect',
     })
   }
@@ -116,7 +122,7 @@ export default defineEventHandler(async (event) => {
     }
 
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'New password does not meet requirements',
       data: { errors },
     })
@@ -142,7 +148,7 @@ export default defineEventHandler(async (event) => {
   }
   else {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'onUserPersist handler is required for password authentication',
     })
   }
@@ -156,7 +162,7 @@ export default defineEventHandler(async (event) => {
     currentTokenHash = hashRefreshToken(currentRefreshToken)
   }
 
-  await deleteUserRefreshTokens(normalizedEmail, currentTokenHash, event)
+  await deleteUserRefreshTokens(normalizedEmail, currentTokenHash)
 
   return { success: true }
 })

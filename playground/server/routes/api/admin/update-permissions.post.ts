@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError } from 'nuxt/server'
 import { dbUpdateUser } from '../../../utils/db'
 import type { AppTokenClaims } from '~~/shared/types/token'
 
@@ -11,11 +11,11 @@ export default defineEventHandler(async (event) => {
   const authedEvent = requireAuth<AppTokenClaims>(event)
   const currentUser = authedEvent.context.user
 
-  const { userId, permissions } = await readBody(event)
+  const { userId, permissions } = await readBody<{ userId?: string, permissions?: string[] }>(event)
 
   if (!userId || !permissions || !Array.isArray(permissions)) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'userId and permissions array are required',
     })
   }
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const invalidPerms = permissions.filter(p => !validPermissions.includes(p))
   if (invalidPerms.length > 0) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: `Invalid permissions: ${invalidPerms.join(', ')}. Valid: ${validPermissions.join(', ')}`,
     })
   }
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
   // In production, add proper authorization checks
   if (userId !== currentUser.sub && currentUser.role !== 'admin') {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Only admins can update other users\' permissions',
     })
   }
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
 
   if (!updatedUser) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'User not found',
     })
   }

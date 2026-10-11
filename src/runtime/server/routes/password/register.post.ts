@@ -1,5 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, readBody, createError, useRuntimeConfig } from 'nuxt/server'
 import { createLogger } from '../../utils/logger'
 import { useAegisHandler } from '../../utils/handler'
 import {
@@ -22,7 +21,7 @@ export default defineEventHandler(async (event) => {
   if (!passwordConfig) {
     logger.error('Password provider is not configured')
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Password provider is not configured',
     })
   }
@@ -31,19 +30,19 @@ export default defineEventHandler(async (event) => {
   if (!handler?.password) {
     logger.error('Password handler is not implemented')
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Password handler is not implemented',
     })
   }
 
-  const body = await readBody(event)
+  const body = await readBody<{ email?: string, password?: string }>(event)
   logger.debug('Request body:', body)
   const { email, password } = body
 
   if (!email || !password) {
     logger.error('Email or password missing', { email: !!email, password: !!password })
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Email and password are required',
     })
   }
@@ -55,7 +54,7 @@ export default defineEventHandler(async (event) => {
   const emailValidation = validateEmailFormat(normalizedEmail)
   if (!emailValidation.valid) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: emailValidation.error,
     })
   }
@@ -70,7 +69,7 @@ export default defineEventHandler(async (event) => {
     const errors = Array.isArray(passwordValidation) ? passwordValidation : ['Invalid password']
 
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Password does not meet requirements',
       data: { errors },
     })
@@ -80,7 +79,7 @@ export default defineEventHandler(async (event) => {
   const existingUser = await handler.password.findUser(normalizedEmail)
   if (existingUser) {
     throw createError({
-      statusCode: 409,
+      status: 409,
       message: 'User already exists',
     })
   }
@@ -108,7 +107,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     logger.error('Failed to send verification code', error)
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Failed to send verification code',
     })
   }

@@ -1,7 +1,13 @@
-import { defineEventHandler, createError, getHeader, setCookie } from 'h3'
+import {
+  defineEventHandler,
+  createError,
+  getRequestHeader,
+  setCookie,
+  isNuxtError,
+  useRuntimeConfig,
+} from 'nuxt/server'
 import { verifyToken } from '../utils/jwt'
 import { endImpersonation } from '../utils/impersonation'
-import { useRuntimeConfig } from '#imports'
 import type { CookieConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
@@ -25,17 +31,17 @@ export default defineEventHandler(async (event) => {
   // Check if impersonation feature is enabled
   if (!config.nuxtAegis?.impersonation?.enabled) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Impersonation feature is not enabled',
     })
   }
 
   try {
     // Get current token from auth header
-    const authHeader = getHeader(event, 'authorization')
+    const authHeader = getRequestHeader(event, 'authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       throw createError({
-        statusCode: 401,
+        status: 401,
         message: 'Authentication required',
       })
     }
@@ -45,7 +51,7 @@ export default defineEventHandler(async (event) => {
 
     if (!tokenConfig?.secret) {
       throw createError({
-        statusCode: 500,
+        status: 500,
         message: 'Token configuration is missing',
       })
     }
@@ -54,7 +60,7 @@ export default defineEventHandler(async (event) => {
     const currentToken = await verifyToken(token, tokenConfig.secret)
     if (!currentToken) {
       throw createError({
-        statusCode: 401,
+        status: 401,
         message: 'Invalid or expired token',
       })
     }
@@ -85,14 +91,13 @@ export default defineEventHandler(async (event) => {
   catch (error: unknown) {
     logger.error('Unimpersonate failed:', error)
 
-    const err = error as { statusCode?: number, message?: string }
-    if (err.statusCode) {
+    if (isNuxtError(error)) {
       throw error
     }
 
     throw createError({
-      statusCode: 500,
-      message: err.message || 'Failed to end impersonation',
+      status: 500,
+      message: error instanceof Error ? error.message : 'Failed to end impersonation',
     })
   }
 })

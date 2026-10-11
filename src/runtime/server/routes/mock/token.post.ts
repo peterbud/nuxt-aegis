@@ -1,5 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, readBody, createError, useRuntimeConfig } from 'nuxt/server'
 import { retrieveAndDeleteMockCode, storeMockToken } from '../../utils/mockCodeStore'
 import { createLogger } from '../../utils/logger'
 
@@ -28,14 +27,13 @@ const logger = createLogger('MockToken')
  * - token_type: Always 'Bearer'
  */
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const runtimeConfig = useRuntimeConfig(event)
-  const mockConfig = runtimeConfig.nuxtAegis?.providers?.mock
+  const body = await readBody<{ code?: string, client_id?: string, client_secret?: string, grant_type?: string, redirect_uri?: string }>(event)
+  const mockConfig = useRuntimeConfig().nuxtAegis?.providers?.mock
 
   if (!mockConfig) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: '[nuxt-aegis] Mock provider not configured',
     })
   }
@@ -43,32 +41,32 @@ export default defineEventHandler(async (event) => {
   // Validate required parameters
   if (!body.code) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_request',
+      status: 400,
+      statusText: 'invalid_request',
       message: 'Missing required parameter: code',
     })
   }
 
   if (!body.client_id) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_request',
+      status: 400,
+      statusText: 'invalid_request',
       message: 'Missing required parameter: client_id',
     })
   }
 
   if (!body.client_secret) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_request',
+      status: 400,
+      statusText: 'invalid_request',
       message: 'Missing required parameter: client_secret',
     })
   }
 
   if (body.grant_type !== 'authorization_code') {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'unsupported_grant_type',
+      status: 400,
+      statusText: 'unsupported_grant_type',
       message: 'Invalid grant_type. Must be "authorization_code"',
     })
   }
@@ -79,8 +77,8 @@ export default defineEventHandler(async (event) => {
   if (!codeData) {
     // Code is invalid, expired, or already used
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_grant',
+      status: 400,
+      statusText: 'invalid_grant',
       message: 'Invalid authorization code',
     })
   }
@@ -88,8 +86,8 @@ export default defineEventHandler(async (event) => {
   // Validate client_id matches
   if (codeData.clientId !== body.client_id) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_grant',
+      status: 400,
+      statusText: 'invalid_grant',
       message: 'Client ID mismatch',
     })
   }
@@ -97,8 +95,8 @@ export default defineEventHandler(async (event) => {
   // Validate redirect_uri matches
   if (codeData.redirectUri !== body.redirect_uri) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'invalid_grant',
+      status: 400,
+      statusText: 'invalid_grant',
       message: 'Redirect URI mismatch',
     })
   }
@@ -106,8 +104,8 @@ export default defineEventHandler(async (event) => {
   // Validate client_secret
   if (body.client_secret !== mockConfig.clientSecret) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'invalid_client',
+      status: 401,
+      statusText: 'invalid_client',
       message: 'Invalid client credentials',
     })
   }

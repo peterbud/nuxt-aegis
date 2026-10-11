@@ -57,12 +57,12 @@ Called after `onUserInfo` transformation. This is where you persist user data to
 - Return database-specific fields (internal user ID, role, permissions)
 
 **Signature:**
-`(user: Record<string, unknown>, context: { provider: string, event: H3Event }) => Promise<Record<string, unknown>> | Record<string, unknown>`
+`(user: Record<string, unknown>, context: { provider: string, event: RequestEvent }) => Promise<Record<string, unknown>> | Record<string, unknown>`
 
 **Parameters:**
 - `user` - User data with provider-specific fields (includes `hashedPassword` for password provider)
 - `context.provider` - Provider name (`'google'`, `'github'`, `'password'`, etc.)
-- `context.event` - H3Event for server context
+- `context.event` - RequestEvent for server context
 
 **Returns:** Enriched user object with database fields (userId, role, permissions, etc.) that will be merged into the user data.
 
@@ -167,7 +167,7 @@ Determines if a user is allowed to impersonate another user.
 - Implement complex permission logic
 
 **Signature:**
-`(requester: BaseTokenClaims, targetId: string, event: H3Event) => Promise<boolean> | boolean`
+`(requester: BaseTokenClaims, targetId: string, event: RequestEvent) => Promise<boolean> | boolean`
 
 **Example:**
 
@@ -192,7 +192,7 @@ Retrieves the target user's data when starting an impersonation session.
 - Enforce organization boundaries (e.g. admin can only impersonate users in their org)
 
 **Signature:**
-`(targetId: string, event: H3Event) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null`
+`(targetId: string, event: RequestEvent) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null`
 
 **Example:**
 

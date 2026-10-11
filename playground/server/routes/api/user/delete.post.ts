@@ -1,3 +1,4 @@
+import { defineEventHandler, createError } from 'nuxt/server'
 import { dbDeleteUser } from '../../../utils/db'
 import type { AppTokenClaims } from '~~/shared/types/token'
 
@@ -7,8 +8,8 @@ export default defineEventHandler(async (event) => {
 
   if (!user?.sub) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
     })
   }
 
@@ -16,8 +17,8 @@ export default defineEventHandler(async (event) => {
 
   if (!deleted) {
     throw createError({
-      statusCode: 404,
-      statusMessage: 'User not found',
+      status: 404,
+      statusText: 'User not found',
     })
   }
 

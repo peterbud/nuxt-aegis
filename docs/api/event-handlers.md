@@ -6,6 +6,21 @@ Define OAuth provider endpoints using event handler functions.
 
 Nuxt Aegis provides specialized event handlers for each OAuth provider. These handlers create dual-purpose endpoints that handle both OAuth initiation and callback.
 
+Callbacks receive the portable `RequestEvent` from `nuxt/server`. Use `event.req`, `event.url`, and `event.res.headers` instead of `event.node` or `event.path`. Import helpers explicitly from `nuxt/server`, even inside Aegis callbacks.
+
+`onError(event, error)` receives a `NuxtErrorLike` with a numeric `status`, optional `statusText`, and the original exception as `cause` when it is normalized. It may return a string, a Web `Response`, or nothing, synchronously or asynchronously. Return redirect bodies rather than discarding them:
+
+```typescript
+import { sendRedirect } from 'nuxt/server'
+
+export default defineOAuthGoogleEventHandler({
+  onError: (event, error) => {
+    console.error('OAuth failed:', error.status)
+    return sendRedirect(event, '/auth/callback?error=authentication_failed')
+  },
+})
+```
+
 ## Provider Event Handlers
 
 ### `defineOAuthGoogleEventHandler(config)`
@@ -243,7 +258,7 @@ type UserInfoCallback = (
     id_token?: string
     expires_in?: number
   },
-  event: H3Event
+  event: RequestEvent
 ) => Record<string, unknown> | Promise<Record<string, unknown>>
 ```
 
@@ -278,7 +293,7 @@ type SuccessCallback = (payload: {
     expires_in?: number
   }
   provider: string
-  event: H3Event
+  event: RequestEvent
 }) => void | Promise<void>
 ```
 

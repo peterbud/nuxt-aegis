@@ -16,7 +16,16 @@
  *
  * This allows testing the complete OAuth flow without external dependencies.
  */
+import { sendRedirect } from 'nuxt/server'
+
 export default defineOAuthMockEventHandler({
+  onError: (event, error) => {
+    event.res.headers.set('x-aegis-error-status', String(error.status))
+    return sendRedirect(event, '/auth/callback?error=authentication_failed')
+  },
+  onSuccess: ({ event }) => {
+    event.res.headers.set('x-aegis-hook-order', 'provider')
+  },
   customClaims: providerUserInfo => ({
     role: providerUserInfo.role as string | undefined,
     permissions: providerUserInfo.permissions as string[] | undefined,

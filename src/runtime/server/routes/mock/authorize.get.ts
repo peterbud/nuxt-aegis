@@ -1,6 +1,5 @@
-import { defineEventHandler, getQuery, sendRedirect, createError } from 'h3'
+import { defineEventHandler, getQuery, sendRedirect, createError, useRuntimeConfig } from 'nuxt/server'
 import { withQuery } from 'ufo'
-import { useRuntimeConfig } from '#imports'
 import { generateMockCode, storeMockCode } from '../../utils/mockCodeStore'
 import { createLogger } from '../../utils/logger'
 
@@ -35,13 +34,12 @@ const logger = createLogger('MockAuthorize')
  */
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const runtimeConfig = useRuntimeConfig(event)
-  const mockConfig = runtimeConfig.nuxtAegis?.providers?.mock
+  const mockConfig = useRuntimeConfig().nuxtAegis?.providers?.mock
 
   if (!mockConfig) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: '[nuxt-aegis] Mock provider not configured',
     })
   }
@@ -49,24 +47,24 @@ export default defineEventHandler(async (event) => {
   // Validate required OAuth parameters
   if (!query.client_id) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Bad Request',
+      status: 400,
+      statusText: 'Bad Request',
       message: 'Missing required parameter: client_id',
     })
   }
 
   if (!query.redirect_uri || typeof query.redirect_uri !== 'string') {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Bad Request',
+      status: 400,
+      statusText: 'Bad Request',
       message: 'Missing required parameter: redirect_uri',
     })
   }
 
   if (query.response_type !== 'code') {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Bad Request',
+      status: 400,
+      statusText: 'Bad Request',
       message: 'Invalid response_type. Must be "code"',
     })
   }
@@ -104,8 +102,8 @@ export default defineEventHandler(async (event) => {
   // Ensure userId is always defined
   if (!userId) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: '[nuxt-aegis] Mock provider has no users configured',
     })
   }
@@ -113,8 +111,8 @@ export default defineEventHandler(async (event) => {
   // Validate user exists in mockUsers
   if (!mockConfig.mockUsers[userId]) {
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Bad Request',
+      status: 400,
+      statusText: 'Bad Request',
       message: `[nuxt-aegis] Invalid user persona: ${userId}. Available: ${Object.keys(mockConfig.mockUsers).join(', ')}`,
     })
   }

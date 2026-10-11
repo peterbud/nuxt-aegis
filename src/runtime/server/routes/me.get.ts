@@ -1,4 +1,4 @@
-import { defineEventHandler, createError } from 'h3'
+import { defineEventHandler, createError } from 'nuxt/server'
 
 /**
  * GET /api/user/me
@@ -12,8 +12,8 @@ export default defineEventHandler(async (event) => {
 
   // EP-17: Return 401 if no user context (no valid JWT)
   throw createError({
-    statusCode: 401,
-    statusMessage: 'Unauthorized',
+    status: 401,
+    statusText: 'Unauthorized',
     message: 'Authentication required',
   })
 })

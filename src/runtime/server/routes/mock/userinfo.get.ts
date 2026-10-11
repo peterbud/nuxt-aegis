@@ -1,5 +1,4 @@
-import { defineEventHandler, getHeader, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, getRequestHeader, createError, useRuntimeConfig } from 'nuxt/server'
 import { getUserForMockToken } from '../../utils/mockCodeStore'
 import { createLogger } from '../../utils/logger'
 
@@ -26,32 +25,31 @@ const logger = createLogger('MockUserInfo')
  * - Additional custom claims as defined in mockUsers
  */
 export default defineEventHandler(async (event) => {
-  const runtimeConfig = useRuntimeConfig(event)
-  const mockConfig = runtimeConfig.nuxtAegis?.providers?.mock
+  const mockConfig = useRuntimeConfig().nuxtAegis?.providers?.mock
 
   if (!mockConfig) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: '[nuxt-aegis] Mock provider not configured',
     })
   }
 
   // Validate Authorization header
-  const authHeader = getHeader(event, 'authorization')
+  const authHeader = getRequestHeader(event, 'authorization')
 
   if (!authHeader) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Missing authorization header',
     })
   }
 
   if (!authHeader.startsWith('Bearer ')) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Invalid authorization header format',
     })
   }
@@ -61,8 +59,8 @@ export default defineEventHandler(async (event) => {
   // Validate access token format (from our mock token endpoint)
   if (!accessToken.startsWith('mock_aegis_access_')) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Invalid access token',
     })
   }
@@ -72,8 +70,8 @@ export default defineEventHandler(async (event) => {
 
   if (!userId) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Invalid or expired access token',
     })
   }
@@ -83,8 +81,8 @@ export default defineEventHandler(async (event) => {
 
   if (!userData) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: `[nuxt-aegis] Mock user '${userId}' not found in configuration`,
     })
   }

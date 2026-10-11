@@ -1,5 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, readBody, createError, useRuntimeConfig } from 'nuxt/server'
 import { createLogger } from '../../utils/logger'
 import { useAegisHandler } from '../../utils/handler'
 import { validateAndDeleteResetSession } from '../../utils/resetSessionStore'
@@ -13,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   if (!passwordConfig) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Password provider is not configured',
     })
   }
@@ -21,17 +20,17 @@ export default defineEventHandler(async (event) => {
   const handler = useAegisHandler()
   if (!handler?.password) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Password handler is not implemented',
     })
   }
 
-  const body = await readBody(event)
+  const body = await readBody<{ sessionId?: string, password?: string }>(event)
   const { sessionId, password } = body
 
   if (!sessionId || !password) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Session ID and password are required',
     })
   }
@@ -40,7 +39,7 @@ export default defineEventHandler(async (event) => {
   const email = await validateAndDeleteResetSession(sessionId)
   if (!email) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Invalid or expired reset session',
     })
   }
@@ -63,7 +62,7 @@ export default defineEventHandler(async (event) => {
     }
 
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Password does not meet requirements',
       data: { errors },
     })
@@ -79,7 +78,7 @@ export default defineEventHandler(async (event) => {
     const user = await handler.password.findUser(email)
     if (!user) {
       throw createError({
-        statusCode: 404,
+        status: 404,
         message: 'User not found',
       })
     }
@@ -99,7 +98,7 @@ export default defineEventHandler(async (event) => {
     }
     else {
       throw createError({
-        statusCode: 500,
+        status: 500,
         message: 'onUserPersist handler is required for password authentication',
       })
     }
@@ -112,7 +111,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     logger.error('Password reset failed', error)
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Password reset failed',
     })
   }

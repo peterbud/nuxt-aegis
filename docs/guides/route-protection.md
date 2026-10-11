@@ -446,14 +446,14 @@ Implement role-based protection using custom claims.
 ```typescript
 // server/utils/requireRole.ts
 export async function requireRole(
-  event: H3Event,
+  event: RequestEvent,
   allowedRoles: string[]
 ) {
   const user = await requireAuth(event)
   
   if (!user.role || !allowedRoles.includes(user.role)) {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Insufficient permissions'
     })
   }
@@ -511,7 +511,7 @@ Implement fine-grained permissions:
 ```typescript
 // server/utils/requirePermission.ts
 export async function requirePermission(
-  event: H3Event,
+  event: RequestEvent,
   permission: string
 ) {
   const user = await requireAuth(event)
@@ -520,7 +520,7 @@ export async function requirePermission(
   
   if (!permissions.includes(permission)) {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: `Missing permission: ${permission}`
     })
   }
@@ -548,12 +548,12 @@ Create custom validation logic:
 
 ```typescript
 // server/utils/requirePremium.ts
-export async function requirePremium(event: H3Event) {
+export async function requirePremium(event: RequestEvent) {
   const user = await requireAuth(event)
   
   if (!user.premium) {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Premium subscription required'
     })
   }
@@ -608,10 +608,10 @@ async function fetchProtectedData() {
     const data = await $fetch('/api/protected')
     return data
   } catch (error) {
-    if (error.statusCode === 401) {
+    if (error.status === 401) {
       // Not authenticated
       await navigateTo('/login')
-    } else if (error.statusCode === 403) {
+    } else if (error.status === 403) {
       // Not authorized
       showError('You do not have permission to access this resource')
     }

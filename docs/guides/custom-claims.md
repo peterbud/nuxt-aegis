@@ -287,7 +287,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
   
   if (user.role !== 'admin') {
-    throw createError({ statusCode: 403, message: 'Admin only' })
+    throw createError({ status: 403, message: 'Admin only' })
   }
   
   return { data: 'sensitive' }
@@ -316,11 +316,11 @@ Check permissions:
 
 ```typescript
 // server/utils/requirePermission.ts
-export async function requirePermission(event: H3Event, permission: string) {
+export async function requirePermission(event: RequestEvent, permission: string) {
   const user = await requireAuth(event)
   
   if (!user.permissions?.includes(permission)) {
-    throw createError({ statusCode: 403, message: 'Insufficient permissions' })
+    throw createError({ status: 403, message: 'Insufficient permissions' })
   }
   
   return user

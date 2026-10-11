@@ -1,10 +1,8 @@
-import { eventHandler, getRequestURL, getQuery, sendRedirect, createError } from 'h3'
-import type { H3Event, H3Error } from 'h3'
-import type { OAuthConfig, OAuthProviderConfig, NuxtAegisRuntimeConfig } from '../../types'
+import { defineEventHandler, getRequestURL, getQuery, sendRedirect, createError, isNuxtError, useServerHooks, useRuntimeConfig } from 'nuxt/server'
+import type { RequestEvent } from 'nuxt/server'
+import type { OAuthConfig, OAuthProviderConfig } from '../../types'
 import type { UserInfoHookPayload, SuccessHookPayload } from '../../types/hooks'
 import { defu } from 'defu'
-import { useNitroApp } from 'nitropack/runtime'
-import { useRuntimeConfig } from '#imports'
 import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { createLogger } from '../utils/logger'
@@ -141,10 +139,10 @@ interface OAuthTokenResponse {
 
 /**
  * Get OAuth redirect URI from the current request
- * @param event - H3Event object
+ * @param event - RequestEvent object
  * @returns Full redirect URI including protocol, host and pathname
  */
-function getOAuthRedirectUri(event: H3Event): string {
+function getOAuthRedirectUri(event: RequestEvent): string {
   const requestURL = getRequestURL(event)
   return `${requestURL.protocol}//${requestURL.host}${requestURL.pathname}`
 }
@@ -182,18 +180,18 @@ export function defineOAuthEventHandler<
     onSuccess: _onSuccess,
   }: OAuthConfig<TConfig>,
 ) {
-  return eventHandler(async (event: H3Event) => {
+  return defineEventHandler(async (event) => {
     try {
       // Merge configuration with runtime config and defaults
-      const runtimeConfig = (useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig | undefined) || {}
+      const runtimeConfig = (useRuntimeConfig().nuxtAegis) || {}
       const providerRuntimeConfig = (runtimeConfig.providers?.[implementation.runtimeConfigKey] || {}) as Partial<TConfig>
       const mergedConfig = defu(config, providerRuntimeConfig, implementation.defaultConfig) as TConfig
 
       // Validate required configuration
       if (!mergedConfig.clientId || !mergedConfig.clientSecret) {
         throw createError({
-          statusCode: 500,
-          statusMessage: 'Internal Server Error',
+          status: 500,
+          statusText: 'Internal Server Error',
           message: `OAuth provider ${implementation.runtimeConfigKey} is not properly configured`,
         })
       }
@@ -204,8 +202,8 @@ export function defineOAuthEventHandler<
       // Handle OAuth error responses
       if (query.error) {
         throw createError({
-          statusCode: 400,
-          statusMessage: 'OAuth Error',
+          status: 400,
+          statusText: 'OAuth Error',
           message: `OAuth provider returned error: ${query.error}`,
         })
       }
@@ -215,9 +213,9 @@ export function defineOAuthEventHandler<
       if (!query.code) {
         const authState = query.redirectTo || query.state
           ? encodeOAuthState({
-            redirectTo: query.redirectTo,
-            state: query.state,
-          })
+              redirectTo: query.redirectTo,
+              state: query.state,
+            })
           : undefined
         const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
@@ -240,8 +238,8 @@ export function defineOAuthEventHandler<
 
       if (!access_token) {
         throw createError({
-          statusCode: 400,
-          statusMessage: 'OAuth Token Error',
+          status: 400,
+          statusText: 'OAuth Token Error',
           message: 'Failed to obtain access token from provider',
         })
       }
@@ -311,7 +309,7 @@ export function defineOAuthEventHandler<
 
       // Invoke onSuccess hooks:
       // 1. Provider-level onSuccess (if defined in route handler)
-      // 2. Nitro hook 'nuxt-aegis:success' (global hook in server plugin)
+      // 2. Server hook 'nuxt-aegis:success' (global hook in server plugin)
       // Both run sequentially if both are defined
       if (_onSuccess) {
         await _onSuccess({
@@ -322,15 +320,14 @@ export function defineOAuthEventHandler<
         })
       }
 
-      // Always call Nitro hook for global success handling
-      const nitroApp = useNitroApp()
+      // Always call server hook for global success handling
       const successPayload: SuccessHookPayload = {
         providerUserInfo,
         tokens,
         provider: implementation.runtimeConfigKey,
         event,
       }
-      await nitroApp.hooks.callHook('nuxt-aegis:success', successPayload)
+      await useServerHooks().callHook('nuxt-aegis:success', successPayload)
 
       // PR-10, PR-11: Generate and store authorization CODE
       try {
@@ -391,11 +388,23 @@ export function defineOAuthEventHandler<
 
       // PR-14: Handle authentication failure - redirect to callback with error
       if (onError) {
-        return await onError(event, error as H3Error)
+        const callbackError = isNuxtError(error)
+          ? error
+          : createError({
+              status: 500,
+              message: error instanceof Error
+                ? error.message
+                : 'OAuth authentication failed',
+              cause: error,
+            })
+        if (!isNuxtError(callbackError)) {
+          throw callbackError
+        }
+        return await onError(event, callbackError)
       }
 
       // EH-4: Redirect to callback with generic error - don't reveal specific reason
-      const runtimeConfig = useRuntimeConfig(event).nuxtAegis as NuxtAegisRuntimeConfig
+      const runtimeConfig = useRuntimeConfig().nuxtAegis || {}
       const errorUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
       errorUrl.searchParams.set('error', 'authentication_failed')
 

@@ -1,8 +1,7 @@
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import type { H3Event } from 'h3'
 import { useStorage } from 'nitropack/runtime'
 import type { RefreshTokenData, TokenRefreshConfig, EncryptionConfig } from '../../types'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from 'nuxt/server'
 
 /**
  * Hash a refresh token using SHA-256
@@ -83,11 +82,10 @@ export function decryptData(encrypted: string, key: string): unknown {
 
 /**
  * Get encryption config from runtime config
- * @param event - H3 event (optional, for server context)
  * @returns Encryption configuration
  */
-export function getEncryptionConfig(event?: H3Event): EncryptionConfig {
-  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
+export function getEncryptionConfig(): EncryptionConfig {
+  const config = useRuntimeConfig()
   const encryption = config.nuxtAegis?.tokenRefresh?.encryption as EncryptionConfig | undefined
 
   return encryption || { enabled: false }
@@ -98,14 +96,12 @@ export function getEncryptionConfig(event?: H3Event): EncryptionConfig {
  * Handles encryption transparently if enabled
  * @param tokenHash - Hashed refresh token (used as storage key)
  * @param data - Refresh token data to store
- * @param event - H3 event for runtime config access
  */
 export async function storeRefreshTokenData(
   tokenHash: string,
   data: RefreshTokenData,
-  event?: H3Event,
 ): Promise<void> {
-  const encryptionConfig = getEncryptionConfig(event)
+  const encryptionConfig = getEncryptionConfig()
 
   let dataToStore: RefreshTokenData | { encrypted: string }
 
@@ -131,14 +127,12 @@ export async function storeRefreshTokenData(
  * Retrieve refresh token data from persistent storage
  * Handles decryption transparently if enabled
  * @param tokenHash - Hashed refresh token (storage key)
- * @param event - H3 event for runtime config access
  * @returns Refresh token data or null if not found
  */
 export async function getRefreshTokenData(
   tokenHash: string,
-  event?: H3Event,
 ): Promise<RefreshTokenData | null> {
-  const encryptionConfig = getEncryptionConfig(event)
+  const encryptionConfig = getEncryptionConfig()
 
   const storedData = await useStorage('refreshTokenStore').getItem<RefreshTokenData | { encrypted: string }>(`${tokenHash}`)
 
@@ -171,13 +165,11 @@ export async function deleteRefreshTokenData(
 /**
  * Revoke a refresh token (mark as revoked without deleting)
  * @param tokenHash - Hashed refresh token (storage key)
- * @param event - H3 event for runtime config access
  */
 export async function revokeRefreshToken(
   tokenHash: string,
-  event?: H3Event,
 ): Promise<void> {
-  const data = await getRefreshTokenData(tokenHash, event)
+  const data = await getRefreshTokenData(tokenHash)
 
   if (!data) {
     // Token doesn't exist, nothing to revoke
@@ -188,7 +180,7 @@ export async function revokeRefreshToken(
   data.isRevoked = true
 
   // Store updated data
-  await storeRefreshTokenData(tokenHash, data, event)
+  await storeRefreshTokenData(tokenHash, data)
 }
 
 /**
@@ -199,7 +191,6 @@ export async function revokeRefreshToken(
  * @param config - Token refresh configuration
  * @param previousTokenHash - Hash of previous refresh token for rotation tracking
  * @param customClaims - Resolved custom claims from initial authentication
- * @param event - H3Event for Nitro storage access
  * @returns The generated refresh token string
  */
 export async function generateAndStoreRefreshToken(
@@ -208,7 +199,6 @@ export async function generateAndStoreRefreshToken(
   config: TokenRefreshConfig,
   previousTokenHash?: string,
   customClaims?: Record<string, unknown>,
-  event?: H3Event,
 ): Promise<string> {
   const refreshToken = randomBytes(32).toString('base64url')
 
@@ -223,7 +213,7 @@ export async function generateAndStoreRefreshToken(
     providerUserInfo, // Store complete OAuth provider user data
     provider, // Store provider name for custom claims refresh
     customClaims, // Store resolved custom claims for consistent refresh
-  }, event)
+  })
 
   return refreshToken
 }
@@ -233,12 +223,10 @@ export async function generateAndStoreRefreshToken(
  * Used during password change or account deletion
  * @param email - User email to match
  * @param exceptTokenHash - Optional token hash to preserve (e.g. current session)
- * @param event - H3 event for runtime config access
  */
 export async function deleteUserRefreshTokens(
   email: string,
   exceptTokenHash?: string,
-  event?: H3Event,
 ): Promise<void> {
   const storage = useStorage('refreshTokenStore')
   const keys = await storage.getKeys()
@@ -248,7 +236,7 @@ export async function deleteUserRefreshTokens(
     // key is the tokenHash
     if (key === exceptTokenHash) continue
 
-    const data = await getRefreshTokenData(key, event)
+    const data = await getRefreshTokenData(key)
     if (!data) continue
 
     const userEmail = (data.providerUserInfo?.email as string)?.toLowerCase()

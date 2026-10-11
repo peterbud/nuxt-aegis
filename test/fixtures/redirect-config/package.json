@@ -1,4 +1,5 @@
 {
     "name": "test-redirect-config",
-    "private": true
+    "private": true,
+    "type": "module"
 }

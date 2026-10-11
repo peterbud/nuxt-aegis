@@ -5,7 +5,7 @@
  * and enrich users on login — the same pattern a real app
  * would use with a real database.
  */
-import { defineAegisHandler } from '../../../../../src/runtime/server/utils/handler'
+import { defineAegisHandler } from '#imports'
 
 // Simple in-memory user store
 const users = new Map<string, Record<string, unknown>>()

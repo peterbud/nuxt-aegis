@@ -1,5 +1,11 @@
-import { defineEventHandler, createError, getRequestURL, getHeader } from 'h3'
-import { getRouteRules, useRuntimeConfig } from '#imports'
+import {
+  defineEventHandler,
+  createError,
+  getRequestURL,
+  getRequestHeader,
+  getRouteRules,
+  useRuntimeConfig,
+} from 'nuxt/server'
 import { verifyToken } from '../utils/jwt'
 import type { TokenConfig, NuxtAegisRouteRules, BaseTokenClaims } from '../../types'
 import { createLogger } from '../utils/logger'
@@ -44,7 +50,7 @@ export default defineEventHandler(async (event) => {
   let token: string | undefined
 
   // Try to read from Authorization header (Bearer token)
-  const authHeader = getHeader(event, 'authorization')
+  const authHeader = getRequestHeader(event, 'authorization')
   if (authHeader?.startsWith('Bearer ')) {
     token = authHeader.substring(7) // Remove 'Bearer ' prefix
   }
@@ -54,8 +60,8 @@ export default defineEventHandler(async (event) => {
   if (!token) {
     if (shouldProtect) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
+        status: 401,
+        statusText: 'Unauthorized',
         message: 'Authentication required',
       })
     }
@@ -67,8 +73,8 @@ export default defineEventHandler(async (event) => {
   if (!tokenConfig || !tokenConfig.secret) {
     logger.error('Token configuration is missing')
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: 'Authentication configuration error',
     })
   }
@@ -82,8 +88,8 @@ export default defineEventHandler(async (event) => {
     // Only throw 401 if route is protected
     if (shouldProtect) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
+        status: 401,
+        statusText: 'Unauthorized',
         message: 'Invalid or expired token',
       })
     }
@@ -98,8 +104,8 @@ export default defineEventHandler(async (event) => {
     // Only throw 401 if route is protected
     if (shouldProtect) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Unauthorized',
+        status: 401,
+        statusText: 'Unauthorized',
         message: 'Invalid token issuer',
       })
     }
@@ -119,8 +125,8 @@ export default defineEventHandler(async (event) => {
       // Only throw 401 if route is protected
       if (shouldProtect) {
         throw createError({
-          statusCode: 401,
-          statusMessage: 'Unauthorized',
+          status: 401,
+          statusText: 'Unauthorized',
           message: 'Invalid token audience',
         })
       }

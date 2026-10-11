@@ -1,4 +1,4 @@
-import type { H3Event } from 'h3'
+import type { RequestEvent } from 'nuxt/server'
 import type { UserInfoHookPayload } from '../../types/hooks'
 import type { BaseTokenClaims } from '../../types/token'
 import type { PasswordUser } from '../../types/providers'
@@ -9,8 +9,8 @@ import type { PasswordUser } from '../../types/providers'
 export interface UserPersistContext {
   /** Provider name (e.g., 'google', 'github', 'password') */
   provider: string
-  /** H3 event for server context access */
-  event: H3Event
+  /** Nuxt request event for server context access */
+  event: RequestEvent
 }
 
 export interface AegisHandler {
@@ -30,7 +30,7 @@ export interface AegisHandler {
    * The returned object is merged into the user data and used for JWT claims.
    *
    * @param user - User data to persist (provider-specific fields vary)
-   * @param context - Context with provider name and H3 event
+   * @param context - Context with provider name and Nuxt request event
    * @returns Enriched user object with database fields (e.g., userId, role, permissions)
    *
    * @example
@@ -135,14 +135,14 @@ export interface AegisHandler {
      * Must return a user object that will be used to generate the JWT.
      * Return null if user is not found.
      */
-    fetchTarget: (targetId: string, event: H3Event) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null
+    fetchTarget: (targetId: string, event: RequestEvent) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null
 
     /**
      * Check if the requester is allowed to impersonate the target.
      * If not defined, defaults to allowing if fetchTarget returns a user.
      * You can throw an error here to provide a specific message.
      */
-    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: H3Event) => Promise<boolean> | boolean
+    canImpersonate?: (requester: BaseTokenClaims, targetId: string, event: RequestEvent) => Promise<boolean> | boolean
   }
 }
 

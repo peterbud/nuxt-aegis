@@ -1,3 +1,4 @@
+import { defineEventHandler, createError } from 'nuxt/server'
 import type { AppTokenClaims } from '~~/shared/types/token'
 
 /**
@@ -14,8 +15,8 @@ export default defineEventHandler((event) => {
 
   if (!user) {
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
     })
   }
 

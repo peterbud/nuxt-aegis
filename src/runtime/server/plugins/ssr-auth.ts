@@ -1,8 +1,8 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
-import { getCookie } from 'h3'
+import { getCookie, getRequestURL } from 'h3'
 import { hashRefreshToken, getRefreshTokenData } from '../utils/refreshToken'
 import { generateToken } from '../utils/jwt'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from 'nuxt/server'
 import type { BaseTokenClaims, TokenConfig, CookieConfig, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
@@ -15,9 +15,9 @@ const logger = createLogger('SSR:Auth')
  */
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
-    const config = useRuntimeConfig(event)
+    const config = useRuntimeConfig()
     const authPath = config.public.nuxtAegis?.authPath || '/auth'
-    const requestPath = event.node?.req?.url || event.path || ''
+    const requestPath = getRequestURL(event).pathname
 
     // Skip SSR auth for:
     // 1. Auth routes (handled by their own endpoints)
@@ -69,7 +69,7 @@ export default defineNitroPlugin((nitroApp) => {
     try {
       // Hash and validate refresh token
       const hashedToken = hashRefreshToken(refreshToken)
-      const storedRefreshToken = await getRefreshTokenData(hashedToken, event)
+      const storedRefreshToken = await getRefreshTokenData(hashedToken)
 
       // Validate token exists, not revoked, and not expired
       const isRevoked = storedRefreshToken?.isRevoked || false

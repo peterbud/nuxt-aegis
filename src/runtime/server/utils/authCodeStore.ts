@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import type { H3Event } from 'h3'
+import type { RequestEvent } from 'nuxt/server'
 import { useStorage } from 'nitropack/runtime'
 import type { AuthCodeData } from '../../types'
 import { createLogger } from './logger'
@@ -69,7 +69,7 @@ export function generateAuthCode(): string {
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param customClaims - Resolved custom claims (already processed from static or callback config)
  * @param expiresIn - Expiration time in seconds (default: 60)
- * @param _event - H3Event for Nitro storage access (optional, currently unused)
+ * @param _event - RequestEvent for Nitro storage access (optional, currently unused)
  *
  * @example
  * ```typescript
@@ -88,7 +88,7 @@ export async function storeAuthCode(
   provider: string,
   customClaims: Record<string, unknown> | undefined,
   expiresIn = 60, // CS-4: Default 60 seconds
-  _event?: H3Event,
+  _event?: RequestEvent,
 ): Promise<void> {
   const now = Date.now()
 

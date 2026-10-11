@@ -32,6 +32,7 @@ export type {
   GithubProviderConfig,
   Auth0ProviderConfig,
   MockProviderConfig,
+  PasswordUser,
   CustomProviderConfig,
   OAuthConfig,
 } from './providers'

@@ -1,5 +1,12 @@
-import type { H3Event } from 'h3'
-import { createError } from 'h3'
+import type { RequestEvent } from 'nuxt/server'
+import {
+  createError,
+  getRequestHeader,
+  getRequestIP,
+  isNuxtError,
+  useRuntimeConfig,
+  useServerHooks,
+} from 'nuxt/server'
 import type {
   BaseTokenClaims,
   ImpersonationContext,
@@ -9,8 +16,6 @@ import type {
   NuxtAegisRuntimeConfig,
 } from '../../types'
 import { generateToken } from './jwt'
-import { useRuntimeConfig } from '#imports'
-import { useNitroApp } from 'nitropack/runtime'
 import { createLogger } from './logger'
 import { generateAndStoreRefreshToken } from './refreshToken'
 import { useAegisHandler } from './handler'
@@ -25,7 +30,7 @@ function checkImpersonationEnabled(): void {
   const config = useRuntimeConfig()
   if (!config.nuxtAegis?.impersonation?.enabled) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Impersonation feature is not enabled',
     })
   }
@@ -34,12 +39,11 @@ function checkImpersonationEnabled(): void {
 /**
  * Extract client IP and user agent from request
  */
-function getClientInfo(event: H3Event): { ip?: string, userAgent?: string } {
-  const headers = event.node.req.headers
-  const ip = (headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-    || (headers['x-real-ip'] as string)
-    || event.node.req.socket?.remoteAddress
-  const userAgent = headers['user-agent'] as string
+function getClientInfo(event: RequestEvent): { ip?: string, userAgent?: string } {
+  const ip = getRequestHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim()
+    || getRequestHeader(event, 'x-real-ip')
+    || getRequestIP(event)
+  const userAgent = getRequestHeader(event, 'user-agent')
 
   return { ip, userAgent }
 }
@@ -51,7 +55,7 @@ function resolveOriginalUserLookupId(requester: BaseTokenClaims): string {
 
   if (typeof lookupValue !== 'string' || lookupValue.length === 0) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: `Impersonation originalUserLookupClaim "${lookupClaim}" must resolve to a non-empty string on the requester token`,
     })
   }
@@ -63,13 +67,13 @@ function resolveOriginalUserLookupId(requester: BaseTokenClaims): string {
  * Check if the requester is allowed to impersonate other users
  * @param requester - The user requesting impersonation
  * @param targetUserId - The ID of the user to impersonate
- * @param event - H3 event for context
+ * @param event - Nuxt request event for context
  * @throws 403 error if impersonation is not allowed
  */
 export async function checkImpersonationAllowed(
   requester: BaseTokenClaims,
   targetUserId: string,
-  event: H3Event,
+  event: RequestEvent,
 ): Promise<void> {
   // Check if feature is enabled
   checkImpersonationEnabled()
@@ -77,7 +81,7 @@ export async function checkImpersonationAllowed(
   // Prevent impersonation chains (cannot impersonate while already impersonating)
   if (requester.impersonation) {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Cannot impersonate while already impersonating another user',
     })
   }
@@ -89,7 +93,7 @@ export async function checkImpersonationAllowed(
     const allowed = await handler.impersonation.canImpersonate(requester, targetUserId, event)
     if (!allowed) {
       throw createError({
-        statusCode: 403,
+        status: 403,
         message: 'Insufficient permissions to impersonate users',
       })
     }
@@ -99,7 +103,7 @@ export async function checkImpersonationAllowed(
   // Default: check for admin role
   if (requester.role !== 'admin') {
     throw createError({
-      statusCode: 403,
+      status: 403,
       message: 'Insufficient permissions to impersonate users',
     })
   }
@@ -109,7 +113,7 @@ export async function checkImpersonationAllowed(
  * Fetch target user data for impersonation
  * @param requester - The user requesting impersonation
  * @param targetUserId - The ID of the user to impersonate
- * @param event - H3 event for context
+ * @param event - Nuxt request event for context
  * @returns User data object with sub, email, name, and custom claims
  * @throws 404 error if user not found
  * @throws 500 error if hook is not implemented
@@ -117,13 +121,13 @@ export async function checkImpersonationAllowed(
 export async function fetchTargetUser(
   requester: BaseTokenClaims,
   targetUserId: string,
-  event: H3Event,
+  event: RequestEvent,
 ): Promise<Record<string, unknown>> {
   const handler = useAegisHandler()
 
   if (!handler?.impersonation?.fetchTarget) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Impersonation requires implementing fetchTarget handler.',
     })
   }
@@ -133,7 +137,7 @@ export async function fetchTargetUser(
 
     if (!targetUser) {
       throw createError({
-        statusCode: 404,
+        status: 404,
         message: `Target user not found: ${targetUserId}`,
       })
     }
@@ -141,13 +145,12 @@ export async function fetchTargetUser(
     return targetUser
   }
   catch (error: unknown) {
-    const err = error as { statusCode?: number, message?: string }
-    if (err.statusCode) {
+    if (isNuxtError(error)) {
       throw error
     }
     throw createError({
-      statusCode: 500,
-      message: err.message || 'Failed to fetch target user',
+      status: 500,
+      message: error instanceof Error ? error.message : 'Failed to fetch target user',
     })
   }
 }
@@ -158,7 +161,7 @@ export async function fetchTargetUser(
  * @param targetUserData - Target user data from database
  * @param reason - Optional reason for impersonation
  * @param originalUserLookupId - Original user lookup ID used for restoration
- * @param _event - H3 event for context
+ * @param _event - Nuxt request event for context
  * @returns JWT access token (no refresh token)
  */
 export async function generateImpersonatedToken(
@@ -166,7 +169,7 @@ export async function generateImpersonatedToken(
   targetUserData: Record<string, unknown>,
   reason: string | undefined,
   originalUserLookupId: string,
-  _event: H3Event,
+  _event: RequestEvent,
 ): Promise<string> {
   const config = useRuntimeConfig()
   const tokenConfig = config.nuxtAegis?.token as TokenConfig | undefined
@@ -174,7 +177,7 @@ export async function generateImpersonatedToken(
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Token configuration is missing',
     })
   }
@@ -246,14 +249,14 @@ export async function generateImpersonatedToken(
  * @param requester - The user requesting impersonation (must be admin)
  * @param targetUserId - The ID of the user to impersonate
  * @param reason - Optional reason for impersonation
- * @param event - H3 event for context
+ * @param event - Nuxt request event for context
  * @returns Access token for impersonated session (no refresh token)
  */
 export async function startImpersonation(
   requester: BaseTokenClaims,
   targetUserId: string,
   reason: string | undefined,
-  event: H3Event,
+  event: RequestEvent,
 ): Promise<string> {
   // 1. Check if impersonation is allowed
   await checkImpersonationAllowed(requester, targetUserId, event)
@@ -288,8 +291,7 @@ export async function startImpersonation(
 
   // Fire-and-forget: log warnings if hook fails but don't block impersonation
   try {
-    const nitroApp = useNitroApp()
-    await nitroApp.hooks.callHook('nuxt-aegis:impersonate:start', startPayload)
+    await useServerHooks().callHook('nuxt-aegis:impersonate:start', startPayload)
   }
   catch (error: unknown) {
     logger.warn('Impersonation start hook failed (non-blocking)', error)
@@ -301,12 +303,12 @@ export async function startImpersonation(
 /**
  * End impersonation and restore original user session
  * @param currentToken - Current JWT token (must contain impersonation context)
- * @param event - H3 event for context
+ * @param event - Nuxt request event for context
  * @returns Object with new access token and refresh token ID
  */
 export async function endImpersonation(
   currentToken: BaseTokenClaims,
-  event: H3Event,
+  event: RequestEvent,
 ): Promise<{ accessToken: string, refreshTokenId: string }> {
   // Check if feature is enabled
   checkImpersonationEnabled()
@@ -314,7 +316,7 @@ export async function endImpersonation(
   // Validate that current token has impersonation context
   if (!currentToken.impersonation) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Current session is not impersonated',
     })
   }
@@ -333,9 +335,8 @@ export async function endImpersonation(
     )
   }
   catch (error: unknown) {
-    const err = error as { statusCode?: number }
     // If user not found (404), use stored context
-    if (err.statusCode === 404) {
+    if (isNuxtError(error) && error.status === 404) {
       logger.warn('Original user not found in database, using stored context', {
         userLookupId: impersonation.originalUserLookupId,
       })
@@ -353,7 +354,7 @@ export async function endImpersonation(
 
   if (!tokenConfig || !tokenConfig.secret) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Token configuration is missing',
     })
   }
@@ -401,7 +402,7 @@ export async function endImpersonation(
   const refreshTokenConfig = aegisConfig?.tokenRefresh
   if (!refreshTokenConfig) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Token refresh configuration is missing',
     })
   }
@@ -412,12 +413,11 @@ export async function endImpersonation(
     refreshTokenConfig,
     undefined, // No previous token
     customClaims, // Store custom claims for restored session
-    event,
   )
 
   if (!refreshTokenId) {
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Failed to generate refresh token',
     })
   }
@@ -441,8 +441,7 @@ export async function endImpersonation(
 
   // Fire-and-forget: log warnings if hook fails but don't block restoration
   try {
-    const nitroApp = useNitroApp()
-    await nitroApp.hooks.callHook('nuxt-aegis:impersonate:end', endPayload)
+    await useServerHooks().callHook('nuxt-aegis:impersonate:end', endPayload)
   }
   catch (error: unknown) {
     logger.warn('Impersonation end hook failed (non-blocking)', error)

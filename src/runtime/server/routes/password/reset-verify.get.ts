@@ -1,5 +1,4 @@
-import { defineEventHandler, getQuery, createError, sendRedirect } from 'h3'
-import { useRuntimeConfig } from '#imports'
+import { defineEventHandler, getQuery, createError, sendRedirect, useRuntimeConfig } from 'nuxt/server'
 import { createLogger } from '../../utils/logger'
 import { validateAndIncrementAttempts, retrieveAndDeleteMagicCode } from '../../utils/magicCodeStore'
 import { createResetSession } from '../../utils/resetSessionStore'
@@ -12,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
   if (!passwordConfig) {
     throw createError({
-      statusCode: 404,
+      status: 404,
       message: 'Password provider is not configured',
     })
   }
@@ -22,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   if (!code) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Verification code is required',
     })
   }
@@ -31,14 +30,14 @@ export default defineEventHandler(async (event) => {
   const magicCodeData = await validateAndIncrementAttempts(code)
   if (!magicCodeData) {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Invalid or expired code',
     })
   }
 
   if (magicCodeData.type !== 'reset') {
     throw createError({
-      statusCode: 400,
+      status: 400,
       message: 'Invalid code type',
     })
   }
@@ -61,7 +60,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     logger.error('Reset verification failed', error)
     throw createError({
-      statusCode: 500,
+      status: 500,
       message: 'Verification failed',
     })
   }

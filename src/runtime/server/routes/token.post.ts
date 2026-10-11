@@ -1,6 +1,5 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError, useRuntimeConfig } from 'nuxt/server'
 import { retrieveAndDeleteAuthCode } from '../utils/authCodeStore'
-import { useRuntimeConfig } from '#imports'
 import { generateAuthTokens } from '../utils/auth'
 import { setRefreshTokenCookie } from '../utils/cookies'
 import type {
@@ -50,8 +49,8 @@ export default defineEventHandler(async (event) => {
     })
 
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Bad Request',
+      status: 400,
+      statusText: 'Bad Request',
       message: 'Missing authorization code',
     })
   }
@@ -72,8 +71,8 @@ export default defineEventHandler(async (event) => {
 
     // EH-4: Generic error message without revealing specific reason
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized',
+      status: 401,
+      statusText: 'Unauthorized',
       message: 'Invalid or expired authorization code',
     })
   }
@@ -89,12 +88,12 @@ export default defineEventHandler(async (event) => {
 
     // EP-16: Set refresh token as secure, HttpOnly cookie
     if (refreshToken) {
-      const cookieConfig = useRuntimeConfig(event).nuxtAegis?.tokenRefresh?.cookie as CookieConfig | undefined
+      const cookieConfig = useRuntimeConfig().nuxtAegis?.tokenRefresh?.cookie as CookieConfig | undefined
       setRefreshTokenCookie(event, refreshToken, cookieConfig)
     }
 
     // Get token expiration from config
-    const tokenConfig = useRuntimeConfig(event).nuxtAegis?.token
+    const tokenConfig = useRuntimeConfig().nuxtAegis?.token
     const expiresIn = tokenConfig?.expiresIn
 
     // Parse expiresIn to seconds
@@ -144,8 +143,8 @@ export default defineEventHandler(async (event) => {
     })
 
     throw createError({
-      statusCode: 500,
-      statusMessage: 'Internal Server Error',
+      status: 500,
+      statusText: 'Internal Server Error',
       message: 'Failed to generate authentication tokens',
     })
   }
