@@ -38,7 +38,7 @@ describe('Aegis Module - SSR Support', async () => {
     try {
       await page.context().addCookies([{ name: 'nuxt-aegis-refresh', value: cookie!, url: url('/') }])
       const requests: string[] = []
-      page.on('request', request => {
+      page.on('request', (request) => {
         if (new URL(request.url()).pathname === '/api/aegis-fetch') requests.push(request.url())
       })
       const response = await page.goto(url('/aegis-fetch'))
