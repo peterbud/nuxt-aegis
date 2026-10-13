@@ -414,6 +414,7 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.nitro.scheduledTasks = {}
     }
     nuxt.options.nitro.scheduledTasks['0 2 * * *'] = [
+      'cleanup:auth-codes',
       'cleanup:refresh-tokens',
       'cleanup:magic-codes',
       'cleanup:reset-sessions',
