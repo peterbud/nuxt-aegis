@@ -51,6 +51,12 @@ export default defineNuxtConfig({
     authCode: {
       expiresIn: 60,                 // CODE lifetime in seconds
     },
+
+    oauthTransaction: {
+      driver: 'memory',
+      capacity: 10_000,
+      trustProxy: false,
+    },
     
     // Redirect URLs after successful authentication/logout/errors
     redirect: {
@@ -106,6 +112,11 @@ export default defineNuxtConfig({
   },
 })
 ```
+
+OAuth transaction settings are private and separate from authorization CODE and
+refresh-token storage. Only single-process memory storage is supported in this
+release. See [OAuth transaction configuration](/configuration/storage#oauth-login-transactions)
+for capacity, proxy trust, cookie policy, and deployment limits.
 
 ## Token Configuration
 

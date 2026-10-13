@@ -6,6 +6,12 @@ Define OAuth provider endpoints using event handler functions.
 
 Nuxt Aegis provides specialized event handlers for each OAuth provider. These handlers create dual-purpose endpoints that handle both OAuth initiation and callback.
 
+The shared handlers automatically protect every login, including Mock, with a generated state and an independent per-attempt proof cookie. Callbacks containing `code` or `error` require a valid pending transaction before token exchange or authentication hooks. Unsolicited callbacks, replay, malformed/repeated state, and missing/wrong proof are rejected. Provider denial consumes a correlated transaction; a token-exchange failure requires a fresh login.
+
+An initial `redirectTo` must be a local application path. External origins, protocol-relative paths, backslashes, and control characters are rejected. The destination is restored from storage, ignoring callback redirect metadata. An initial application `state` is stored as metadata only, not sent as security state or exposed through a new callback API. `authorizationParams.state` is protected.
+
+Manual HTTP clients must retain the initiation proof cookie and send it only to the application's provider callback, never to the OAuth provider. Browser navigation does this automatically. Cookie-free CLI OAuth is not yet provided; issued JWTs remain usable through cookie-free bearer requests. See [single-process storage limits](/configuration/storage#oauth-login-transactions).
+
 Callbacks receive the portable `RequestEvent` from `nuxt/server`. Use `event.req`, `event.url`, and `event.res.headers` instead of `event.node` or `event.path`. Import helpers explicitly from `nuxt/server`, even inside Aegis callbacks.
 
 `onError(event, error)` receives a `NuxtErrorLike` with a numeric `status`, optional `statusText`, and the original exception as `cause` when it is normalized. It may return a string, a Web `Response`, or nothing, synchronously or asynchronously. Return redirect bodies rather than discarding them:

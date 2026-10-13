@@ -49,6 +49,8 @@ You get full control over user data persistence while Aegis handles the security
 
 The module requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases are not supported; Nuxt 5 has not yet been validated.
 
+OAuth login currently supports single-process deployments only. CLI OAuth login and shared transaction storage are not yet supported (see [OAuth storage limits](https://peterbud.github.io/nuxt-aegis/configuration/storage.md#oauth-login-transactions)); bearer-token API access is unaffected.
+
 ## 🚀 Quick Start
 
 ### 1. Install

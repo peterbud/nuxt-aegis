@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   exchangeCodeForTokens,
 } from './helpers/mockAuth'
@@ -42,7 +43,7 @@ describe('Aegis Module - Redirect Configuration', async () => {
       expect(callbackUrl).toContain('code=')
 
       // Step 3: Exchange CODE for tokens (callback handler)
-      const finalResponse = await fetch(callbackUrl!, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl!, authResponse)
       expect(finalResponse.status).toBe(302)
 
       // Step 4: Verify redirect to Aegis callback with CODE
@@ -81,7 +82,9 @@ describe('Aegis Module - Redirect Configuration', async () => {
       expect(callbackUrl).toContain('code=')
 
       // Step 3: Complete the Aegis callback handoff
-      const finalResponse = await fetch(callbackUrl!, { redirect: 'manual' })
+      const tamperedCallback = new URL(callbackUrl!)
+      tamperedCallback.searchParams.set('redirectTo', 'https://evil.test')
+      const finalResponse = await fetchOAuthCallback(tamperedCallback.href, authResponse)
       expect(finalResponse.status).toBe(302)
       const finalLocation = finalResponse.headers.get('location')
       expect(finalLocation).toBeDefined()
@@ -200,7 +203,7 @@ describe('Aegis Module - Redirect Configuration', async () => {
       const callbackUrl = mockResponse.headers.get('location')
       expect(callbackUrl).toBeDefined()
 
-      const finalResponse = await fetch(callbackUrl!, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl!, authResponse)
       expect(finalResponse.status).toBe(302)
       const finalLocation = finalResponse.headers.get('location')
       expect(finalLocation).toBeDefined()

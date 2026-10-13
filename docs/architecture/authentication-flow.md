@@ -110,7 +110,11 @@ For an application that has configured `/auth/google`:
 </template>
 ```
 
-The provider handler can encode supplied `state` and `redirectTo` values, but does not generate or verify a random OAuth state nonce. PKCE is not implemented. See the security limitations below and the [OAuth handler implementation](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/providers/oauthBase.ts).
+The provider handler generates an opaque random state and an independent initiator
+proof. It stores a ten-minute transaction in module-owned memory and sets a
+per-transaction HttpOnly proof cookie before redirecting. Optional application
+`state` and validated local `redirectTo` are stored as metadata, not encoded in the
+security state. PKCE is not yet implemented.
 
 ### Stage 2: OAuth Authorization
 
@@ -328,7 +332,19 @@ sequenceDiagram
 
 ### CSRF Protection
 
-OAuth state can protect against CSRF when a random, session-bound value is generated and verified on callback. The current provider handler only encodes supplied state data; it does not generate a random nonce or verify the returned state. Do not treat state transport as CSRF protection supplied by the module.
+Callbacks require both generated state and the independent initiator proof cookie.
+Before exchanging tokens or running authentication hooks, the module atomically
+validates the proof hash, expiry, provider, client ID, and redirect URI, then
+deletes the matching transaction. Invalid proof/context does not consume the
+legitimate attempt. Correlated provider denial also consumes it; token-exchange
+failure cannot reuse it. Callback `redirectTo` is ignored in favor of stored
+metadata.
+
+The initial backend is memory-only and single-process. Shared/serverless OAuth
+deployments are at the moment unsupported, and restarting loses pending
+transactions. See [storage configuration](/configuration/storage#oauth-login-transactions). The proof cookie is not an application session
+cookie: subsequent bearer JWT authentication does not require it. Cookie-free CLI
+OAuth initiation remains deferred.
 
 ### PKCE (Proof Key for Code Exchange)
 

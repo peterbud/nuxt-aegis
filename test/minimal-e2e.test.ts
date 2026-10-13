@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   exchangeCodeForTokens,
   accessProtectedRoute,
@@ -48,7 +49,7 @@ describe('Minimal E2E — Full Auth Flow', async () => {
     const callbackWithProviderCode = authorizeResp.headers.get('location')!
 
     // Step 3: Handler exchanges provider code → generates aegis CODE → redirects to /auth/callback
-    const exchangeResp = await fetch(callbackWithProviderCode, { redirect: 'manual' })
+    const exchangeResp = await fetchOAuthCallback(callbackWithProviderCode, authResp)
     expect(exchangeResp.status).toBe(302)
     const callbackUrl = exchangeResp.headers.get('location')!
 

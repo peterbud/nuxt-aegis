@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   extractErrorFromUrl,
   exchangeCodeForTokens,
@@ -27,9 +28,9 @@ describe('Aegis Module - Error Scenarios', async () => {
 
   describe('OAuth Provider Errors', () => {
     it('normalizes token exchange exceptions for the error callback', async () => {
-      const response = await fetch(getUrl('/auth/google?code=invalid-provider-code'), {
-        redirect: 'manual',
-      })
+      const initiation = await fetch(getUrl('/auth/google'), { redirect: 'manual' })
+      const state = new URL(initiation.headers.get('location')!).searchParams.get('state')!
+      const response = await fetchOAuthCallback(getUrl(`/auth/google?code=invalid-provider-code&state=${state}`), initiation)
 
       expect(response.status).toBe(302)
       expect(response.headers.get('location')).toBe('/auth/callback?error=authentication_failed')
@@ -37,9 +38,9 @@ describe('Aegis Module - Error Scenarios', async () => {
     })
 
     it('returns a custom error redirect with a portable HTTP error', async () => {
-      const response = await fetch(getUrl('/auth/google?error=access_denied'), {
-        redirect: 'manual',
-      })
+      const initiation = await fetch(getUrl('/auth/google'), { redirect: 'manual' })
+      const state = new URL(initiation.headers.get('location')!).searchParams.get('state')!
+      const response = await fetchOAuthCallback(getUrl(`/auth/google?error=access_denied&state=${state}`), initiation)
 
       expect(response.status).toBe(302)
       expect(response.headers.get('location')).toBe('/auth/callback?error=authentication_failed')
@@ -103,7 +104,7 @@ describe('Aegis Module - Error Scenarios', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -148,7 +149,7 @@ describe('Aegis Module - Error Scenarios', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -179,7 +180,7 @@ describe('Aegis Module - Error Scenarios', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
       await exchangeCodeForTokens($fetch, aegisCode)

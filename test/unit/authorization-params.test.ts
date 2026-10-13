@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { validateAuthorizationParams } from '../../src/runtime/server/providers/oauthBase'
 
 /**
  * Unit Tests for Authorization Parameters Validation
@@ -10,51 +11,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  */
 
 // Mock the logger
-const mockLogger = {
+const mockLogger = vi.hoisted(() => ({
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
   security: vi.fn(),
-}
-
-vi.mock('../../../src/runtime/server/utils/logger', () => ({
-  createLogger: () => mockLogger,
 }))
 
-// Inline the validation function for unit testing
-const PROTECTED_PARAMS = ['client_id', 'redirect_uri', 'code', 'grant_type'] as const
-
-function validateAuthorizationParams(
-  authorizationParams: Record<string, string> | undefined,
-  providerKey: string,
-): Record<string, string> {
-  if (!authorizationParams) {
-    return {}
-  }
-
-  const filtered: Record<string, string> = {}
-  const protectedFound: string[] = []
-
-  for (const [key, value] of Object.entries(authorizationParams)) {
-    if (PROTECTED_PARAMS.includes(key as typeof PROTECTED_PARAMS[number])) {
-      protectedFound.push(key)
-    }
-    else {
-      filtered[key] = value
-    }
-  }
-
-  if (protectedFound.length > 0) {
-    mockLogger.warn(`Protected OAuth parameters cannot be overridden in authorizationParams for ${providerKey}:`, {
-      attempted: protectedFound,
-      protected: PROTECTED_PARAMS,
-      message: 'These parameters are ignored for security reasons',
-    })
-  }
-
-  return filtered
-}
+vi.mock('../../src/runtime/server/utils/logger', () => ({
+  createLogger: () => mockLogger,
+}))
+vi.mock('nuxt/server', () => ({}))
+vi.mock('../../src/runtime/server/utils/authCodeStore', () => ({}))
+vi.mock('../../src/runtime/server/utils/handler', () => ({}))
 
 /**
  * Unit Tests for Authorization Parameters
@@ -79,6 +49,10 @@ describe('Authorization Parameters', () => {
   })
 
   describe('validateAuthorizationParams', () => {
+    it('filters caller overrides of security state', () => {
+      expect(validateAuthorizationParams({ state: 'attacker', prompt: 'consent' }, 'google')).toEqual({ prompt: 'consent' })
+      expect(warnSpy).toHaveBeenCalled()
+    })
     it('should return empty object when authorizationParams is undefined', () => {
       const result = validateAuthorizationParams(undefined, 'google')
       expect(result).toEqual({})

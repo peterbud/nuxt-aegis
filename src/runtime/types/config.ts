@@ -69,12 +69,25 @@ export interface ImpersonationConfig {
 }
 
 /**
+ * OAuth login transaction configuration
+ */
+export interface OAuthTransactionConfig {
+  /** Transaction storage driver; only single-process memory is supported (default: 'memory') */
+  driver?: 'memory'
+  /** Maximum pending server-side transactions (default: 10,000) */
+  capacity?: number
+  /** Trust forwarded protocol from an exclusive, trusted proxy (default: false) */
+  trustProxy?: boolean
+}
+
+/**
  * Runtime config for Nuxt Aegis
  */
 export interface NuxtAegisRuntimeConfig {
   token?: TokenConfig
   tokenRefresh?: TokenRefreshConfig
   authCode?: AuthCodeConfig
+  oauthTransaction?: OAuthTransactionConfig
   endpoints?: EndpointConfig
   authPath?: string
   logging?: LoggingConfig
@@ -128,6 +141,9 @@ export interface ModuleOptions {
    * Default: 60 seconds (recommended for security)
    */
   authCode?: AuthCodeConfig
+
+  /** OAuth login transaction configuration */
+  oauthTransaction?: OAuthTransactionConfig
 
   /** Redirect URL configuration */
   redirect?: RedirectConfig

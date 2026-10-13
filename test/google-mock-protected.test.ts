@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   exchangeCodeForTokens,
   accessProtectedRoute,
@@ -45,7 +46,7 @@ describe('Aegis Module - Protected Routes & Token Refresh', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -94,7 +95,7 @@ describe('Aegis Module - Protected Routes & Token Refresh', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -143,7 +144,7 @@ describe('Aegis Module - Protected Routes & Token Refresh', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -212,7 +213,7 @@ describe('Aegis Module - Protected Routes & Token Refresh', async () => {
 
       // 3. Aegis processes OAuth callback
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       expect(finalResponse.status).toBe(302)
 
       // 4. Get Aegis CODE

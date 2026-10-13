@@ -8,6 +8,20 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FetchFunction = any
 
+export async function fetchOAuthCallback(callbackUrl: string, initiation: Response): Promise<Response> {
+  const authorizationUrl = new URL(initiation.headers.get('location')!)
+  const expected = new URL(authorizationUrl.searchParams.get('redirect_uri')!)
+  const callback = new URL(callbackUrl)
+  if (callback.origin !== expected.origin || callback.pathname !== expected.pathname) {
+    throw new Error('Refusing to forward OAuth proof cookies to a non-callback URL')
+  }
+  const cookie = initiation.headers.getSetCookie()
+    .map(value => value.split(';')[0]!)
+    .filter(value => /^(?:__Host-)?nuxt-aegis-oauth-/.test(value))
+    .join('; ')
+  return fetch(callback, { redirect: 'manual', headers: { Cookie: cookie } })
+}
+
 /**
  * Mock Google user profile structure
  */

@@ -60,6 +60,11 @@ export default defineNuxtModule<ModuleOptions>({
     authCode: {
       expiresIn: 60, // CS-4, CF-9: Authorization code expiry in seconds (default 60s)
     },
+    oauthTransaction: {
+      driver: 'memory',
+      capacity: 10_000,
+      trustProxy: false,
+    },
     redirect: {
       logout: '/',
       success: '/',
@@ -132,6 +137,13 @@ export default defineNuxtModule<ModuleOptions>({
         'nuxtAegis.enableSSR is true but Nuxt SSR is disabled. '
         + 'SSR authentication will not work. Set ssr: true in nuxt.config.ts or disable enableSSR.',
       )
+    }
+
+    if (options.oauthTransaction?.driver !== 'memory') {
+      throw new Error('OAuth transactions support only single-process memory storage')
+    }
+    if (!Number.isSafeInteger(options.oauthTransaction.capacity) || options.oauthTransaction.capacity! < 1) {
+      throw new Error('OAuth transaction capacity must be a positive integer')
     }
 
     const resolver = createResolver(import.meta.url)

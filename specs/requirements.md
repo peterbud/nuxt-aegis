@@ -133,7 +133,19 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-5:** WHEN a user initiates login with an OAuth provider, the module SHALL initiate an OAuth flow that redirects the browser to the configured authentication provider's login page.
 
-**PR-6:** WHEN the authentication provider returns an authorization code, the module SHALL exchange it for provider-specific tokens.
+**PR-5a:** WHEN OAuth login is initiated, the module SHALL generate independent 32-byte random base64url state and initiator proof values and persist a ten-minute transaction containing only the proof's SHA-256 hash, provider/client/redirect context, timestamps, and optional validated local redirect and application-state metadata.
+
+**PR-5b:** WHERE OAuth login is browser-initiated, the module SHALL set a per-transaction HttpOnly, SameSite=Lax, Path=/ proof cookie with matching expiry, Secure and `__Host-` prefix on HTTPS, and no Secure/prefix for local HTTP. Forwarded protocol SHALL be trusted only by explicit private configuration for a trusted proxy deployment.
+
+**PR-5c:** WHEN a callback carries `code` or `error`, the module SHALL reject malformed, empty, repeated, missing, forged, expired, replayed, or uncorrelated state/proof before provider exchange or authentication side effects. A successful conditional consume SHALL atomically validate proof, expiry, provider, client ID, and redirect URI and delete the transaction. Invalid proof or context SHALL NOT consume a legitimate transaction.
+
+**PR-5d:** WHEN a correlated callback returns a provider denial or token exchange fails, the transaction SHALL remain consumed and its proof cookie SHALL be cleared. Subsequent login SHALL require a fresh initiation.
+
+**PR-5e:** WHERE `redirectTo` is supplied on initiation, the module SHALL accept only unambiguous application-local paths and restore them only from stored metadata. Caller application state SHALL NOT override generated security state or constitute proof. Callback redirect metadata SHALL be ignored.
+
+**PR-5f:** The initial OAuth transaction backend SHALL be module-owned synchronous single-process memory, bounded to 10,000 pending records by default with expired-record pruning. Browser initiation SHALL reject a request already carrying eight unexpired proof cookies. Unsupported storage drivers and storage failures SHALL fail closed without exposing storage details or falling back. Shared/serverless OAuth, PKCE, and cookie-free CLI OAuth SHALL remain unsupported in this release; bearer JWT authentication after login SHALL remain independent of proof cookies.
+
+**PR-6:** WHEN the authentication provider returns an authorization code and its OAuth transaction has been successfully consumed, the module SHALL exchange it for provider-specific tokens.
 
 **PR-7:** IF the token exchange fails, THEN the module SHALL return an error response to the client with appropriate error details.
 

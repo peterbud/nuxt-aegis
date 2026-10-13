@@ -15,6 +15,26 @@ Nuxt Aegis implements multiple security layers to protect your authentication sy
 
 [Learn more about Authorization CODE Flow →](/guides/authorization-code)
 
+### OAuth Callback Correlation
+
+All shared OAuth handlers, including Mock, generate independent 32-byte random
+state and initiator proof values. The server stores only the proof hash. Callbacks
+must match the state, proof cookie, provider, client ID, redirect URI, and
+ten-minute expiry before token exchange or authentication hooks run. Successful
+verification atomically consumes the transaction, including on provider denial; an
+exchange failure requires a fresh login. Invalid proofs do not consume a valid
+transaction.
+
+Legacy callbacks without a pending transaction are rejected. Caller-supplied
+`state` is metadata, not security proof, and cannot override generated state
+Initial `redirectTo` must be an application-local path and is restored only from
+server storage, never from callback query parameters.
+
+This release supports single-process memory transactions only, not shared or
+serverless OAuth deployments. See [OAuth transaction storage](/configuration/storage#oauth-login-transactions).
+
+PKCE and cookie-free CLI OAuth login remain deferred. Bearer JWT requests after login remain independent of the proof cookie.
+
 ### JWT Token Security
 
 ✅ **Short-Lived Tokens** - 1-hour expiration (configurable)  
@@ -62,7 +82,7 @@ Detailed security recommendations and implementation guides.
 | Threat | Protection Mechanism |
 |--------|---------------------|
 | **XSS** | HttpOnly cookies, CSP headers |
-| **CSRF** | SameSite cookies, state parameter |
+| **OAuth Login CSRF** | Random state plus independent initiator proof, atomic context-bound consumption |
 | **Token Theft** | Short-lived tokens, HTTPS-only |
 | **Replay Attacks** | Single-use CODEs, token expiration |
 | **Session Hijacking** | Secure cookies, token rotation |
@@ -116,6 +136,8 @@ Nuxt Aegis addresses key OWASP vulnerabilities:
 
 - [ ] Set strong `NUXT_AEGIS_TOKEN_SECRET` (32+ characters)
 - [ ] Enable HTTPS (`secure: true` in cookies)
+- [ ] Keep OAuth initiation/callback in one long-lived process; shared deployments are unsupported
+- [ ] Trust forwarded protocol only behind an exclusive, header-sanitizing proxy
 - [ ] Use Redis for refresh token storage (not filesystem)
 - [ ] Enable encryption at rest
 - [ ] Set `NODE_ENV=production`

@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   exchangeCodeForTokens,
   decodeJwt,
@@ -31,6 +32,45 @@ describe('Aegis Module - Mock Google OAuth', async () => {
   })
 
   describe('OAuth Flow - Happy Path', () => {
+    it('sets local HTTP proof flags and ignores untrusted forwarded protocol', async () => {
+      const response = await fetch(getUrl('/auth/google'), {
+        redirect: 'manual',
+        headers: { 'X-Forwarded-Proto': 'https' },
+      })
+      const cookie = response.headers.getSetCookie().find(value => value.startsWith('nuxt-aegis-oauth-'))!
+      expect(cookie).toContain('HttpOnly')
+      expect(cookie).toContain('SameSite=Lax')
+      expect(cookie).toContain('Path=/')
+      expect(cookie).toContain('Max-Age=600')
+      expect(cookie).not.toContain('Secure')
+      expect(new URL(response.headers.get('location')!).searchParams.get('redirect_uri')).toMatch(/^http:/)
+    })
+
+    it('rejects missing proof, repeated and forged state, and replay before hooks, without consuming the legitimate attempt', async () => {
+      const initiation = await fetch(getUrl('/auth/google'), { redirect: 'manual' })
+      const authorization = await fetch(initiation.headers.get('location')!, { redirect: 'manual' })
+      const callback = new URL(authorization.headers.get('location')!)
+      const missingProof = await fetch(callback, { redirect: 'manual' })
+      expect(missingProof.headers.get('location')).toContain('error=authentication_failed')
+      expect(missingProof.headers.get('x-aegis-hook-order')).toBeNull()
+      const repeated = new URL(callback)
+      repeated.searchParams.append('state', callback.searchParams.get('state')!)
+      const forged = new URL(callback)
+      forged.searchParams.set('state', 'A'.repeat(43))
+      for (const invalid of [repeated, forged]) {
+        const response = await fetchOAuthCallback(invalid.href, initiation)
+        expect(response.headers.get('location')).toContain('error=authentication_failed')
+        expect(response.headers.get('x-aegis-hook-order')).toBeNull()
+      }
+      const valid = await fetchOAuthCallback(callback.href, initiation)
+      expect(valid.headers.get('location')).toContain('code=')
+      expect(valid.headers.get('x-aegis-hook-order')).toBe('provider,first,second')
+      expect(valid.headers.getSetCookie().some(value => value.includes('Max-Age=0'))).toBe(true)
+      const replay = await fetchOAuthCallback(callback.href, initiation)
+      expect(replay.headers.get('location')).toContain('error=authentication_failed')
+      expect(replay.headers.get('x-aegis-hook-order')).toBeNull()
+    })
+
     it('should redirect to mock Google authorize endpoint', async () => {
       // PR-5: Aegis should redirect to OAuth provider
       // Use native fetch with redirect: 'manual' to intercept redirects
@@ -83,9 +123,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       expect(googleCode).toContain('mock_code_')
 
       // Step 4: Follow the callback - Aegis exchanges code and redirects to /auth/callback
-      const finalResponse = await fetch(callbackUrl!, {
-        redirect: 'manual',
-      })
+      const finalResponse = await fetchOAuthCallback(callbackUrl!, authResponse)
 
       expect(finalResponse.status).toBe(302)
       expect(finalResponse.headers.get('x-aegis-hook-order')).toBe('provider,first,second')
@@ -110,7 +148,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
 
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
 
       const aegisCode = extractCodeFromUrl(finalLocation)!
@@ -158,7 +196,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -209,7 +247,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 
@@ -264,7 +302,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       // Complete the flow to verify token exchange also uses mock
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const aegisCode = extractCodeFromUrl(finalLocation)!
 

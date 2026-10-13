@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { setup, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
   decodeJwt,
 } from './helpers/mockAuth'
@@ -26,9 +27,7 @@ describe('Aegis Module - Mock Google OAuth Impersonation', async () => {
     })
     const callbackUrl = mockAuthorizeResponse.headers.get('location')!
 
-    const finalResponse = await fetch(callbackUrl, {
-      redirect: 'manual',
-    })
+    const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
     const finalLocation = finalResponse.headers.get('location')!
     const aegisCode = extractCodeFromUrl(finalLocation)!
 

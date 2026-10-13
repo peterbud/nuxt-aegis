@@ -28,7 +28,7 @@ export interface OAuthProviderConfig {
    *
    * These parameters will be included when redirecting to the OAuth provider's authorization endpoint.
    * Custom parameters override default parameters, but critical OAuth parameters (client_id, redirect_uri,
-   * code, grant_type) are protected and cannot be overridden for security reasons.
+   * code, grant_type, state) are protected and cannot be overridden for security reasons.
    *
    * @example
    * // Google-specific parameters

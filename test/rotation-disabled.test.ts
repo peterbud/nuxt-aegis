@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
 import type { RefreshResponse } from '../src/runtime/types'
 import {
+  fetchOAuthCallback,
   extractCodeFromUrl,
 } from './helpers/mockAuth'
 
@@ -33,7 +34,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
 
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
 
       const code = extractCodeFromUrl(finalLocation)!
@@ -99,7 +100,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const code = extractCodeFromUrl(finalLocation)!
 
@@ -141,7 +142,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const code = extractCodeFromUrl(finalLocation)!
 
@@ -176,7 +177,7 @@ describe('Token Refresh - Rotation Disabled', async () => {
       const authorizeUrl = authResponse.headers.get('location')!
       const mockAuthorizeResponse = await fetch(authorizeUrl, { redirect: 'manual' })
       const callbackUrl = mockAuthorizeResponse.headers.get('location')!
-      const finalResponse = await fetch(callbackUrl, { redirect: 'manual' })
+      const finalResponse = await fetchOAuthCallback(callbackUrl, authResponse)
       const finalLocation = finalResponse.headers.get('location')!
       const code = extractCodeFromUrl(finalLocation)!
 

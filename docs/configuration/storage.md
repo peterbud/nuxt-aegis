@@ -223,6 +223,57 @@ export default defineNuxtConfig({
 Ensure your storage driver supports TTL. Redis handles this automatically, but filesystem storage requires manual cleanup.
 :::
 
+## OAuth Login Transactions
+
+OAuth login uses a separate module-owned, process-local memory store. It does not
+use `refreshTokenStore` or `authCodeStore`.
+
+```typescript
+export default defineNuxtConfig({
+  nuxtAegis: {
+    oauthTransaction: {
+      driver: 'memory',
+      capacity: 10_000,
+      trustProxy: false,
+    },
+  },
+})
+```
+
+These settings are private runtime configuration. The fixed lifetime is ten minutes.
+Each record contains a random state, a SHA-256 proof hash, provider/client/redirect
+context, timestamps, and optional application metadata, never provider tokens,
+client secrets, application JWTs, or user data. Validation and deletion are one
+synchronous operation. Expired records are pruned on initiation and rejected on
+consumption. At capacity, new logins fail rather than evicting valid transactions.
+The browser handler allows eight pending proof cookies; expired cookies are cleared
+before counting. Successful callbacks and correlated denials clear their cookie.
+
+::: danger Single-Process OAuth Only
+This release does not support shared OAuth transaction storage. Redis, filesystem,
+and arbitrary Nitro drivers are rejected for `oauthTransaction.driver`; no fallback
+to memory occurs when an unsupported driver is requested. Configuring Redis for
+refresh tokens does not make OAuth transactions shared. Run OAuth initiation and
+callback in the same long-lived process. Multi-process, multi-instance, and
+serverless OAuth deployments are unsupported. Load-balancer affinity does not make
+this store shared or durable. Restarting the process invalidates pending logins.
+:::
+
+The installed unstorage 1.17.5 API provides separate get/remove operations, not an
+atomic conditional consume. A future shared backend must implement native
+conditional validation and deletion, such as a Redis script, with transaction TTLs.
+
+Behind an HTTPS-terminating proxy, set `oauthTransaction.trustProxy: true` only when
+the application is reachable exclusively through trusted proxies that overwrite
+`X-Forwarded-Proto`. This opts into Nuxt's forwarded-protocol handling for redirect
+URIs and cookie security. Arbitrary forwarded headers are ignored by default.
+Configure an explicit provider `redirectUri` when the public host differs from the
+server request host; forwarded host headers are not enabled by this option.
+
+Proof cookies use HttpOnly, SameSite=Lax, Path=/, and ten-minute expiry. HTTPS uses
+Secure and the `__Host-` prefix. Local HTTP uses neither Secure nor that prefix.
+These cookies protect pending OAuth login only; they do not bind issued bearer JWTs.
+
 ## Automatic Cleanup Tasks
 
 Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired data from storage. These tasks run daily at 2:00 AM by default (configurable via Nitro's `scheduledTasks`).

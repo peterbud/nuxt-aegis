@@ -1,4 +1,17 @@
-import { defineEventHandler, getRequestURL, getQuery, sendRedirect, createError, isNuxtError, useServerHooks, useRuntimeConfig } from 'nuxt/server'
+import {
+  defineEventHandler,
+  getRequestURL,
+  getQuery,
+  parseCookies,
+  getRequestHeader,
+  setCookie,
+  deleteCookie,
+  sendRedirect,
+  createError,
+  isNuxtError,
+  useServerHooks,
+  useRuntimeConfig,
+} from 'nuxt/server'
 import type { RequestEvent } from 'nuxt/server'
 import type { OAuthConfig, OAuthProviderConfig } from '../../types'
 import type { UserInfoHookPayload, SuccessHookPayload } from '../../types/hooks'
@@ -7,32 +20,17 @@ import { withQuery } from 'ufo'
 import { generateAuthCode, storeAuthCode } from '../utils/authCodeStore'
 import { createLogger } from '../utils/logger'
 import { useAegisHandler } from '../utils/handler'
+import {
+  hasOAuthControlCharacters,
+  isOAuthGeneratedValue,
+  oauthTransactions,
+  OAUTH_BROWSER_LIMIT,
+  OAUTH_TRANSACTION_TTL,
+  validateOAuthRedirect,
+} from '../utils/oauthTransaction'
 
 const logger = createLogger('OAuth')
-
-const OAUTH_STATE_PREFIX = 'nuxt-aegis:'
-
-interface OAuthStatePayload {
-  redirectTo?: string
-  state?: string
-}
-
-function encodeOAuthState(payload: OAuthStatePayload): string {
-  return `${OAUTH_STATE_PREFIX}${JSON.stringify(payload)}`
-}
-
-function decodeOAuthState(state?: string): OAuthStatePayload {
-  if (!state?.startsWith(OAUTH_STATE_PREFIX)) {
-    return { state }
-  }
-
-  try {
-    return JSON.parse(state.slice(OAUTH_STATE_PREFIX.length)) as OAuthStatePayload
-  }
-  catch {
-    return { state }
-  }
-}
+const PROOF_COOKIE_PREFIX = 'nuxt-aegis-oauth-'
 
 // Extract provider keys from the runtime config type
 type ProviderKey = 'google' | 'microsoft' | 'github' | 'auth0' | 'mock'
@@ -52,7 +50,7 @@ type ProviderConfigMap = {
  * Protected OAuth parameters that cannot be overridden via authorizationParams
  * These are critical for OAuth security and flow integrity
  */
-const PROTECTED_PARAMS = ['client_id', 'redirect_uri', 'code', 'grant_type'] as const
+const PROTECTED_PARAMS = ['client_id', 'redirect_uri', 'code', 'grant_type', 'state'] as const
 
 /**
  * Validates and filters custom authorization parameters
@@ -143,7 +141,7 @@ interface OAuthTokenResponse {
  * @returns Full redirect URI including protocol, host and pathname
  */
 function getOAuthRedirectUri(event: RequestEvent): string {
-  const requestURL = getRequestURL(event)
+  const requestURL = getRequestURL(event, { xForwardedProto: useRuntimeConfig().nuxtAegis?.oauthTransaction?.trustProxy === true })
   return `${requestURL.protocol}//${requestURL.host}${requestURL.pathname}`
 }
 
@@ -197,31 +195,81 @@ export function defineOAuthEventHandler<
       }
 
       const query = getQuery<{ code?: string, state?: string, error?: string, redirectTo?: string }>(event)
-      const statePayload = decodeOAuthState(query.state)
-
-      // Handle OAuth error responses
-      if (query.error) {
-        throw createError({
-          status: 400,
-          statusText: 'OAuth Error',
-          message: `OAuth provider returned error: ${query.error}`,
-        })
+      const requestURL = getRequestURL(event, { xForwardedProto: runtimeConfig.oauthTransaction?.trustProxy === true })
+      const callback = requestURL.searchParams.has('code') || requestURL.searchParams.has('error')
+      const invalidRequest = () => createError({ status: 400, message: 'OAuth authentication failed' })
+      for (const key of ['code', 'state', 'error', ...(callback ? [] : ['redirectTo'])]) {
+        const values = requestURL.searchParams.getAll(key)
+        if (values.length > 1 || (values.length === 1 && (!values[0]?.trim() || hasOAuthControlCharacters(values[0])))) {
+          throw invalidRequest()
+        }
       }
-
+      if (runtimeConfig.oauthTransaction?.driver && runtimeConfig.oauthTransaction.driver !== 'memory') {
+        throw createError({ status: 503, message: 'OAuth login unavailable' })
+      }
       const redirectUri = mergedConfig.redirectUri || getOAuthRedirectUri(event)
-      // EP-2: Step 1 - Redirect to authorization server if no code
-      if (!query.code) {
-        const authState = query.redirectTo || query.state
-          ? encodeOAuthState({
-              redirectTo: query.redirectTo,
-              state: query.state,
-            })
-          : undefined
-        const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
+      const context = { provider: implementation.runtimeConfigKey, clientId: mergedConfig.clientId, redirectUri }
+      const secure = requestURL.protocol === 'https:'
+      const cookiePrefix = `${secure ? '__Host-' : ''}${PROOF_COOKIE_PREFIX}`
+      const cookieOptions = { httpOnly: true, sameSite: 'lax' as const, path: '/', secure }
+      const cookies = parseCookies(event)
+      if (!callback) {
+        let pending = 0
+        for (const name of Object.keys(cookies)) {
+          const match = /^(?:__Host-)?nuxt-aegis-oauth-[\w-]{43}\.(\d+)$/.exec(name)
+          if (!match) continue
+          if (Number(match[1]) <= Date.now()) {
+            deleteCookie(event, name, { ...cookieOptions, secure: name.startsWith('__Host-') })
+          }
+          else pending++
+        }
+        if (pending >= OAUTH_BROWSER_LIMIT) throw createError({ status: 429, message: 'OAuth login unavailable' })
+        if (query.redirectTo !== undefined) {
+          try {
+            validateOAuthRedirect(query.redirectTo)
+          }
+          catch {
+            throw invalidRequest()
+          }
+        }
+        let transaction: ReturnType<typeof oauthTransactions.create>
+        try {
+          transaction = oauthTransactions.create(context, {
+            redirectTo: query.redirectTo,
+            applicationState: query.state,
+          }, runtimeConfig.oauthTransaction?.capacity ?? 10_000)
+        }
+        catch {
+          throw createError({ status: 503, message: 'OAuth login unavailable' })
+        }
+        const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, transaction.state)
+        authQuery.state = transaction.state
+        setCookie(event, `${cookiePrefix}${transaction.state}.${transaction.expiresAt}`, transaction.proof, {
+          ...cookieOptions,
+          expires: new Date(transaction.expiresAt),
+          maxAge: OAUTH_TRANSACTION_TTL / 1000,
+        })
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
       }
 
-      // TODO: handle state verification
+      if (!isOAuthGeneratedValue(query.state) || (query.code && query.error)) throw invalidRequest()
+      const names = Object.keys(cookies).filter(name => name.startsWith(`${cookiePrefix}${query.state}.`))
+      if (names.length !== 1) throw invalidRequest()
+      const cookieName = names[0]!
+      const occurrences = (getRequestHeader(event, 'cookie') || '').split(';').filter(part => part.trim().startsWith(`${cookieName}=`))
+      if (occurrences.length !== 1) throw invalidRequest()
+      let transaction: ReturnType<typeof oauthTransactions.consume>
+      try {
+        transaction = oauthTransactions.consume(query.state, cookies[cookieName]!, context)
+      }
+      catch {
+        throw createError({ status: 503, message: 'OAuth login unavailable' })
+      }
+      if (!transaction) throw invalidRequest()
+      deleteCookie(event, cookieName, cookieOptions)
+      if (query.error) throw invalidRequest()
+      if (!query.code) throw invalidRequest()
+      const redirectTo = transaction.redirectTo === undefined ? undefined : validateOAuthRedirect(transaction.redirectTo)
 
       // EP-6: Step 2 - Exchange authorization code for tokens
       const tokenBody = implementation.buildTokenBody(mergedConfig, query.code, redirectUri)
@@ -355,8 +403,8 @@ export function defineOAuthEventHandler<
         const callbackUrl = new URL(runtimeConfig.endpoints?.callbackPath || '/auth/callback', getOAuthRedirectUri(event))
         callbackUrl.searchParams.set('code', authCode)
 
-        if (statePayload.redirectTo) {
-          callbackUrl.searchParams.set('redirectTo', statePayload.redirectTo)
+        if (redirectTo) {
+          callbackUrl.searchParams.set('redirectTo', redirectTo)
         }
 
         return sendRedirect(event, callbackUrl.href)
