@@ -213,9 +213,9 @@ export function defineOAuthEventHandler<
       if (!query.code) {
         const authState = query.redirectTo || query.state
           ? encodeOAuthState({
-            redirectTo: query.redirectTo,
-            state: query.state,
-          })
+              redirectTo: query.redirectTo,
+              state: query.state,
+            })
           : undefined
         const authQuery = implementation.buildAuthQuery(mergedConfig, redirectUri, authState)
         return sendRedirect(event, withQuery(implementation.authorizeUrl, authQuery))
@@ -390,12 +390,12 @@ export function defineOAuthEventHandler<
         const callbackError = isNuxtError(error)
           ? error
           : createError({
-            status: 500,
-            message: error instanceof Error
-              ? error.message
-              : 'OAuth authentication failed',
-            cause: error,
-          })
+              status: 500,
+              message: error instanceof Error
+                ? error.message
+                : 'OAuth authentication failed',
+              cause: error,
+            })
         if (!isNuxtError(callbackError)) {
           throw callbackError
         }
