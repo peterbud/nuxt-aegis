@@ -145,7 +145,9 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **PR-10:** WHEN user information is extracted, the module SHALL generate a short-lived authorization CODE.
 
-**PR-11:** WHEN an authorization CODE is generated, the module SHALL store it in a server-side in-memory key-value store with the associated user information and provider tokens.
+**PR-11:** WHEN an authorization CODE is generated, the module SHALL store it in a server-side in-memory key-value store with the associated user information, provider identity, and resolved custom claims, without storing OAuth provider tokens.
+
+**PR-11a:** WHERE OAuth callbacks or hooks receive provider tokens, the module SHALL preserve token availability during authentication for user-info transformation, provider-level custom claims resolution, provider-level success callbacks, and global success hooks without retaining those tokens in the authorization CODE record.
 
 **PR-12:** WHERE an authorization CODE is stored, the module SHALL set an expiration time of 60 seconds.
 
@@ -340,7 +342,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CS-1:** The module SHALL provide a server-side in-memory key-value store for temporary authorization CODE storage.
 
-**CS-2:** WHEN an authorization CODE is stored, the module SHALL associate it with user information and provider tokens retrieved during authentication.
+**CS-2:** WHEN an authorization CODE is stored, the module SHALL associate it with user information, provider identity, resolved custom claims, and creation and expiration timestamps. The authorization CODE record SHALL NOT contain OAuth provider tokens.
 
 **CS-3:** WHEN storing an authorization CODE, the module SHALL generate a cryptographically secure random CODE value.
 
@@ -424,7 +426,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-5:** WHEN provider tokens are obtained, the provider endpoint SHALL retrieve user information from the provider's userinfo endpoint or from the ID token claims.
 
-**EP-6:** WHEN user information is retrieved, the provider endpoint SHALL generate a short-lived authorization CODE and store it along with the user information and provider tokens in a server-side in-memory key-value store.
+**EP-6:** WHEN user information is retrieved and authentication callbacks have completed, the provider endpoint SHALL generate a short-lived authorization CODE and store it along with the user information, provider identity, and resolved custom claims in a server-side in-memory key-value store, without storing OAuth provider tokens.
 
 **EP-7:** WHEN the authorization CODE is stored, the provider endpoint SHALL redirect the client to the common callback endpoint (`/auth/callback`) with the CODE as a query parameter.
 
@@ -478,7 +480,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-10:** The module SHALL provide a `/auth/token` endpoint to exchange an authorization CODE for application tokens.
 
-**EP-11:** WHEN a POST request is made to the token endpoint with a valid authorization CODE, the module SHALL retrieve the associated user information and provider tokens from the in-memory key-value store.
+**EP-11:** WHEN a POST request is made to the token endpoint with a valid authorization CODE, the module SHALL retrieve the associated user information, provider identity, and resolved custom claims from the in-memory key-value store. Application token generation SHALL NOT require OAuth provider tokens.
 
 **EP-12:** WHEN the authorization CODE is successfully validated and retrieved, the module SHALL delete it from the key-value store to ensure single use.
 

@@ -23,17 +23,23 @@ export default defineOAuthMockEventHandler({
     event.res.headers.set('x-aegis-error-status', String(error.status))
     return sendRedirect(event, '/auth/callback?error=authentication_failed')
   },
-  onSuccess: ({ event }) => {
-    event.res.headers.set('x-aegis-hook-order', 'provider')
+  onUserInfo: (providerUserInfo, tokens, event) => {
+    event.res.headers.set('x-aegis-user-info-tokens', String(Boolean(tokens.access_token && tokens.refresh_token && tokens.id_token && tokens.expires_in)))
+    return providerUserInfo
   },
-  customClaims: providerUserInfo => ({
-    role: providerUserInfo.role as string | undefined,
-    permissions: providerUserInfo.permissions as string[] | undefined,
-    userId: providerUserInfo.userId as string | undefined,
-    userName: providerUserInfo.userName as string | undefined,
-    subscriptionTier: providerUserInfo.subscriptionTier as string | undefined,
-    subscriptionStatus: providerUserInfo.subscriptionStatus as string | undefined,
-    preferredLanguage: providerUserInfo.preferredLanguage as string | undefined,
+  onSuccess: ({ event, tokens }) => {
+    event.res.headers.set('x-aegis-hook-order', 'provider')
+    event.res.headers.set('x-aegis-provider-success-tokens', String(Boolean(tokens.access_token && tokens.refresh_token && tokens.id_token && tokens.expires_in)))
+  },
+  customClaims: (providerUserInfo, tokens) => ({
+    providerTokensAvailable: Boolean(tokens.access_token && tokens.refresh_token && tokens.id_token && tokens.expires_in),
+    role: (providerUserInfo.role as string | undefined) ?? null,
+    permissions: (providerUserInfo.permissions as string[] | undefined) ?? null,
+    userId: (providerUserInfo.userId as string | undefined) ?? null,
+    userName: (providerUserInfo.userName as string | undefined) ?? null,
+    subscriptionTier: (providerUserInfo.subscriptionTier as string | undefined) ?? null,
+    subscriptionStatus: (providerUserInfo.subscriptionStatus as string | undefined) ?? null,
+    preferredLanguage: (providerUserInfo.preferredLanguage as string | undefined) ?? null,
   }),
 
   // Optional: Error handler for OAuth errors

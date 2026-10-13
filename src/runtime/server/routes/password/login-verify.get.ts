@@ -78,7 +78,6 @@ export default defineEventHandler(async (event) => {
     await storeAuthCode(
       authCode,
       providerUserInfo,
-      { access_token: 'password_auth' },
       'password',
       undefined,
       60,

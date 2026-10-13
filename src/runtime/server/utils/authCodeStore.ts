@@ -14,7 +14,7 @@ const logger = createLogger('AuthCode')
  *
  * Flow:
  * 1. Generate and store authorization CODE after OAuth authentication
- * 2. Store CODE with user info and provider tokens in memory
+ * 2. Store CODE with user info, provider identity, and resolved custom claims in memory
  * 3. Set 60-second expiration (configurable via CF-9)
  * 4. Retrieve and delete CODE when exchanging for tokens
  * 5. Ensure single-use by immediate deletion
@@ -55,17 +55,12 @@ export function generateAuthCode(): string {
 /**
  * Store authorization code with associated user and provider data
  * Server-side in-memory key-value store for temporary authorization CODE storage
- * Associate CODE with user information and provider tokens
+ * Associate CODE with user information, provider identity, and resolved custom claims
  * Set expiration time of 60 seconds
  * Store CODE in server-side in-memory key-value store
  *
  * @param code - The authorization code to store
  * @param providerUserInfo - Complete OAuth provider user data
- * @param providerTokens - Tokens received from OAuth provider
- * @param providerTokens.access_token - Provider access token
- * @param providerTokens.refresh_token - Optional provider refresh token
- * @param providerTokens.id_token - Optional provider ID token
- * @param providerTokens.expires_in - Optional token expiration time
  * @param provider - Provider name (e.g., 'google', 'github', 'microsoft', 'auth0')
  * @param customClaims - Resolved custom claims (already processed from static or callback config)
  * @param expiresIn - Expiration time in seconds (default: 60)
@@ -73,18 +68,12 @@ export function generateAuthCode(): string {
  *
  * @example
  * ```typescript
- * await storeAuthCode('X7k9mP...', providerUserInfo, providerTokens, 'google', customClaims)
+ * await storeAuthCode('X7k9mP...', providerUserInfo, 'google', customClaims)
  * ```
  */
 export async function storeAuthCode(
   code: string,
   providerUserInfo: Record<string, unknown>,
-  providerTokens: {
-    access_token: string
-    refresh_token?: string
-    id_token?: string
-    expires_in?: number
-  },
   provider: string,
   customClaims: Record<string, unknown> | undefined,
   expiresIn = 60, // CS-4: Default 60 seconds
@@ -94,7 +83,6 @@ export async function storeAuthCode(
 
   const authCodeData: AuthCodeData = {
     providerUserInfo,
-    providerTokens,
     expiresAt: now + (expiresIn * 1000), // CS-4: Set expiration timestamp
     createdAt: now,
     provider,

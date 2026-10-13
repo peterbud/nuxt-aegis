@@ -89,6 +89,9 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       expect(finalResponse.status).toBe(302)
       expect(finalResponse.headers.get('x-aegis-hook-order')).toBe('provider,first,second')
+      expect(finalResponse.headers.get('x-aegis-user-info-tokens')).toBe('true')
+      expect(finalResponse.headers.get('x-aegis-provider-success-tokens')).toBe('true')
+      expect(finalResponse.headers.get('x-aegis-global-success-tokens')).toBe('true')
       const finalLocation = finalResponse.headers.get('location')
       expect(finalLocation).toContain('/auth/callback')
 
@@ -138,6 +141,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       expect(payload.name).toBe('Test User')
 
       // Verify custom claims were added
+      expect(payload.providerTokensAvailable).toBe(true)
       expect(payload.role).toBe('user')
       expect(payload.permissions).toEqual(['read', 'write'])
 
@@ -147,7 +151,7 @@ describe('Aegis Module - Mock Google OAuth', async () => {
       expect(Number(payload.exp)).toBeGreaterThan(Number(payload.iat))
     })
 
-    it('should set HttpOnly refresh token cookie', async () => {
+    it('should set HttpOnly refresh token cookie and refresh Aegis tokens', async () => {
       // Complete OAuth flow
       const baseUrl = getUrl('/')
       const authResponse = await fetch(`${baseUrl}auth/google`, { redirect: 'manual' })
@@ -181,6 +185,19 @@ describe('Aegis Module - Mock Google OAuth', async () => {
 
       // SC-5: SameSite flag
       expect(setCookie).toContain('SameSite')
+
+      const refreshResponse = await fetch(`${baseUrl}auth/refresh`, {
+        method: 'POST',
+        headers: { Cookie: setCookie!.split(';')[0]! },
+      })
+
+      expect(refreshResponse.status).toBe(200)
+      const refreshData = await refreshResponse.json()
+      const refreshedPayload = decodeJwt(refreshData.accessToken)
+      expect(refreshedPayload.sub).toBe('mock-user-12345')
+      expect(refreshedPayload.role).toBe('user')
+      expect(refreshedPayload.permissions).toEqual(['read', 'write'])
+      expect(refreshedPayload.providerTokensAvailable).toBe(true)
     })
   })
 

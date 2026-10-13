@@ -9,17 +9,6 @@
 export interface AuthCodeData {
   /** Complete OAuth provider user data (NOT the JWT payload) - used for custom claims generation */
   providerUserInfo: Record<string, unknown>
-  /** Provider tokens received from OAuth provider */
-  providerTokens: {
-    /** OAuth provider access token */
-    access_token: string
-    /** Optional OAuth provider refresh token */
-    refresh_token?: string
-    /** Optional OAuth provider ID token (OpenID Connect) */
-    id_token?: string
-    /** Optional token expiration time in seconds */
-    expires_in?: number
-  }
   /** Timestamp when the code expires (milliseconds since epoch) */
   expiresAt: number
   /** Timestamp when the code was created (milliseconds since epoch) */

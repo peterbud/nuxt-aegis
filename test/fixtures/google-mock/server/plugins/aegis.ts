@@ -30,9 +30,10 @@ const usersByLookupId: Record<string, Record<string, unknown>> = {
 }
 
 export default defineNitroPlugin(() => {
-  useServerHooks().hook('nuxt-aegis:success', async ({ event }) => {
+  useServerHooks().hook('nuxt-aegis:success', async ({ event, tokens }) => {
     await Promise.resolve()
     event.res.headers.set('x-aegis-hook-order', `${event.res.headers.get('x-aegis-hook-order')},first`)
+    event.res.headers.set('x-aegis-global-success-tokens', String(Boolean(tokens.access_token && tokens.refresh_token && tokens.id_token && tokens.expires_in)))
   })
   useServerHooks().hook('nuxt-aegis:success', ({ event }) => {
     event.res.headers.set('x-aegis-hook-order', `${event.res.headers.get('x-aegis-hook-order')},second`)

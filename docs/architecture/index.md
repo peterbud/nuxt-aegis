@@ -181,9 +181,9 @@ Refresh token records are stored in plaintext by default. To enable AES-256-GCM 
 | **Authorization CODE** | 60 seconds | Memory | Exchange for JWT |
 | **JWT Access Token** | 1 hour | Client (memory only) | API authentication |
 | **Refresh Token** | 7 days | Server (Redis/filesystem) | Generate new JWTs |
-| **OAuth Provider Tokens** | Provider-dependent | Server authorization-code store (temporary) | Fetch user info and supply configured callbacks |
+| **OAuth Provider Tokens** | Provider-dependent | Request-local only; not persisted by Aegis | Fetch user info and supply configured callbacks |
 
-Provider tokens are retained as `providerTokens` alongside the Aegis authorization code in `authCodeStore` until the code record is consumed or removed. The code's validity period (60 seconds by default) is separate from the provider tokens' lifetime; expiry does not itself guarantee immediate deletion of the stored record.
+Provider tokens remain available to OAuth user-info and provider-level custom-claims callbacks, provider-level success callbacks, and global success hooks during authentication. Aegis does not store them in `authCodeStore`; the authorization-code record contains user information, provider identity, resolved custom claims, and creation and expiration timestamps. Aegis token exchange and refresh do not require provider tokens. Application callbacks remain responsible for any credentials they explicitly persist or copy into user data or custom claims.
 
 ## Module Integration
 

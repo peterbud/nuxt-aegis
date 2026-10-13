@@ -136,7 +136,7 @@ See the [OAuth handler implementation](https://github.com/peterbud/nuxt-aegis/bl
 
 The module invokes configured `onUserInfo` callbacks to transform the profile, merges any enrichment returned by `onUserPersist`, and resolves custom claims. Provider-level `onUserInfo` and `customClaims` take precedence over their global handler fallbacks. Persistence enrichment does not automatically become custom JWT claims.
 
-The module generates a random Aegis authorization code and stores the profile, provider tokens, provider name, and resolved custom claims with it. The code expires after 60 seconds by default. The server then redirects the browser to the Aegis callback page; it does not create the application's refresh token at this stage.
+The module generates a random Aegis authorization code and stores the profile, provider name, resolved custom claims, and creation and expiration timestamps with it. Provider tokens remain available to configured OAuth callbacks and success hooks during authentication but are not stored in the authorization-code record. The code expires after 60 seconds by default. The server then redirects the browser to the Aegis callback page; it does not create the application's refresh token at this stage.
 
 **Browser Redirect Contract**
 
