@@ -22,6 +22,7 @@ graph TB
 ### Client-Side Components
 
 - **`useAuth()` Composable** - Reactive authentication state management
+- **[`$api` Plugin](/api/fetch-plugin)** - Authenticated API calls with automatic bearer token injection and 401 refresh/retry when automatic refresh is enabled
 - **Router Middleware** - Client-side route protection
 - **Token Storage** - JWT access token management
 - **Refresh Cookie** - HttpOnly refresh token cookie

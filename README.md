@@ -6,14 +6,16 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-**OAuth-based authentication with JWT token management for Nuxt 4.6+**
+**Authentication for Nuxt 4.6+, from local testing to authenticated API calls.**
 
-Requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases, and Node.js 25 are not supported; Nuxt 5 has not yet been validated.
+Requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases are not supported; Nuxt 5 has not yet been validated.
 
 > [!WARNING]
 > **Experimental Module**: Nuxt Aegis is currently in active development and should be considered as work in progress. It is **not recommended for production use** at this time. APIs and features may change without notice.
 
-Nuxt Aegis is a a Nuxt module that orchestrates the authentication flow between external identity providers (Google, GitHub, Auth0, etc.) and your application. It handles the complexity of OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
+Nuxt Aegis is a Nuxt module that orchestrates the authentication flow between external identity providers (Google, GitHub, Auth0, etc.) and your application. It handles OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
+
+Use auto-imported composables for auth state and data fetching, and the provided `$api` for authenticated requests. Develop and test with mock user personas before setting up an external provider, then use opt-in impersonation to investigate user-specific issues.
 
 
 ## Why Nuxt Aegis?
@@ -36,14 +38,15 @@ You get full control over user data persistence while Aegis handles the security
 
 - 🔐 **OAuth 2.0 & OpenID Connect** - Built-in support for Google, GitHub, Auth0, and Microsoft Entra ID.
 - 🔑 **Password Authentication** - Secure username/password flow with magic link verification.
-- 🎫 **JWT Management** - Automatic token generation, validation, and signing (HS256/RS256).
+- 🎫 **JWT Management** - Automatic token generation, validation, and signing with HS256 by default.
 - 🔄 **Auto-Refresh** - Seamless background token refresh with secure HTTP-only cookies.
+- **Authenticated Fetch** - `$api` and auto-imported `useAegisFetch()` attach bearer tokens and handle client-side refresh/retry when automatic refresh is enabled.
 - 🛡️ **Route Protection** - Declarative middleware for both server API routes and client-side pages.
-- 🧪 **Mock Provider** - Built-in testing provider to simulate auth flows without external services.
+- 🧪 **Mock Provider** - Test real auth flows with configurable user personas and simulated OAuth errors, without external provider credentials.
 - 🎨 **Custom Claims** - Easily inject application-specific data (roles, permissions or similar) into tokens.
-- 🎭 **Impersonation** - Support for user impersonation with full audit logging
+- 🎭 **Impersonation** - Opt-in, short-lived sessions for support, debugging, and testing, with application-defined authorization and audit hooks.
 - ⚙️ **SSR Friendly** - Works seamlessly with Nuxt's server-side rendering.
-- 🥽 **Type Safe** - Written in TypeScript with full type definitions for a great developer experience.
+- 🥽 **Type Safe** - Typed auth state, custom claims, and fetch responses, with Nuxt auto-imports to keep application code concise.
 
 ## 🚀 Quick Start
 
@@ -112,6 +115,8 @@ const { user, isLoggedIn, login, logout } = useAuth()
 </template>
 ```
 
+For authenticated API calls, use `const { $api } = useNuxtApp()`. For reactive, SSR-aware data fetching, use the auto-imported `useAegisFetch()`. Both reuse Aegis token handling, so you don't need to wire up authorization headers yourself. See the [authenticated fetch reference](https://peterbud.github.io/nuxt-aegis/api/fetch-plugin).
+
 ## 📖 Documentation
 
 Ready to dive deeper? Check out the full documentation:
@@ -123,6 +128,8 @@ Ready to dive deeper? Check out the full documentation:
 - **[Configuration](https://peterbud.github.io/nuxt-aegis/configuration/)** - Detailed configuration options.
 - **[Route Protection](https://peterbud.github.io/nuxt-aegis/guides/route-protection)** - Learn how to protect your pages and API routes.
 - **[Custom Claims](https://peterbud.github.io/nuxt-aegis/guides/custom-claims)** - Add custom data to your JWTs.
+- **[Mock Provider](https://peterbud.github.io/nuxt-aegis/providers/mock)** - Test user personas, OAuth failures, and authentication flows locally.
+- **[Impersonation](https://peterbud.github.io/nuxt-aegis/guides/impersonation)** - Diagnose user-specific issues with short-lived impersonation sessions.
 - **[API Reference](https://peterbud.github.io/nuxt-aegis/api/)** - Detailed API documentation.
 
 ## Contributing

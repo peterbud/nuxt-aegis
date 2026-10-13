@@ -52,7 +52,7 @@ export default defineConfig({
       {
         text: 'Architecture',
         items: [
-          { text: 'Overview', link: '/architecture' },
+          { text: 'Overview', link: '/architecture/' },
           { text: 'Authentication Flow', link: '/architecture/authentication-flow' },
           { text: 'Token Lifecycle', link: '/architecture/token-lifecycle' },
           { text: 'Data Flow & Transformations', link: '/architecture/data-flow' },
