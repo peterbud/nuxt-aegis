@@ -8,15 +8,12 @@
 
 **Authentication for Nuxt 4.6+, from local testing to authenticated API calls.**
 
-Requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases are not supported; Nuxt 5 has not yet been validated.
-
-> [!WARNING]
-> **Experimental Module**: Nuxt Aegis is currently in active development and should be considered as work in progress. It is **not recommended for production use** at this time. APIs and features may change without notice.
-
 Nuxt Aegis is a Nuxt module that orchestrates the authentication flow between external identity providers (Google, GitHub, Auth0, etc.) and your application. It handles OAuth 2.0, JWT token generation, and automatic token refresh, letting you focus on your application logic.
 
 Use auto-imported composables for auth state and data fetching, and the provided `$api` for authenticated requests. Develop and test with mock user personas before setting up an external provider, then use opt-in impersonation to investigate user-specific issues.
 
+> [!WARNING]
+> **Experimental Module**: Nuxt Aegis is currently in active development and should be considered as work in progress. It is **not recommended for production use** at this time. APIs and features may change without notice.
 
 ## Why Nuxt Aegis?
 
@@ -47,6 +44,10 @@ You get full control over user data persistence while Aegis handles the security
 - 🎭 **Impersonation** - Opt-in, short-lived sessions for support, debugging, and testing, with application-defined authorization and audit hooks.
 - ⚙️ **SSR Friendly** - Works seamlessly with Nuxt's server-side rendering.
 - 🥽 **Type Safe** - Typed auth state, custom claims, and fetch responses, with Nuxt auto-imports to keep application code concise.
+
+## Compatibility
+
+The module requires Nuxt 4.6.0 or newer within Nuxt 4, and Node.js `^24.15.0 || >=26.0.0`. Nuxt 3, older Nuxt 4 releases are not supported; Nuxt 5 has not yet been validated.
 
 ## 🚀 Quick Start
 
