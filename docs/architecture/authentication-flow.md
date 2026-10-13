@@ -6,6 +6,8 @@ Complete step-by-step authentication flow from login to token exchange.
 
 Nuxt Aegis implements a secure multi-stage authentication flow that combines OAuth 2.0, authorization CODEs, and JWT tokens. This page details the complete authentication process from initial login through token refresh.
 
+The stages below describe work performed by the module and the OAuth provider, not implementation steps for your application. Code blocks labeled **Application Usage** are application-facing examples; request/response contracts describe the module's transport without requiring you to recreate its handlers. Paths shown use the default Aegis endpoints and an application-defined `/auth/google` provider route.
+
 ## Complete Authentication Flow
 
 ```mermaid
@@ -22,8 +24,7 @@ sequenceDiagram
         Note over User,OAuth: Stage 1: OAuth Initiation
         User->>Browser: Click "Login with Google"
         Browser->>NuxtServer: GET /auth/google
-        NuxtServer->>NuxtServer: Generate state parameter
-        NuxtServer->>NuxtServer: Store PKCE verifier (if enabled)
+        NuxtServer->>NuxtServer: Build authorization URL with supplied state/redirectTo
         NuxtServer-->>User: 302 Redirect to OAuth provider
     end
 
@@ -38,20 +39,17 @@ sequenceDiagram
     rect rgba(0, 0, 255, 0.1)
         Note over User,OAuth: Stage 3: Token Exchange with Provider
         NuxtServer->>OAuth: POST /token (exchange auth CODE)
-        Note over NuxtServer,OAuth: Include PKCE verifier if enabled
-        OAuth-->>NuxtServer: Access token + Refresh token
+        OAuth-->>NuxtServer: Access token; refresh token and ID token if issued
         NuxtServer->>OAuth: GET /userinfo (with access token)
         OAuth-->>NuxtServer: User profile data
     end
 
     rect rgba(255, 245, 255, 0.1)
         Note over User,OAuth: Stage 4: Aegis Authorization CODE
-        NuxtServer->>NuxtServer: Call nuxt-aegis:userInfo hook
-        NuxtServer->>NuxtServer: Apply custom claims
+        NuxtServer->>NuxtServer: Transform and enrich user info via configured callbacks
+        NuxtServer->>NuxtServer: Resolve custom claims
         NuxtServer->>NuxtServer: Generate Aegis auth CODE (60s TTL)
         NuxtServer->>AuthCodeStore: Store CODE → user data
-        NuxtServer->>RefreshStorage: Store refresh token + user data
-        NuxtServer-->>Browser: Set refresh token cookie (HttpOnly)
         NuxtServer-->>Browser: 302 Redirect /auth/callback?code=AEGIS_CODE
     end
 
@@ -61,9 +59,16 @@ sequenceDiagram
         NuxtServer->>AuthCodeStore: Validate & retrieve user data
         AuthCodeStore-->>NuxtServer: User data
         NuxtServer->>AuthCodeStore: Delete CODE (single-use)
+        opt Application refresh tokens enabled
+          NuxtServer->>NuxtServer: Generate Aegis refresh token
+          NuxtServer->>RefreshStorage: Store refresh token record + user data + custom claims
+        end
         NuxtServer->>NuxtServer: Generate JWT access token
-        NuxtServer-->>Browser: { token: JWT, expiresAt, user }
-        Browser->>Browser: Store JWT in memory/localStorage
+        opt Application refresh tokens enabled
+          NuxtServer-->>Browser: Set Aegis refresh token cookie (HttpOnly)
+        end
+        NuxtServer-->>Browser: { accessToken: JWT, tokenType: "Bearer", expiresIn }
+        Browser->>Browser: Store JWT in memory only
         Browser-->>User: Redirect to app (logged in!)
     end
 
@@ -76,10 +81,10 @@ sequenceDiagram
         NuxtServer->>NuxtServer: Validate JWT token
         NuxtServer-->>Browser: User profile data
         
-        alt Token expired (401 response)
+        alt 401 response with automatic refresh enabled
             Browser->>Browser: $api detects 401
             Browser->>NuxtServer: POST /auth/refresh (automatic)
-            NuxtServer-->>Browser: New JWT token
+            NuxtServer-->>Browser: { success: true, message, accessToken: JWT }
             Browser->>Browser: Update token in memory
             Browser->>NuxtServer: Retry GET /api/user/profile (new token)
             NuxtServer-->>Browser: User profile data
@@ -87,263 +92,149 @@ sequenceDiagram
     end
 ```
 
+Stage 4 creates the short-lived Aegis authorization CODE only. The application's refresh token is generated and stored during Stage 5, after `POST /auth/token` consumes that CODE, and its HttpOnly cookie is set on the token-exchange response. These steps run only when application refresh tokens are enabled; the Aegis refresh token is separate from any refresh token returned by the OAuth provider in Stage 3.
+
 ## Authentication Stages
 
 ### Stage 1: OAuth Initiation
 
-When a user clicks "Login with Google" (or any OAuth provider):
+The browser visits an application-defined provider route. The module's provider handler builds an authorization URL from the provider configuration and redirects the browser to the OAuth provider.
 
-**1.1 Client Request**
-```typescript
-// User clicks login button
-<NuxtLink href="/auth/google">Login with Google</NuxtLink>
+**Application Usage: Login Link**
+
+For an application that has configured `/auth/google`:
+
+```vue
+<template>
+  <a href="/auth/google">Login with Google</a>
+</template>
 ```
 
-**1.2 Redirect to Provider**
-```typescript
-const authUrl = new URL(provider.authorizationEndpoint)
-authUrl.searchParams.set('client_id', clientId)
-authUrl.searchParams.set('redirect_uri', redirectUri)
-authUrl.searchParams.set('response_type', 'code')
-authUrl.searchParams.set('scope', 'openid email profile')
-authUrl.searchParams.set('state', state)
-
-if (pkceEnabled) {
-  authUrl.searchParams.set('code_challenge', codeChallenge)
-  authUrl.searchParams.set('code_challenge_method', 'S256')
-}
-
-return sendRedirect(event, authUrl.toString(), 302)
-```
+The provider handler can encode supplied `state` and `redirectTo` values, but does not generate or verify a random OAuth state nonce. PKCE is not implemented. See the security limitations below and the [OAuth handler implementation](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/providers/oauthBase.ts).
 
 ### Stage 2: OAuth Authorization
 
-**2.1 User Authentication**
-- User authenticates with OAuth provider (Google, GitHub, etc.)
-- User grants permissions to the application
-- Provider validates credentials and consent
+The provider authenticates the user and obtains consent. It then redirects the browser to the application's provider route with an OAuth authorization code. This provider-issued code is distinct from the Aegis authorization code created in Stage 4.
 
-**2.2 Provider Callback**
-```typescript
-// Provider redirects back with auth CODE
+**Provider Callback Contract**
+
+```http
 GET /auth/google?code=OAUTH_CODE&state=STATE_VALUE
 ```
 
+The exact callback parameters, including whether `state` is returned, depend on the authorization request and provider.
+
 ### Stage 3: Token Exchange with Provider
 
-**3.1 Exchange Authorization CODE**
-```typescript
-const tokenResponse = await $fetch(provider.tokenEndpoint, {
-  method: 'POST',
-  body: {
-    grant_type: 'authorization_code',
-    code: oauthCode,
-    redirect_uri: redirectUri,
-    client_id: clientId,
-    client_secret: clientSecret,
-    code_verifier: codeVerifier, // PKCE
-  },
-})
+The server exchanges the provider-issued authorization code at the provider's token endpoint, then uses the returned access token to fetch user information. Provider-specific implementations supply the request parameters and extract the user profile.
 
-// Receive: { access_token, refresh_token, id_token, expires_in }
-```
+A provider refresh token, ID token, and expiry metadata may also be returned, depending on the provider and configuration. These are provider tokens, not the application's Aegis tokens. No application-side token exchange implementation is required.
 
-**3.2 Fetch User Info**
-```typescript
-const userInfo = await $fetch(provider.userInfoEndpoint, {
-  headers: {
-    Authorization: `Bearer ${tokenResponse.access_token}`,
-  },
-})
-
-// Receive: { sub, email, name, picture, ... }
-```
+See the [OAuth handler implementation](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/providers/oauthBase.ts) for the provider exchange and profile retrieval.
 
 ### Stage 4: Aegis Authorization CODE
 
-**4.1 Apply Hooks & Claims**
-```typescript
-// Call nuxt-aegis:userInfo hook
-await callHook('nuxt-aegis:userInfo', {
-  user: userInfo,
-  provider: 'google',
-  tokens: tokenResponse,
-})
+The module invokes configured `onUserInfo` callbacks to transform the profile, merges any enrichment returned by `onUserPersist`, and resolves custom claims. Provider-level `onUserInfo` and `customClaims` take precedence over their global handler fallbacks. Persistence enrichment does not automatically become custom JWT claims.
 
-// Apply custom claims
-const customClaims = await resolveCustomClaims(userInfo)
-const enrichedUser = { ...userInfo, ...customClaims }
+The module generates a random Aegis authorization code and stores the profile, provider tokens, provider name, and resolved custom claims with it. The code expires after 60 seconds by default. The server then redirects the browser to the Aegis callback page; it does not create the application's refresh token at this stage.
+
+**Browser Redirect Contract**
+
+```http
+HTTP/1.1 302 Found
+Location: /auth/callback?code=AEGIS_CODE
 ```
 
-**4.2 Generate Aegis CODE**
-```typescript
-const aegisCode = randomBytes(32).toString('base64url')
-
-// Store CODE with 60-second TTL
-await authCodeStore.setItem(`authcode:${aegisCode}`, {
-  user: enrichedUser,
-  provider: 'google',
-  expiresAt: Date.now() + 60000,
-}, { ttl: 60 })
-```
-
-**4.3 Store Refresh Token**
-```typescript
-const refreshToken = randomBytes(32).toString('base64url')
-
-await refreshTokenStorage.setItem(`refresh:${refreshToken}`, {
-  user: enrichedUser,
-  provider: 'google',
-  createdAt: Date.now(),
-}, { ttl: 604800 }) // 7 days
-```
-
-**4.4 Set Cookie & Redirect**
-```typescript
-setCookie(event, 'aegis_refresh', refreshToken, {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'lax',
-  maxAge: 604800, // 7 days
-})
-
-return sendRedirect(event, `/auth/callback?code=${aegisCode}`, 302)
-```
+See the [OAuth handler](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/providers/oauthBase.ts) and [authorization code store](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/utils/authCodeStore.ts) for implementation details. For application extension points, see the [Handlers Guide](/guides/handlers) and [Custom Claims Guide](/guides/custom-claims).
 
 ### Stage 5: JWT Token Exchange
 
-**5.1 Client Exchanges CODE**
-```typescript
-// Client-side plugin intercepts callback
-const { code } = route.query
+The module's `AuthCallback.vue` page handles `/auth/callback`. Its `onMounted` handler reads the Aegis code from the URL and exchanges it via `POST /auth/token`. You do not need to implement a callback plugin, sign a JWT, or manage the refresh cookie in application code.
 
-const response = await $fetch('/auth/token', {
-  method: 'POST',
-  body: { code },
-})
+**Code-Exchange Request Contract**
 
-// Receive: { token: JWT, expiresAt: timestamp, user: {...} }
+```http
+POST /auth/token
+Content-Type: application/json
+
+{ "code": "AEGIS_CODE" }
 ```
 
-**5.2 Server Validates CODE**
-```typescript
-const codeData = await authCodeStore.getItem(`authcode:${code}`)
+The server retrieves and deletes a valid code before generating application tokens. A missing code produces a 400 response; an invalid, expired, or already-consumed code produces a 401 response. When refresh is enabled, the module creates and stores an Aegis refresh token and sets its HttpOnly cookie on the exchange response.
 
-if (!codeData) {
-  throw createError({ statusCode: 401, message: 'Invalid or expired CODE' })
+**Successful Response Contract**
+
+```json
+{
+  "accessToken": "<JWT>",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
 }
-
-// Delete immediately (single-use)
-await authCodeStore.removeItem(`authcode:${code}`)
 ```
 
-**5.3 Generate JWT**
-```typescript
-const payload = {
-  sub: codeData.user.sub,
-  email: codeData.user.email,
-  name: codeData.user.name,
-  ...customClaims,
-  iat: Math.floor(Date.now() / 1000),
-  exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-}
+`expiresIn` is an optional lifetime in seconds; `3600` illustrates a one-hour configuration. The endpoint omits it from JSON when the configured value cannot be converted to seconds. The response has no `token`, `expiresAt`, or `user` field. Refresh tokens are sent in an HttpOnly cookie, not in the JSON body.
 
-const token = await signJWT(payload, secret)
-return { token, expiresAt, user: payload }
-```
+The callback page stores `accessToken` in memory, derives user state from its decoded JWT claims, and redirects to the configured success destination. Application code reads that state through `useAuth().user`; decoding on the client is not server-side token verification.
 
-**5.4 Client Stores Token & Updates State**
-```typescript
-// Token stored in memory (not localStorage/sessionStorage)
-setAccessToken(token)
-
-// Update reactive auth state
-user.value = response.user
-isAuthenticated.value = true
-```
+See the [callback page](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/app/pages/AuthCallback.vue), [token endpoint](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/routes/token.post.ts), and [token generation utility](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/utils/auth.ts) for implementation details.
 
 ### Stage 6: Using $api for Authenticated Requests
 
 After authentication, use the `$api` plugin to make authenticated API calls:
 
-**6.1 Automatic Bearer Token Injection**
-```typescript
-// In your component
-const { $api } = useNuxtApp()
+**Application Usage: Authenticated Request**
 
-// $api automatically adds: Authorization: Bearer <token>
+```typescript
+const { $api } = useNuxtApp()
 const data = await $api('/api/user/profile')
 ```
 
-**6.2 Automatic Token Refresh on 401**
+On the client, `$api` attaches the in-memory token as an `Authorization: Bearer <token>` header.
 
-When a request returns 401 (token expired):
+**Client Refresh Behavior**
 
-```typescript
-// $api automatically:
-// 1. Detects 401 response
-// 2. Calls /auth/refresh endpoint
-// 3. Updates token in memory
-// 4. Retries original request with new token
-const data = await $api('/api/protected/resource')
-// ↑ Works even if token expired!
+When automatic refresh is enabled, a 401 response triggers a refresh attempt and, if successful, a retry with the new access token. A 401 does not necessarily mean that the token expired. If refresh fails, the client clears its token and redirects to the configured error destination.
+
+**Refresh Request Contract**
+
+```http
+POST /auth/refresh
+Cookie: nuxt-aegis-refresh=<refresh-token>
 ```
 
-**6.3 SSR Token Handling**
+The browser sends the configured HttpOnly refresh cookie automatically; application code does not read its value. The cookie name above is the default.
+
+The successful `POST /auth/refresh` response has a different shape from the code-exchange response:
+
+```json
+{
+  "success": true,
+  "message": "Token refreshed successfully",
+  "accessToken": "<JWT>"
+}
+```
+
+The client uses `accessToken` to replace its stored token and update user state. This response does not include `tokenType`, `expiresIn`, `expiresAt`, or a separate `user` object.
+
+**Application Usage: SSR-Aware Data Fetching**
 
 During server-side rendering, `$api` uses a short-lived SSR token:
 
 ```vue
-<script setup>
+<script setup lang="ts">
 const { $api } = useNuxtApp()
 
-// Works on both server (SSR token) and client (regular token)
 const { data } = await useAsyncData('profile',
   () => $api('/api/user/profile')
 )
 </script>
 ```
 
+The server `$api` injects the available SSR token but does not run the client's automatic refresh/retry logic. See the [client API plugin](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/app/plugins/api.client.ts), [server API plugin](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/app/plugins/api.server.ts), and [refresh endpoint](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/routes/refresh.post.ts) for implementation details.
+
 ::: tip Learn More
 See the [$api Plugin Reference](/api/fetch-plugin) for detailed implementation information about automatic token handling, refresh logic, and best practices.
 :::
-
-const jwt = await sign(payload, jwtSecret, { algorithm: 'HS256' })
-```
-
-**5.4 Return to Client**
-```typescript
-return {
-  token: jwt,
-  expiresAt: payload.exp * 1000,
-  user: {
-    sub: payload.sub,
-    email: payload.email,
-    name: payload.name,
-    // ... other claims
-  },
-}
-```
-
-**5.5 Client Stores Token**
-```typescript
-// Store access token in memory (reactive ref)
-setAccessToken(response.accessToken)
-
-// Decode token and update auth state
-const tokenParts = response.accessToken.split('.')
-const payload = JSON.parse(atob(tokenParts[1]))
-
-// Update reactive auth state
-authState.value = {
-  user: payload,
-  isLoading: false,
-  error: null,
-}
-
-// Redirect to app
-await navigateTo('/')
-```
 
 ## Flow Variants
 
@@ -365,12 +256,11 @@ sequenceDiagram
         User->>Browser: Enter email + password
         Browser->>NuxtServer: POST /auth/password/register
         NuxtServer->>NuxtServer: Validate password strength
-        NuxtServer->>NuxtServer: Hash password (scrypt)
         NuxtServer->>Database: Check if user exists
         Database-->>NuxtServer: User not found
+        NuxtServer->>NuxtServer: Hash password (scrypt by default)
         NuxtServer->>NuxtServer: Generate 6-digit CODE
-        NuxtServer->>MagicCodeStore: Store CODE (10min TTL)
-        NuxtServer->>Database: Store user (unverified)
+        NuxtServer->>MagicCodeStore: Store CODE + email + password hash (10min default TTL)
         NuxtServer->>NuxtServer: Call sendVerificationCode()
         NuxtServer-->>Browser: { success: true }
         Browser-->>User: "Check your email"
@@ -382,19 +272,24 @@ sequenceDiagram
         User->>Browser: GET /auth/password/register-verify?code=123456
         Browser->>NuxtServer: GET with CODE
         NuxtServer->>MagicCodeStore: Validate CODE
-        MagicCodeStore-->>NuxtServer: Email + action data
+        MagicCodeStore-->>NuxtServer: Email + password hash + action data
+        NuxtServer->>NuxtServer: Check registration action and password hash
+        NuxtServer->>Database: Persist user via required onUserPersist callback
+        Database-->>NuxtServer: Persisted user data + enrichment
         NuxtServer->>MagicCodeStore: Delete CODE
         NuxtServer->>NuxtServer: Generate Aegis auth CODE
         NuxtServer-->>Browser: 302 Redirect /auth/callback?code=AEGIS_CODE
         Browser->>NuxtServer: POST /auth/token { code }
-        NuxtServer-->>Browser: { token: JWT, user }
+        NuxtServer-->>Browser: { accessToken: JWT, tokenType: "Bearer", expiresIn }
         Browser-->>User: Logged in!
     end
 ```
 
+    Registration stores the email and password hash with the verification code; it does not create an unverified database user. After validating the code, the registration-verification handler calls the required application `onUserPersist` callback to persist the user and merge any returned enrichment. Only after persistence succeeds does it delete the verification code and generate the Aegis authorization code.
+
 ### SSR Authentication Flow
 
-For server-side rendered pages:
+With `nuxtAegis.enableSSR` enabled, page requests can resolve authentication from the refresh-token cookie before rendering. The server-only access token and the browser access token have separate lifetimes:
 
 ```mermaid
 sequenceDiagram
@@ -405,57 +300,45 @@ sequenceDiagram
     Browser->>NuxtServer: GET /protected-page
     Note over Browser,NuxtServer: Initial SSR request with cookies
     
-    NuxtServer->>NuxtServer: Check refresh token cookie
-    NuxtServer->>RefreshStorage: Validate refresh token
-    RefreshStorage-->>NuxtServer: User data
-    NuxtServer->>NuxtServer: Generate JWT (short-lived)
-    NuxtServer->>NuxtServer: Inject auth state into HTML
-    NuxtServer-->>Browser: Rendered HTML with auth state
+    NuxtServer->>NuxtServer: request hook reads and hashes refresh cookie
+    NuxtServer->>RefreshStorage: Validate record, revocation, and expiresAt
+    RefreshStorage-->>NuxtServer: Stored provider profile and custom claims
+    NuxtServer->>NuxtServer: Set context.user and context.ssrAccessToken (default 5m)
+    Note over NuxtServer: Server $api uses SSR token; no refresh-token rotation
+    NuxtServer->>NuxtServer: Nuxt plugin initializes auth-state from context.user
+    NuxtServer-->>Browser: Rendered HTML with user state, not SSR token
     
-    Browser->>Browser: Hydrate with auth state
-    Browser->>Browser: Token expires (1 hour)
+    Browser->>Browser: Hydrate user state
+    Note over Browser: No client access token yet; eligible startup resolves auth
     Browser->>NuxtServer: POST /auth/refresh
     Note over Browser,NuxtServer: Refresh cookie sent automatically
-    NuxtServer-->>Browser: New JWT token
+    NuxtServer-->>Browser: { success: true, message, accessToken: CLIENT_JWT }
+    Browser->>Browser: Store client token in memory (default 1h)
 ```
+
+  The SSR token uses `tokenRefresh.ssrTokenExpiry` (default: `'5m'`). It stays in the server request context and is not hydrated into the browser. SSR authentication does not rotate the refresh token or extend its stored expiration.
+
+  The server Nuxt plugin initializes `auth-state` from `event.context.user`. Currently that user context contains base identity fields only, even though the SSR JWT includes stored custom claims.
+
+  On eligible client startup, the client API plugin calls `useAuth().ensureResolved()` when no client access token is present. A successful refresh issues a separate client token using `token.expiresIn` (default: `'1h'`) and applies the configured refresh-token rotation behavior. It does not wait for the SSR token to expire. Startup refresh is skipped on the auth callback page and configured public routes.
+
+  Auth routes, API routes, and asset/internal paths are excluded from SSR authentication. Missing, revoked, or expired refresh tokens and authentication failures leave the page unauthenticated; they do not make this hook enforce page access. See [SSR Support](/guides/ssr-support) and [Route Protection](/guides/route-protection).
 
 ## Security Considerations
 
 ### CSRF Protection
 
-**State Parameter**
-- Random value passed to OAuth provider
-- Returned in callback URL
-- Can be used to prevent CSRF attacks
-- Note: State validation is not currently implemented (TODO)
+OAuth state can protect against CSRF when a random, session-bound value is generated and verified on callback. The current provider handler only encodes supplied state data; it does not generate a random nonce or verify the returned state. Do not treat state transport as CSRF protection supplied by the module.
 
 ### PKCE (Proof Key for Code Exchange)
 
-**Enabled for Public Clients**
-```typescript
-export default defineNuxtConfig({
-  nuxtAegis: {
-    providers: {
-      google: {
-        pkce: true, // Enable PKCE
-      },
-    },
-  },
-})
-```
-
-**Flow:**
-1. Generate `code_verifier` (random 43-128 chars)
-2. Create `code_challenge` = BASE64URL(SHA256(code_verifier))
-3. Send `code_challenge` with auth request
-4. Send `code_verifier` with token exchange
-5. Provider verifies: SHA256(code_verifier) === code_challenge
+PKCE binds an authorization request to its token exchange using a challenge and verifier. Nuxt Aegis does not currently implement verifier generation, challenge transport, or verifier submission, and has no supported `pkce: true` configuration. See the [OAuth handler implementation](https://github.com/peterbud/nuxt-aegis/blob/main/src/runtime/server/providers/oauthBase.ts) for the current behavior.
 
 ### Token Security
 
 | Token Type | Lifetime | Storage | Security |
 |------------|----------|---------|----------|
-| OAuth CODE | 60s | N/A | One-time use, PKCE |
+| OAuth CODE | Provider-dependent | N/A | Provider-defined; no module PKCE support |
 | Aegis CODE | 60s | Memory | One-time use, random |
 | JWT Token | 1 hour | Client | Signed, short-lived |
 | Refresh Token | 7 days | Server + Cookie | HttpOnly, encrypted |

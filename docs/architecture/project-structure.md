@@ -90,7 +90,7 @@ app/composables/
 export function useAuth() {
   return {
     // State
-    isAuthenticated: computed(() => ...),
+    isLoggedIn: computed(() => ...),
     user: computed(() => ...),
     isLoading: ref(false),
     
@@ -113,9 +113,9 @@ app/middleware/
 **`auth-logged-in.ts`** - Route protection for authenticated routes
 ```typescript
 export default defineNuxtRouteMiddleware((to, from) => {
-  const { isAuthenticated } = useAuth()
+  const { isLoggedIn } = useAuth()
   
-  if (!isAuthenticated.value) {
+  if (!isLoggedIn.value) {
     return navigateTo('/login')
   }
 })
@@ -127,21 +127,31 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
 ```
 server/routes/
-└── auth/
-    ├── token.post.ts             # Exchange auth CODE for JWT
-    ├── refresh.post.ts           # Refresh JWT token
-    ├── logout.post.ts            # Logout and revoke tokens
-    ├── [provider].get.ts         # OAuth initiation
-    └── password/
-        ├── register.post.ts      # User registration
-        ├── register-verify.get.ts # Email verification
-        ├── login.post.ts         # User login
-        ├── login-verify.get.ts   # Email verification
-        ├── reset.post.ts         # Password reset request
-        ├── reset-verify.get.ts   # Password reset verification
-        ├── reset-confirm.post.ts # Confirm new password
-        └── change.post.ts        # Change password (authenticated)
+├── token.post.ts                 # Exchange auth CODE for JWT
+├── refresh.post.ts               # Refresh JWT token
+├── logout.post.ts                # Logout and revoke refresh token
+├── me.get.ts                     # Current user information
+├── update-claims.post.ts         # Explicit claims updates
+├── impersonate.post.ts           # Start impersonation (opt-in)
+├── unimpersonate.post.ts         # Restore original session (opt-in)
+├── password/
+│   ├── register.post.ts          # Registration request
+│   ├── register-verify.get.ts    # Verify email and persist user
+│   ├── login.post.ts             # User login
+│   ├── login-verify.get.ts       # Login email verification
+│   ├── reset-request.post.ts     # Password reset request
+│   ├── reset-verify.get.ts       # Password reset verification
+│   ├── reset-complete.post.ts    # Complete password reset
+│   └── change.post.ts            # Change password (authenticated)
+└── mock/
+    ├── authorize.get.ts          # Mock OAuth authorization
+    ├── token.post.ts             # Mock provider token exchange
+    └── userinfo.get.ts           # Mock provider user information
 ```
+
+This tree shows source files, not URL paths. The module registers handlers under configured endpoint paths; password routes are registered only when `providers.password` is configured, and impersonation routes only when `impersonation.enabled` is `true`.
+
+OAuth initiation and callback routes are defined by the consuming application using the exported provider event handlers. The module does not supply a generic `[provider].get.ts` route. See [Providers](/providers/) for application route examples.
 
 ### Providers (`providers/`)
 
@@ -150,11 +160,11 @@ server/providers/
 ├── google.ts                     # Google OAuth provider
 ├── github.ts                     # GitHub OAuth provider
 ├── auth0.ts                      # Auth0 provider
-├── password.ts                   # Password authentication
 ├── mock.ts                       # Mock provider (testing)
 └── oauthBase.ts                  # Base provider interface
 ```
 
+Password authentication is implemented by the handlers in `server/routes/password/` and supporting utilities, not by a `server/providers/password.ts` file.
 
 **OAuth Provider Implementation Structure:**
 
@@ -209,27 +219,17 @@ server/plugins/
 └── ssr-auth.ts                   # SSR authentication state
 ```
 
-**`ssr-auth.ts`** - Inject auth state into SSR context
-```typescript
-export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('render:response', async (response, { event }) => {
-    // Get auth state from refresh token
-    const refreshToken = getCookie(event, 'aegis_refresh')
-    
-    if (refreshToken) {
-      const user = await getRefreshTokenUser(refreshToken)
-      
-      if (user) {
-        // Inject into SSR state
-        response.ssrContext.payload.aegisAuth = {
-          isAuthenticated: true,
-          user: user,
-        }
-      }
-    }
-  })
-})
-```
+**`ssr-auth.ts`** - Resolve authentication before server-side rendering
+
+When `nuxtAegis.enableSSR` is enabled, this Nitro plugin runs on the `request` hook for page requests. It hashes the refresh-token cookie and validates the stored record, including revocation and expiration. It then sets `event.context.user` and creates `event.context.ssrAccessToken` without rotating the refresh token or renewing its cookie.
+
+The SSR access token uses `nuxtAegis.tokenRefresh.ssrTokenExpiry` (default: `'5m'`) and is used by the server `$api` plugin for authenticated requests during rendering. Auth routes, API routes, and asset/internal paths are skipped; existing authenticated context is preserved. Invalid sessions or authentication failures leave rendering unauthenticated rather than rejecting the page request.
+
+**`ssr-state.server.ts`** - Initialize Nuxt state for hydration
+
+The separate Nuxt app plugin in `src/runtime/app/plugins/` reads `event.context.user`, filters time-sensitive JWT claims, and initializes `useState('auth-state')` with the user, `authStatus: 'authenticated'`, `isLoading: false`, and `error: null`. It does not serialize the SSR access token into client state.
+
+Currently, the SSR JWT includes stored custom claims, but `event.context.user` contains only base identity fields, so the hydrated user state does not include those custom claims. The browser obtains its own access token through the normal refresh flow, using `nuxtAegis.token.expiresIn` (default: `'1h'`), independently of the server token's lifetime.
 
 ## Background Tasks (`src/runtime/tasks/`)
 

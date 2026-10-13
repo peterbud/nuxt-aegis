@@ -6,7 +6,7 @@ Understanding how user data flows through Nuxt Aegis is crucial for building sec
 
 Nuxt Aegis manages three conceptually different types of user data:
 
-1. **Provider Info** - Raw OAuth provider response
+1. **Provider Info** - Extracted OAuth provider profile, potentially transformed and enriched
 2. **JWT Claims** - Lightweight token payload for authentication
 3. **Database User** - Complete application-specific user record
 
@@ -16,12 +16,12 @@ Each serves a different purpose and has different constraints. Mixing them up is
 
 ### 1. Provider Info (`providerUserInfo`)
 
-**What it is:** The raw, unprocessed data returned by an OAuth identity provider (Google, GitHub, Microsoft, etc.) after a user authenticates.
+**What it is:** The user profile extracted from an OAuth identity provider's response (Google, GitHub, Microsoft, etc.) after authentication. Configured `onUserInfo` callbacks can transform it, and `onUserPersist` can enrich it before Nuxt Aegis stores it as `providerUserInfo`.
 
 **Characteristics:**
 - **Format:** Provider-specific - varies dramatically between providers
-- **Availability:** Only during the initial OAuth callback
-- **Lifecycle:** Transient - not stored by Nuxt Aegis
+- **Availability:** Collected during the initial OAuth callback; retained server-side in refresh-token records when application refresh tokens are enabled
+- **Lifecycle:** The transformed/enriched profile is stored as `providerUserInfo` in refresh-token records, not discarded after the OAuth callback
 - **Trust level:** Should be validated before use
 - **Use case:** Extract user identity to create/update your app's user records
 
@@ -64,7 +64,7 @@ Each serves a different purpose and has different constraints. Mixing them up is
 }
 ```
 
-**Key insight:** Provider info is **ephemeral** and **inconsistent**. You must transform it into your application's data model.
+**Key insight:** Provider profile formats vary: when application refresh tokens are enabled, Nuxt Aegis retains the transformed/enriched profile in server-side refresh-token storage. Transform it into your application's data model and avoid retaining unnecessary sensitive fields.
 
 ### 2. JWT Claims (`AppTokenClaims`)
 
@@ -241,7 +241,7 @@ defineAegisHandler({
 
 #### Step 3: Persist (`onUserPersist` Hook)
 
-Create or update the database user and return enrichment data for the JWT:
+Create or update the database user and return enrichment data to merge into `providerUserInfo`. These fields do not automatically become JWT claims:
 
 ```typescript
 // server/plugins/aegis.ts
@@ -254,32 +254,28 @@ defineAegisHandler({
     let dbUser = findUserByProvider(provider, providerId)
     
     if (!dbUser) {
-      // Check by email (for multi-provider linking)
-      dbUser = getUserByEmail(email)
-      
-      if (dbUser) {
-        // Link new provider to existing user
-        linkProviderToUser(dbUser.id, { name: provider, id: providerId })
-      } else {
-        // Create new user
-        dbUser = createUser({
-          email,
-          name: user.name as string,
-          picture: user.picture as string,
-          role: 'user',
-          permissions: ['read'],
-          organizationId: 'default',
-          providers: [{ name: provider, id: providerId }],
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        })
+      const existingUser = getUserByEmail(email)
+      if (existingUser) {
+        throw new Error('Sign in to your existing account to link this provider')
       }
+
+      dbUser = createUser({
+        email,
+        name: user.name as string,
+        picture: user.picture as string,
+        role: 'user',
+        permissions: ['read'],
+        organizationId: 'default',
+        providers: [{ name: provider, id: providerId }],
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString()
+      })
     }
     
     // Update last login
     updateUser(dbUser.id, { lastLogin: new Date().toISOString() })
     
-    // Return ONLY data needed for JWT claims
+    // Enrich the profile for subsequent customClaims resolution
     return {
       userId: dbUser.id,
       role: dbUser.role,
@@ -292,15 +288,16 @@ defineAegisHandler({
 
 #### Step 4: Create JWT (`customClaims`)
 
-Optionally add provider-specific claims to the JWT:
+Explicitly select enrichment fields and provider-specific claims for the JWT. This callback receives the profile after persistence enrichment. Provider-level `customClaims` replaces the global handler fallback, so include all required custom claims here:
 
 ```typescript
 // server/routes/auth/google.ts
 export default defineOAuthGoogleEventHandler({
   customClaims: async (user, tokens) => {
-    // user = normalized providerUserInfo
-    // Add Google-specific claims if needed
     return {
+      role: user.role,
+      permissions: user.permissions,
+      organizationId: user.organizationId,
       emailVerified: user.email_verified || false,
       locale: user.locale || 'en'
     }
@@ -309,20 +306,23 @@ export default defineOAuthGoogleEventHandler({
 ```
 
 The final JWT payload combines:
-- Standard claims (sub, email, name, picture, iat, exp)
-- Data from `onUserPersist` return value
-- Data from `customClaims` return value
+- Selected identity fields (`sub`, `email`, `name`, `picture`) and provider name
+- Explicitly resolved custom claims, subject to reserved-claim filtering
+- Signing metadata such as `iat` and `exp`
+
+Other enrichment fields remain in `providerUserInfo` unless explicitly selected by `customClaims`. Returning `userId` from `onUserPersist` does not set `sub`: the subject is selected from the enriched profile's `sub`, then `email`, then `id`.
 
 ```typescript
 // Resulting JWT payload:
 {
-  sub: "db-user-id-123",
+  sub: "1234567890",
   email: "john@example.com",
   name: "John Doe",
   picture: "https://...",
-  role: "user",                    // from onUserPersist
-  permissions: ["read"],           // from onUserPersist
-  organizationId: "default",       // from onUserPersist
+  provider: "google",
+  role: "user",                    // selected by customClaims
+  permissions: ["read"],           // selected by customClaims
+  organizationId: "default",       // selected by customClaims
   emailVerified: true,             // from customClaims
   locale: "en",                    // from customClaims
   iat: 1703419200,
@@ -336,33 +336,32 @@ The client receives the JWT and uses it for authentication:
 
 ```typescript
 // Client-side (app.vue)
-const { user, accessToken } = useAuth<AppTokenClaims>()
+const { user } = useAuth<AppTokenClaims>()
+const { $api } = useNuxtApp()
 
 // Access typed custom claims
 console.log(user.value?.role)           // 'user'
 console.log(user.value?.permissions)    // ['read']
 
 // API calls automatically include the token
-const response = await $fetch('/api/protected', {
-  headers: {
-    Authorization: `Bearer ${accessToken.value}`
-  }
-})
+const response = await $api('/api/protected')
 ```
 
 #### Step 6: Server-side Authorization
 
-Your API routes verify the JWT and use claims for authorization:
+After authentication middleware verifies the JWT and populates the request context, your API routes enforce authentication and use claims for application-specific authorization. `requireAuth()` throws a 401 if no user is present and narrows the context type; it does not verify the JWT itself. `getAuthUser()` only reads the context and can return `null`, so callers must handle absence before accessing claims.
 
 ```typescript
 // server/api/admin.ts
+import { defineEventHandler, createError } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
-  // Extract and verify JWT
-  const user = getAuthUser<AppTokenClaims>(event)
+  const authedEvent = requireAuth<AppTokenClaims>(event)
+  const user = authedEvent.context.user
   
   // Use claims for authorization
   if (user.role !== 'admin') {
-    throw createError({ statusCode: 403, message: 'Admin access required' })
+    throw createError({ status: 403, message: 'Admin access required' })
   }
   
   // Optionally fetch full database user for complex operations
@@ -379,7 +378,9 @@ export default defineEventHandler(async (event) => {
 
 ### Pattern 1: Multi-Provider Account Linking
 
-Link multiple OAuth providers to a single user account:
+Do not automatically link accounts by matching email addresses. Nuxt Aegis delegates persistence and account-linking decisions to the application through `onUserPersist`; it does not verify email ownership or authorize linking.
+
+For ordinary sign-in, look up an existing provider identity and reject email collisions rather than attaching the provider to another account:
 
 ```typescript
 defineAegisHandler({
@@ -391,22 +392,16 @@ defineAegisHandler({
     let dbUser = findUserByProvider(provider, providerId)
     
     if (!dbUser) {
-      // Then check by email
-      dbUser = getUserByEmail(email)
-      
-      if (dbUser) {
-        // Same email, different provider → link accounts
-        linkProviderToUser(dbUser.id, { name: provider, id: providerId })
-        console.log(`Linked ${provider} to existing user ${email}`)
-      } else {
-        // New user entirely
-        dbUser = createUser({
-          email,
-          name: user.name as string,
-          providers: [{ name: provider, id: providerId }],
-          // ... other fields
-        })
+      const existingUser = getUserByEmail(email)
+      if (existingUser) {
+        throw new Error('Sign in to your existing account to link this provider')
       }
+
+      dbUser = createUser({
+        email,
+        name: user.name as string,
+        providers: [{ name: provider, id: providerId }],
+      })
     }
     
     return {
@@ -418,11 +413,18 @@ defineAegisHandler({
 })
 ```
 
+Implement linking as a separate application-controlled flow. Require an authenticated session for the target account, explicit user consent, and fresh authentication with the provider being added. Bind the linking request and OAuth callback to that session using single-use, CSRF-protected state that your application generates and validates. Do not assume Nuxt Aegis supplies this protection.
+
+If email is used as evidence, verify ownership through a trusted provider's verified-email assertion or an application verification challenge; an email string or an untrusted `email_verified` field is not proof. Even matching verified emails must not replace authorization to link the target account. Reject provider identities already linked to another account and enforce uniqueness of `(provider, providerId)` in the database transaction that creates the link.
+
 ### Pattern 2: Role-Based Access Control (RBAC)
 
 Store roles in database, include in JWT for fast checks:
 
 ```typescript
+import { createError, defineEventHandler } from 'nuxt/server'
+import type { CustomTokenClaims } from '#nuxt-aegis'
+
 // Database: Source of truth
 interface DatabaseUser {
   role: 'admin' | 'moderator' | 'user' | 'guest'
@@ -437,10 +439,10 @@ type AppTokenClaims = CustomTokenClaims<{
 
 // Middleware: Check without database query
 export default defineEventHandler((event) => {
-  const user = getAuthUser<AppTokenClaims>(event)
+  const user = requireAuth<AppTokenClaims>(event).context.user
   
   if (!user.permissions.includes('write')) {
-    throw createError({ statusCode: 403 })
+    throw createError({ status: 403, message: 'Write permission required' })
   }
 })
 ```
@@ -450,6 +452,9 @@ export default defineEventHandler((event) => {
 Keep JWT small, fetch database user only when needed:
 
 ```typescript
+import { createError, defineEventHandler } from 'nuxt/server'
+import type { CustomTokenClaims } from '#nuxt-aegis'
+
 // JWT contains minimal claims
 type AppTokenClaims = CustomTokenClaims<{
   role: string
@@ -457,11 +462,11 @@ type AppTokenClaims = CustomTokenClaims<{
 
 // Fetch full user only for complex operations
 export default defineEventHandler(async (event) => {
-  const jwtUser = getAuthUser<AppTokenClaims>(event)
+  const jwtUser = requireAuth<AppTokenClaims>(event).context.user
   
   // Quick authorization check (no DB query)
   if (jwtUser.role !== 'admin') {
-    throw createError({ statusCode: 403 })
+    throw createError({ status: 403, message: 'Admin access required' })
   }
   
   // Fetch full user only when needed
@@ -524,18 +529,20 @@ interface DatabaseUser {
 Provider data is external input and must be validated:
 
 ```typescript
+import { createError } from 'nuxt/server'
+
 defineAegisHandler({
   onUserInfo: async (payload) => {
     const email = payload.providerUserInfo.email
     
     // Validate email
     if (!email || typeof email !== 'string') {
-      throw createError({ statusCode: 400, message: 'Invalid email from provider' })
+      throw createError({ status: 400, message: 'Invalid email from provider' })
     }
     
     // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw createError({ statusCode: 400, message: 'Invalid email format' })
+      throw createError({ status: 400, message: 'Invalid email format' })
     }
     
     return payload.providerUserInfo
@@ -545,25 +552,32 @@ defineAegisHandler({
 
 ### 🔒 Separate Token and Database Types
 
-Prevent accidental leakage by using different types:
+Use separate types to describe token claims and database records, but explicitly select the fields that may enter a JWT:
 
 ```typescript
-// ❌ WRONG - Same type for both
-type User = {
-  id: string
-  email: string
-  hashedPassword: string  // Oops, might leak to JWT
-}
-
-// ✅ CORRECT - Separate types
 type AppTokenClaims = CustomTokenClaims<{
   role: string
 }>
 
-interface DatabaseUser extends AppTokenClaims {
-  hashedPassword: string  // TypeScript prevents this from going to JWT
+interface DatabaseUser {
+  id: string
+  email: string
+  role: string
+  hashedPassword: string
+}
+
+function selectCustomClaims(user: DatabaseUser): Pick<AppTokenClaims, 'role'> {
+  return {
+    role: user.role,
+  }
 }
 ```
+
+Pass the result of `selectCustomClaims` as custom claims, not the full database record or a spread of it. Constructing a new object with explicitly selected fields keeps `hashedPassword` out of that object.
+
+TypeScript types do not remove properties at runtime. A database record can be assignable to a narrower type while still containing extra fields. Type annotations, casts, `Pick`, and `Omit` alone do not sanitize an object; `CustomTokenClaims<T>` combines base and custom claim types rather than excluding secret fields.
+
+Runtime claim filtering removes reserved JWT claim names and unsupported value types, but does not reject names such as `hashedPassword` or `apiKey`. Sensitive strings supplied as custom claims can therefore enter the token. JWT signing protects integrity, not confidentiality: anyone holding the token can decode its payload. Never include passwords, password hashes, API keys, or other secrets in token claims.
 
 ## See Also
 

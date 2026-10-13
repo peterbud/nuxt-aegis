@@ -11,9 +11,9 @@ Nuxt Aegis manages multiple types of tokens throughout the authentication proces
 ```mermaid
 graph TB
     subgraph "OAuth Provider Tokens"
-        OAuthCode[OAuth Auth CODE<br/>60s lifetime]
+    OAuthCode[OAuth Auth CODE<br/>Provider-dependent lifetime]
         OAuthAccess[OAuth Access Token<br/>Varies]
-        OAuthRefresh[OAuth Refresh Token<br/>Varies]
+    OAuthRefresh[OAuth Refresh Token<br/>Optional, provider-dependent lifetime]
     end
     
     subgraph "Aegis Tokens"
@@ -23,7 +23,7 @@ graph TB
     end
     
     OAuthCode -->|Exchange| OAuthAccess
-    OAuthCode -->|Exchange| OAuthRefresh
+    OAuthCode -->|Exchange, if issued by provider| OAuthRefresh
     OAuthAccess -->|Fetch User| AegisCode
     AegisCode -->|Exchange| JWT
     AegisCode -->|Exchange| AegisRefresh
@@ -32,20 +32,22 @@ graph TB
     
 ```
 
+OAuth authorization-code lifetimes are defined by the provider, not by Aegis. Providers may return a refresh token depending on the provider, requested scopes, consent, and configuration; the OAuth handler accepts responses without one. Provider refresh tokens are separate from Aegis refresh tokens.
+
 ## Token Lifecycle Stages
 
-### 1. Authorization CODE Lifecycle
+### 1. Aegis Authorization CODE Lifecycle
 
 ```mermaid
 stateDiagram-v2
     [*] --> Generated: OAuth callback
-    Generated --> Stored: Store in memory (60s TTL)
+    Generated --> Stored: Store with expiresAt (60s validity)
     Stored --> Validated: Client exchanges CODE
     Validated --> Deleted: Generate JWT
     Deleted --> [*]: CODE destroyed
     
     Stored --> Expired: 60 seconds elapsed
-    Expired --> [*]: Auto-cleanup
+    Expired --> Deleted: Retrieval or scheduled cleanup
     
     note right of Generated
         Cryptographically random
@@ -58,47 +60,25 @@ stateDiagram-v2
     end note
     
     note right of Validated
-        Single-use validation
-        Immediate deletion
+      Validate, then delete
+      Not atomic under concurrency
     end note
 ```
 
-**Generation**
-```typescript
-function generateAuthCode(): string {
-  return randomBytes(32).toString('base64url')
-}
+  Authorization codes are intended for single use. Once consumption deletes a code, subsequent sequential exchanges are rejected. Validation and deletion are separate operations, however, so concurrent exchanges can both read the same valid code before either deletes it. The current implementation does not guarantee atomic single-use consumption; strict replay prevention under concurrency requires an atomic consume operation or equivalent synchronization.
 
-const code = generateAuthCode()
-await authCodeStore.setItem(`authcode:${code}`, {
-  user: enrichedUserData,
-  provider: 'google',
-  createdAt: Date.now(),
-}, { ttl: 60 }) // 60 second lifetime
-```
+**Generation**
+
+The module generates a cryptographically random authorization code after authentication and stores the associated user data for the configured lifetime. Applications do not need to generate or store these codes themselves.
 
 **Exchange**
-```typescript
-// Client exchanges CODE for JWT
-const codeData = await authCodeStore.getItem(`authcode:${code}`)
 
-if (!codeData) {
-  throw createError({ 
-    statusCode: 401, 
-    message: 'Invalid or expired authorization CODE' 
-  })
-}
-
-// Immediately delete (single-use)
-await authCodeStore.removeItem(`authcode:${code}`)
-
-// Generate JWT from CODE data
-const jwt = await generateJWT(codeData.user)
-```
+The client submits the code to the module's exchange endpoint. The module validates and consumes it, then issues the access token and refresh-token cookie. Invalid or expired codes are rejected.
 
 **Expiration**
 - **Lifetime**: 60 seconds (configurable)
-- **Cleanup**: Automatic via TTL
+- **Validation**: `expiresAt` is checked on retrieval; expired codes are rejected and removed. Storage writes do not set a TTL.
+- **Cleanup**: The `cleanup:auth-codes` Nitro task calls `cleanupExpiredAuthCodes()` daily at 02:00 to remove expired, unexchanged codes. Expired records can remain until retrieval or the scheduled sweep, but cannot be exchanged after expiration.
 - **Purpose**: Prevent token exposure in redirects
 
 ### 2. JWT Access Token Lifecycle
@@ -116,7 +96,7 @@ stateDiagram-v2
     Failed --> [*]: Re-authentication required
     
     note right of Generated
-        Signed JWT (HS256/RS256)
+      Signed JWT (HS256 by default)
         Contains user claims
         1 hour lifetime
     end note
@@ -133,50 +113,21 @@ stateDiagram-v2
     end note
 ```
 
+  JWT signing and verification use a shared symmetric secret, with HS256 as the default algorithm. RS256 is not yet supported by the current key handling: setting `token.algorithm` to `'RS256'` does not import an RSA key and causes signing to fail.
+
 **Generation**
-```typescript
-function generateJWT(user: UserInfo, customClaims?: Record<string, unknown>): string {
-  const payload = {
-    sub: user.sub,
-    email: user.email,
-    name: user.name,
-    picture: user.picture,
-    ...customClaims,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-    iss: 'nuxt-aegis',
-  }
-  
-  return sign(payload, jwtSecret, { algorithm: 'HS256' })
-}
-```
+
+The module signs access tokens using `nuxtAegis.token` configuration, combining user identity fields with resolved custom claims and signing metadata. Applications configure token lifetime and claims rather than implementing JWT signing.
 
 **Validation**
-```typescript
-export async function validateJWT(token: string): Promise<JWTPayload> {
-  try {
-    const payload = await verify(token, jwtSecret, {
-      algorithms: ['HS256'],
-    })
-    
-    // Check expiration
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      throw new Error('Token expired')
-    }
-    
-    return payload
-  } catch (error) {
-    throw createError({ statusCode: 401, message: 'Invalid token' })
-  }
-}
-```
+
+Protected routes validate access-token signatures and expiration through the module's authentication middleware. Application-specific role and permission checks remain the application's responsibility. See [Route Protection](/guides/route-protection).
 
 **Token Structure**
 ```json
 {
   "header": {
-    "alg": "HS256",
-    "typ": "JWT"
+    "alg": "HS256"
   },
   "payload": {
     "sub": "google|123456789",
@@ -213,10 +164,10 @@ sequenceDiagram
     Server->>Storage: Validate refresh token
     
     alt Token Valid
-        Storage-->>Server: User data found
-        Server->>Server: Apply custom claims
-        Server->>Server: Generate new JWT
-        Server-->>APIPlugin: { token: NEW_JWT, expiresAt }
+      Storage-->>Server: Stored provider profile and custom claims
+      Server->>Server: Reuse stored identity fields and custom claims
+      Server->>Server: Generate new JWT with fresh signing metadata
+      Server-->>APIPlugin: { success: true, message, accessToken: NEW_JWT }
         APIPlugin->>APIPlugin: Update stored token
         APIPlugin->>Server: Retry original request
         Server-->>Client: Success response
@@ -228,14 +179,24 @@ sequenceDiagram
     end
 ```
 
+Ordinary refresh (`POST /auth/refresh` or `useAuth().refresh()`) reuses the provider profile and custom claims already stored in the refresh-token record. It does not fetch a fresh provider profile, reload application user data, or rerun `onUserPersist` or `customClaims` callbacks. Roles and permissions can therefore remain stale even after a new JWT is issued.
+
+Use `refresh({ updateClaims: true })` to request explicit claims recomputation via `/auth/update-claims` before refreshing the token. See [Updating JWT Claims](/guides/updating-claims) for configuration and handler requirements.
+
 **Configuration**
 ```typescript
 export default defineNuxtConfig({
   nuxtAegis: {
-    jwt: {
+    token: {
       expiresIn: 3600, // 1 hour (seconds)
-      algorithm: 'HS256', // or 'RS256'
+      algorithm: 'HS256',
       secret: process.env.NUXT_AEGIS_JWT_SECRET,
+    },
+    tokenRefresh: {
+      cookie: {
+        cookieName: 'nuxt-aegis-refresh',
+        maxAge: 604800,
+      },
     },
   },
 })
@@ -246,14 +207,16 @@ export default defineNuxtConfig({
 ```mermaid
 stateDiagram-v2
     [*] --> Generated: Successful login
-    Generated --> Stored: Encrypted storage
+  Generated --> Stored: Persist record
     Stored --> Active: Client holds cookie
     Active --> Used: Generate new JWT
-    Used --> Active: Remains valid
-    Active --> Expired: 7 days elapsed
+    Used --> Revoked: Rotation enabled (default)
+    Used --> Generated: Create replacement when rotating
+    Used --> Active: Rotation disabled (same stored expiry)
+    Active --> Expired: Stored expiresAt reached
     Expired --> [*]: Auto-cleanup
     Active --> Revoked: Logout/Security event
-    Revoked --> [*]: Deleted from storage
+    Revoked --> [*]: Cleanup removes record
     
     note right of Generated
         Cryptographically random
@@ -261,7 +224,8 @@ stateDiagram-v2
     end note
     
     note right of Stored
-        Encrypted in storage
+      Plaintext by default
+      Encrypted if enabled
         Redis or filesystem
     end note
     
@@ -272,96 +236,33 @@ stateDiagram-v2
 ```
 
 **Generation & Storage**
-```typescript
-function generateRefreshToken(): string {
-  return randomBytes(32).toString('base64url')
-}
 
-async function storeRefreshToken(token: string, user: UserInfo) {
-  const storage = useStorage('refreshTokens')
-  
-  await storage.setItem(`refresh:${token}`, {
-    user: user,
-    createdAt: Date.now(),
-    lastUsedAt: Date.now(),
-  }, {
-    ttl: 604800, // 7 days in seconds
-  })
-}
+Refresh token records are stored in plaintext by default. AES-256-GCM encryption at rest is opt-in: set `nuxtAegis.tokenRefresh.encryption.enabled` to `true` and configure an encryption key. See [Storage Configuration](../configuration/storage.md#encryption-at-rest).
 
-// Set as HttpOnly cookie
-setCookie(event, 'aegis_refresh', token, {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'lax',
-  maxAge: 604800, // 7 days in seconds
-  path: '/',
-})
-```
+The module generates and stores refresh tokens automatically; applications do not need to implement token generation or storage writes. The raw token goes in the `nuxt-aegis-refresh` cookie by default, while its SHA-256 hash is the key in the `refreshTokenStore` storage mount. Each record contains `providerUserInfo`, the provider name, stored custom claims, `expiresAt`, and `isRevoked`. Expiration is recorded in `expiresAt` rather than supplied as a storage TTL.
 
 **Usage & Refresh**
-```typescript
-export default defineEventHandler(async (event) => {
-  // Extract refresh token from cookie
-  const refreshToken = getCookie(event, 'aegis_refresh')
-  
-  if (!refreshToken) {
-    throw createError({ statusCode: 401, message: 'No refresh token' })
-  }
-  
-  // Validate and retrieve user data
-  const storage = useStorage('refreshTokens')
-  const tokenData = await storage.getItem(`refresh:${refreshToken}`)
-  
-  if (!tokenData) {
-    throw createError({ statusCode: 401, message: 'Invalid refresh token' })
-  }
-  
-  // Update last used timestamp
-  await storage.setItem(`refresh:${refreshToken}`, {
-    ...tokenData,
-    lastUsedAt: Date.now(),
-  }, { ttl: 604800 })
-  
-  // Generate new JWT
-  const customClaims = await resolveCustomClaims(tokenData.user)
-  const jwt = generateJWT(tokenData.user, customClaims)
-  
-  return {
-    token: jwt,
-    expiresAt: Date.now() + 3600000, // 1 hour
-  }
-})
-```
+
+`POST /auth/refresh` validates that the stored refresh-token record exists, is not revoked, and has not passed its `expiresAt`. It generates a new access token using the stored provider profile and custom claims, then applies `nuxtAegis.tokenRefresh.rotationEnabled`:
+
+- **Rotation enabled (default):** Generate and store a replacement refresh token with a new `expiresAt`, set the replacement cookie, and mark the old token as revoked. The old token cannot be used for subsequent refreshes; revocation does not immediately delete its record.
+- **Rotation disabled:** Reuse the existing refresh token and re-set its cookie with the configured `maxAge`. This renews the browser cookie lifetime but does not update the stored record or extend its `expiresAt`. Once the stored expiration is reached, refresh fails even if the browser still holds the cookie.
+
+New refresh-token records expire after `tokenRefresh.cookie.maxAge` seconds from creation (default: 604800 seconds, or 7 days). A successful refresh returns `{ success: true, message: 'Token refreshed successfully', accessToken }`.
 
 **Revocation (Logout)**
-```typescript
-export default defineEventHandler(async (event) => {
-  const refreshToken = getCookie(event, 'aegis_refresh')
-  
-  if (refreshToken) {
-    const storage = useStorage('refreshTokens')
-    
-    // Delete refresh token from storage
-    await storage.removeItem(`refresh:${refreshToken}`)
-    
-    // Clear cookie
-    deleteCookie(event, 'aegis_refresh')
-  }
-  
-  return { success: true }
-})
-```
+
+Use the module's logout flow to revoke the current refresh token and clear its cookie. Revoked records remain in storage until cleanup; applications do not need to delete them directly.
 
 **Storage Configuration**
 ```typescript
 export default defineNuxtConfig({
   nitro: {
     storage: {
-      refreshTokens: {
+      refreshTokenStore: {
         driver: 'redis', // or 'fs', 'memory'
         host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT,
+        port: Number(process.env.REDIS_PORT || 6379),
         password: process.env.REDIS_PASSWORD,
         db: 0,
       },
@@ -369,9 +270,11 @@ export default defineNuxtConfig({
   },
   
   nuxtAegis: {
-    refreshToken: {
-      expiresIn: 604800, // 7 days (seconds)
-      cookieName: 'aegis_refresh',
+    tokenRefresh: {
+      cookie: {
+        maxAge: 604800, // 7 days (seconds)
+        cookieName: 'nuxt-aegis-refresh',
+      },
     },
   },
 })
@@ -384,93 +287,38 @@ export default defineNuxtConfig({
 | **Lifetime** | 60 seconds | 1 hour | 7 days |
 | **Storage** | Memory (server) | Client (memory) | Server + Cookie |
 | **Purpose** | Exchange for tokens | API authentication | Generate new JWTs |
-| **Security** | Single-use, random | Signed, short-lived | HttpOnly, encrypted |
+| **Security** | Random, sequential reuse rejected; consumption is not atomic | Signed, short-lived | HttpOnly cookie, opt-in encryption at rest |
 | **Transmission** | URL parameter | Authorization header | Cookie |
-| **Revocable** | Auto-expires | No (stateless) | Yes (storage deletion) |
+| **Revocable** | Auto-expires | No (stateless) | Yes (marked revoked) |
 | **Size** | ~44 bytes | ~200-500 bytes | ~44 bytes |
 
 ## Cleanup & Maintenance
 
 ### Automatic Cleanup with Nitro Tasks
 
-Nuxt Aegis uses Nitro's scheduled tasks feature to automatically clean up expired tokens. These tasks run daily at 2:00 AM by default, and can be configured.
+Nuxt Aegis uses Nitro's scheduled tasks feature to clean up expired authorization codes, expired or revoked refresh tokens, expired magic codes, and expired password reset sessions. These tasks run daily at 2:00 AM by default, and can be configured.
+
+The `cleanup:auth-codes` task calls `cleanupExpiredAuthCodes()` to sweep `authCodeStore`. It can also be invoked manually with `runTask('cleanup:auth-codes')`.
 
 **Refresh Token Cleanup Task**
-```typescript
-// src/runtime/tasks/cleanup/refresh-tokens.ts
-import { defineTask, useStorage } from 'nitropack/runtime'
 
-export default defineTask({
-  meta: {
-    name: 'cleanup:refresh-tokens',
-    description: 'Clean up expired and revoked refresh tokens from storage',
-  },
-  async run() {
-    const storage = useStorage('refreshTokenStore')
-    const keys = await storage.getKeys()
-    const now = Date.now()
-    
-    let deletedCount = 0
-    let revokedCount = 0
-    let expiredCount = 0
-    
-    for (const tokenHash of keys) {
-      const data = await getRefreshTokenData(tokenHash)
-      
-      if (!data) continue
-      
-      // Check if token is expired or revoked
-      if (data.expiresAt < now || data.isRevoked) {
-        await storage.removeItem(tokenHash)
-        deletedCount++
-        
-        if (data.isRevoked) {
-          revokedCount++
-        } else {
-          expiredCount++
-        }
-      }
-    }
-    
-    return {
-      result: {
-        deleted: deletedCount,
-        expired: expiredCount,
-        revoked: revokedCount,
-      },
-    }
-  },
-})
-```
+The built-in `cleanup:refresh-tokens` task removes expired and revoked records from refresh-token storage. Applications do not need to implement this task.
 
 **Task Schedule Configuration**
-```typescript
-// src/module.ts
-export default defineNuxtModule({
-  setup(options, nuxt) {
-    // Enable Nitro tasks feature
-    nuxt.options.nitro.experimental.tasks = true
-    
-    // Schedule cleanup tasks daily at 2:00 AM
-    nuxt.options.nitro.scheduledTasks = {
-      '0 2 * * *': [
-        'cleanup:refresh-tokens',
-        'cleanup:magic-codes',
-        'cleanup:reset-sessions',
-      ],
-    }
-  },
-})
-```
+
+The module enables Nitro tasks and registers all four cleanup tasks on the daily 02:00 schedule automatically.
 
 **Custom Schedule**
+
+Add a schedule in your Nuxt configuration to run cleanup more frequently. This adds to, rather than replaces, the module's daily schedule.
+
 ```typescript
-// nuxt.config.ts - Override default schedule
 export default defineNuxtConfig({
   nitro: {
     scheduledTasks: {
       // Run cleanup every 6 hours
       '0 */6 * * *': [
+        'cleanup:auth-codes',
         'cleanup:refresh-tokens',
         'cleanup:magic-codes',
         'cleanup:reset-sessions',
@@ -481,46 +329,30 @@ export default defineNuxtConfig({
 ```
 
 **Manual Cleanup**
+
+An application server route can invoke the built-in task. Protect such a route with application-specific administrator authorization before exposing it.
+
 ```typescript
-// Trigger cleanup manually via API
-export default defineEventHandler(async (event) => {
-  const result = await runTask('cleanup:refresh-tokens')
-  return result
+import { defineEventHandler } from 'nuxt/server'
+import { runTask } from 'nitropack/runtime'
+
+export default defineEventHandler(async () => {
+  return await runTask('cleanup:refresh-tokens')
 })
 ```
 
 ### Token Revocation
 
-**Revoke Single Token (Logout)**
+**End the Current Session**
+
+Use the public composable from application code:
+
 ```typescript
-export default defineEventHandler(async (event) => {
-  const refreshToken = getCookie(event, 'aegis_refresh')
-  
-  if (refreshToken) {
-    await revokeRefreshToken(refreshToken)
-    deleteCookie(event, 'aegis_refresh')
-  }
-  
-  return { success: true }
-})
+const { logout } = useAuth()
+await logout()
 ```
 
-**Revoke All User Tokens**
-```typescript
-// Revoke all tokens for a user (e.g., password change, security event)
-export async function revokeAllUserTokens(userId: string) {
-  const storage = useStorage('refreshTokenStore')
-  const keys = await storage.getKeys()
-  
-  for (const key of keys) {
-    const data = await getRefreshTokenData(key)
-    
-    if (data && data.user.sub === userId) {
-      await storage.removeItem(key)
-    }
-  }
-}
-```
+Refresh-token revocation prevents further refreshes but does not invalidate already-issued access tokens; those remain valid until expiration. For application-specific session management, see the public [Server Utilities](/api/server-utils).
 
 ## Next Steps
 
