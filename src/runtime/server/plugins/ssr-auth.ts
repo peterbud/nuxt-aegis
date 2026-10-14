@@ -33,7 +33,10 @@ export default defineNitroPlugin((nitroApp) => {
       return
     }
 
-    logger.debug('SSR auth hook triggered for URL:', requestPath)
+    // Only run if SSR authentication is enabled
+    if (!config.public.nuxtAegis?.enableSSR) {
+      return
+    }
 
     // Skip if user already authenticated by auth middleware
     if (event.context.user) {
@@ -41,10 +44,7 @@ export default defineNitroPlugin((nitroApp) => {
       return
     }
 
-    // Only run if SSR authentication is enabled
-    if (!config.public.nuxtAegis?.enableSSR) {
-      return
-    }
+    logger.debug('Restoring SSR authentication for URL:', requestPath)
 
     const startTime = performance.now()
 

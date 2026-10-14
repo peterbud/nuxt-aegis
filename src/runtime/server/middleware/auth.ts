@@ -21,7 +21,6 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const requestURL = getRequestURL(event)
 
-  logger.debug('Auth middleware triggered for URL:', requestURL.pathname)
   // Get configuration with proper defaults
   const tokenConfig = config.nuxtAegis?.token as TokenConfig
   const authPath = config.public.nuxtAegis.authPath
@@ -35,6 +34,8 @@ export default defineEventHandler(async (event) => {
   if (requestURL.pathname.startsWith('/_nuxt/') || requestURL.pathname.startsWith('/api/_')) {
     return
   }
+
+  logger.debug('Evaluating route authentication for URL:', requestURL.pathname)
 
   // Get route rules for this request
   const routeRules = (await getRouteRules(event)) as Record<string, unknown> & { nuxtAegis?: NuxtAegisRouteRules }
@@ -80,6 +81,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify JWT signature and expiration
+  logger.debug('Verifying bearer token for URL:', requestURL.pathname)
   const payload = await verifyToken(token, tokenConfig.secret)
 
   if (!payload) {
