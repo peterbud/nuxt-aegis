@@ -1,4 +1,4 @@
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 /**
  * Application-specific token payload with custom claims

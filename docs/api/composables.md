@@ -5,7 +5,7 @@ The `useAuth()` composable provides reactive authentication state and methods fo
 ## Import
 
 ```typescript
-import { useAuth } from '#imports'
+import { useAuth } from '#nuxt-aegis/app'
 ```
 
 Or use auto-import (recommended):
@@ -73,7 +73,7 @@ interface BaseTokenClaims {
 **With Custom Claims:**
 
 ```typescript
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 // Define your token type
 type AppTokenClaims = CustomTokenClaims<{

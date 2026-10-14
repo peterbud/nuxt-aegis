@@ -82,7 +82,7 @@ Each serves a different purpose and has different constraints. Mixing them up is
 
 ```typescript
 // shared/types/token.ts
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 export type AppTokenClaims = CustomTokenClaims<{
   role: string           // User role (e.g., 'admin', 'user')
@@ -423,7 +423,7 @@ Store roles in database, include in JWT for fast checks:
 
 ```typescript
 import { createError, defineEventHandler } from 'nuxt/server'
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 // Database: Source of truth
 interface DatabaseUser {
@@ -453,7 +453,7 @@ Keep JWT small, fetch database user only when needed:
 
 ```typescript
 import { createError, defineEventHandler } from 'nuxt/server'
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 // JWT contains minimal claims
 type AppTokenClaims = CustomTokenClaims<{

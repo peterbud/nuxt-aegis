@@ -4,7 +4,7 @@ TypeScript type definitions and interfaces for Nuxt Aegis.
 
 ## Importing Types
 
-All types are available from the `#nuxt-aegis` module:
+Shared types are available from `#nuxt-aegis/types` in app, server, shared code, and configuration:
 
 ```typescript
 import type {
@@ -26,8 +26,7 @@ import type {
   OnSuccessParams,
   CustomClaimsCallback,
   
-  // Handler Types
-  AegisHandler,
+  // Password User Types
   PasswordUser,
   
   // Hook Types
@@ -51,6 +50,7 @@ import type {
   LoggingConfig,
   ImpersonationConfig,
   AuthCodeConfig,
+  OAuthTransactionConfig,
   ClaimsValidationConfig,
   
   // Provider Configuration
@@ -67,7 +67,13 @@ import type {
   // Route Protection
   NitroAegisAuth,
   NuxtAegisRouteRules,
-} from '#nuxt-aegis'
+} from '#nuxt-aegis/types'
+```
+
+Server-only types are imported separately:
+
+```typescript
+import type { AegisHandler, UserPersistContext, OAuthProviderImplementation } from '#nuxt-aegis/server'
 ```
 
 ---
@@ -111,7 +117,7 @@ interface BaseTokenClaims {
 **Usage:**
 
 ```typescript
-import type { BaseTokenClaims } from '#nuxt-aegis'
+import type { BaseTokenClaims } from '#nuxt-aegis/types'
 
 // Use directly if you don't have custom claims
 const { user } = useAuth<BaseTokenClaims>()
@@ -134,7 +140,7 @@ type CustomTokenClaims<T extends Record<string, JSONValue>> = BaseTokenClaims & 
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 // Define your app's token type with both base and custom claims
 export type AppTokenClaims = CustomTokenClaims<{
@@ -176,7 +182,7 @@ type ExtractClaims<T extends BaseTokenClaims> = Omit<T, keyof BaseTokenClaims>
 **Usage:**
 
 ```typescript
-import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims, ExtractClaims } from '#nuxt-aegis/types'
 
 type AppTokenClaims = CustomTokenClaims<{
   role: string
@@ -740,7 +746,7 @@ interface OAuthConfig<T extends OAuthProviderConfig> {
 **Usage:**
 
 ```typescript
-import type { OAuthConfig, GoogleProviderConfig } from '#nuxt-aegis'
+import type { OAuthConfig, GoogleProviderConfig } from '#nuxt-aegis/types'
 
 export default defineOAuthGoogleEventHandler({
   config: {

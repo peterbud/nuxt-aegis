@@ -3,8 +3,8 @@
  * Main barrel file for all type exports
  */
 
-// Re-export augmentations (they auto-apply when imported)
-import './augmentation'
+// Load shared augmentations without a runtime import
+export type { } from './augmentation'
 
 // Auth state types
 export type {
@@ -22,6 +22,7 @@ export type {
   ImpersonationContext,
   CustomTokenClaims,
   ExtractClaims,
+  JSONValue,
 } from './token'
 
 // Provider types
@@ -33,6 +34,7 @@ export type {
   Auth0ProviderConfig,
   MockProviderConfig,
   PasswordUser,
+  PasswordProviderConfig,
   CustomProviderConfig,
   OAuthConfig,
 } from './providers'
@@ -86,4 +88,5 @@ export type {
   ModuleOptions,
   LoggingConfig,
   ImpersonationConfig,
+  OAuthTransactionConfig,
 } from './config'

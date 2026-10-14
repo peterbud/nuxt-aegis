@@ -93,79 +93,52 @@ export default defineEventHandler(async (event) => {
 
 ## Token Utilities
 
-### `generateAccessToken(user, customClaims?)`
+### `generateAuthTokens(event, providerUserInfo, provider, customClaims?)`
 
-Generate a JWT access token for a user.
+Generate a JWT access token and, when token refresh is enabled, create and store a refresh token. Call this only after authenticating the user. It does not set the refresh-token cookie.
 
 **Type Signature:**
 
 ```typescript
-async function generateAccessToken(
-  user: Record<string, unknown>,
-  customClaims?: Record<string, unknown>
-): Promise<string>
+async function generateAuthTokens(
+  event: RequestEvent,
+  providerUserInfo: Record<string, unknown>,
+  provider: string,
+  customClaims?: Record<string, unknown>,
+): Promise<{ accessToken: string, refreshToken?: string }>
 ```
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `user` | `Record<string, unknown>` | User object |
-| `customClaims` | `Record<string, unknown>` | Optional custom claims |
+| `event` | `RequestEvent` | Server request event |
+| `providerUserInfo` | `Record<string, unknown>` | Complete authenticated user data, retained with the refresh token |
+| `provider` | `string` | Provider name, such as `google` or `github` |
+| `customClaims` | `Record<string, unknown>` | Optional already-resolved custom claims |
 
-**Returns:** `Promise<string>` - JWT access token
+**Returns:** A token pair. `refreshToken` is absent when token refresh is disabled. Send only `accessToken` in the response body; use an HttpOnly cookie for the refresh token.
 
 **Example:**
 
 ```typescript
 // server/utils/createToken.ts
-export async function createCustomToken(userId: string) {
-  const user = await db.users.findUnique({
-    where: { id: userId }
-  })
-  
-  const token = await generateAccessToken(user, {
+import type { RequestEvent } from 'nuxt/server'
+import { generateAuthTokens } from '#nuxt-aegis/server'
+
+export async function createCustomTokens(
+  event: RequestEvent,
+  user: Record<string, unknown>,
+  provider: string,
+) {
+  return await generateAuthTokens(event, user, provider, {
     role: user.role,
     premium: user.premium,
   })
-  
-  return token
 }
 ```
 
-### `verifyToken(token)`
-
-Verify and decode a JWT access token.
-
-**Type Signature:**
-
-```typescript
-async function verifyToken(token: string): Promise<User>
-```
-
-**Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `token` | `string` | JWT access token |
-
-**Returns:** `Promise<User>` - Decoded user object
-
-**Throws:** Error if token is invalid or expired
-
-**Example:**
-
-```typescript
-// server/utils/validateToken.ts
-export async function validateAccessToken(token: string) {
-  try {
-    const user = await verifyToken(token)
-    return { valid: true, user }
-  } catch (error) {
-    return { valid: false, error: error.message }
-  }
-}
-```
+For request authentication, use `requireAuth(event).context.user` or nullable `getAuthUser(event)`. JWT verification is performed by the module's authentication middleware; there is no public standalone token-verification utility.
 
 ## Refresh Token Utilities
 
@@ -301,9 +274,9 @@ Always call `deleteUserRefreshTokens()` when users change their password or when
 
 ## Cookie Utilities
 
-### `setRefreshTokenCookie(event, token, maxAge)`
+### `setRefreshTokenCookie(event, token, cookieConfig?)`
 
-Set the refresh token cookie.
+Set the refresh token cookie. This helper is available as a server auto-import, not as a named export from `#nuxt-aegis/server`.
 
 **Type Signature:**
 
@@ -311,7 +284,7 @@ Set the refresh token cookie.
 function setRefreshTokenCookie(
   event: RequestEvent,
   token: string,
-  maxAge: number
+  cookieConfig?: CookieConfig,
 ): void
 ```
 
@@ -321,19 +294,28 @@ function setRefreshTokenCookie(
 |-----------|------|-------------|
 | `event` | `RequestEvent` | Server request event |
 | `token` | `string` | Refresh token |
-| `maxAge` | `number` | Cookie max age in seconds |
+| `cookieConfig` | `CookieConfig` | Optional cookie settings, including `maxAge` in seconds; pass `nuxtAegis.tokenRefresh.cookie` to honor module configuration |
 
 **Example:**
 
 ```typescript
 // server/utils/customAuth.ts
-export async function loginUser(event: RequestEvent, user: User) {
-  const refreshToken = await createRefreshToken(user)
-  
-  setRefreshTokenCookie(event, refreshToken, 60 * 60 * 24 * 7) // 7 days
-  
-  const accessToken = await generateAccessToken(user)
-  
+import { useRuntimeConfig } from 'nuxt/server'
+import type { RequestEvent } from 'nuxt/server'
+import { generateAuthTokens } from '#nuxt-aegis/server'
+
+export async function loginUser(
+  event: RequestEvent,
+  user: Record<string, unknown>,
+  provider: string,
+) {
+  const { accessToken, refreshToken } = await generateAuthTokens(event, user, provider)
+
+  if (refreshToken) {
+    const cookieConfig = useRuntimeConfig().nuxtAegis.tokenRefresh?.cookie
+    setRefreshTokenCookie(event, refreshToken, cookieConfig)
+  }
+
   return { accessToken }
 }
 ```

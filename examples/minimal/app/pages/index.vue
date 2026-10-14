@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AppTokenClaims } from '~~/shared/types/token'
-import { useAuth } from '#imports'
+import { useAuth } from '#nuxt-aegis/app'
 
 const { user, login, logout } = useAuth<AppTokenClaims>()
 </script>

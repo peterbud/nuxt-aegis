@@ -1,5 +1,4 @@
-import type { PasswordUser } from '#nuxt-aegis'
-import { defineAegisHandler } from '#imports'
+import type { PasswordUser } from '#nuxt-aegis/types'
 
 // In-memory user store for testing
 const users = new Map<string, PasswordUser>()

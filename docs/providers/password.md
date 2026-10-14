@@ -474,7 +474,7 @@ Claims are available in the JWT token and can be accessed via `useAuth().user`.
 ## TypeScript Types
 
 ```typescript
-import type { PasswordProviderConfig, PasswordUser } from '#nuxt-aegis'
+import type { PasswordProviderConfig, PasswordUser } from '#nuxt-aegis/types'
 
 // User type for onUserLookup return value
 interface PasswordUser {

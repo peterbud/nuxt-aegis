@@ -5,7 +5,6 @@ import {
   addRouteMiddleware,
   addServerHandler,
   addServerImports,
-  addServerImportsDir,
   addTypeTemplate,
   createResolver,
   defineNuxtModule,
@@ -193,6 +192,10 @@ export default defineNuxtModule<ModuleOptions>({
       name: 'useAegisFetch',
       source: resolver.resolve('./runtime/app/composables/useAegisFetch'),
       argumentLength: 3,
+    }, {
+      name: 'useAegisFetch',
+      source: resolver.resolve('./runtime/app/index'),
+      argumentLength: 3,
     })
 
     extendPages((pages) => {
@@ -203,15 +206,15 @@ export default defineNuxtModule<ModuleOptions>({
       })
     })
 
-    // Server imports - providers are all public
-    addServerImportsDir(resolver.resolve('./runtime/server/providers'))
-
     // Server imports - only expose public API utilities
     addServerImports([
+      { name: 'defineOAuthGoogleEventHandler', from: resolver.resolve('./runtime/server/providers/google') },
+      { name: 'defineOAuthGithubEventHandler', from: resolver.resolve('./runtime/server/providers/github') },
+      { name: 'defineOAuthAuth0EventHandler', from: resolver.resolve('./runtime/server/providers/auth0') },
+      { name: 'defineOAuthMockEventHandler', from: resolver.resolve('./runtime/server/providers/mock') },
       // Authentication utilities (from auth.ts)
       { name: 'requireAuth', from: resolver.resolve('./runtime/server/utils/auth') },
       { name: 'getAuthUser', from: resolver.resolve('./runtime/server/utils/auth') },
-      { name: 'verifyToken', from: resolver.resolve('./runtime/server/utils/auth') },
       { name: 'generateAuthTokens', from: resolver.resolve('./runtime/server/utils/auth') },
 
       // Refresh token management utilities (from refreshToken.ts)
@@ -469,13 +472,18 @@ export default defineNuxtModule<ModuleOptions>({
       })
     })
 
-    nuxt.options.alias['#nuxt-aegis'] = resolver.resolve(
-      './runtime/types/index',
-    )
+    nuxt.options.alias['#nuxt-aegis/types'] = resolver.resolve('./runtime/types/index')
+    nuxt.options.alias['#nuxt-aegis/app'] = resolver.resolve('./runtime/app/index')
+    nuxt.options.alias['#nuxt-aegis/server'] = resolver.resolve('./runtime/server/index')
+    nuxt.hook('prepare:types', ({ nodeTsConfig }) => {
+      nodeTsConfig.compilerOptions ||= {}
+      nodeTsConfig.compilerOptions.paths ||= {}
+      nodeTsConfig.compilerOptions.paths['#nuxt-aegis/types'] = [resolver.resolve('./runtime/types/index')]
+    })
     nuxt.hook('nitro:config', (nitroConfig) => {
       nitroConfig.alias = nitroConfig.alias || {}
-      // This tells the Nitro bundler where to find the code at runtime
-      nitroConfig.alias['#nuxt-aegis'] = resolver.resolve('./runtime/types/index')
+      nitroConfig.alias['#nuxt-aegis/types'] = resolver.resolve('./runtime/types/index')
+      nitroConfig.alias['#nuxt-aegis/server'] = resolver.resolve('./runtime/server/index')
     })
 
     addTypeTemplate({

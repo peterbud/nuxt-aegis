@@ -86,29 +86,10 @@ export default defineNuxtConfig({
 
 ### Single-Use
 
-Each CODE is deleted immediately after exchange:
-
-```typescript
-// server/utils/authCodeStore.ts
-export async function exchangeAuthCode(code: string) {
-  const storage = useStorage('authCodeStore')
-  
-  // Get CODE data
-  const data = await storage.getItem(`authcode:${code}`)
-  
-  if (!data) {
-    throw createError({ statusCode: 401, message: 'Invalid or expired CODE' })
-  }
-  
-  // Delete CODE immediately (single-use)
-  await storage.removeItem(`authcode:${code}`)
-  
-  return data
-}
-```
+The module validates each CODE's expiration and deletes it before generating tokens. Authorization-code storage helpers are internal implementation details, not public server utilities.
 
 ::: danger Single-Use Enforcement
-CODEs cannot be reused. Attempting to exchange the same CODE twice will result in a 401 error.
+Reusing a consumed CODE results in a 401 error. Storage validation and deletion are separate operations, so the implementation does not guarantee atomic consumption for concurrent requests.
 :::
 
 ### Cryptographically Secure
@@ -143,25 +124,9 @@ export default defineNuxtConfig({
 Authorization CODEs are intentionally NOT persisted. If the server restarts during the OAuth flow, users simply retry the login.
 :::
 
-### Automatic Cleanup
+### Expired CODEs
 
-Expired CODEs are automatically removed from memory:
-
-```typescript
-// server/utils/authCodeStore.ts
-export async function cleanupExpiredCodes() {
-  const storage = useStorage('authCodeStore')
-  const keys = await storage.getKeys('authcode:')
-  
-  for (const key of keys) {
-    const data = await storage.getItem(key)
-    
-    if (data && Date.now() > data.expiresAt) {
-      await storage.removeItem(key)
-    }
-  }
-}
-```
+An expired CODE is rejected and removed when it is looked up. The module does not currently schedule a periodic authorization-code cleanup task.
 
 ## Why Use This Approach?
 
@@ -223,7 +188,7 @@ await $fetch('/auth/token', {
   method: 'POST',
   body: { code: 'abc123' }
 })
-// Returns: { token: 'jwt-token' }
+// Returns: { accessToken: 'jwt-token', tokenType: 'Bearer', expiresIn: 3600 }
 
 // Second exchange with same CODE - FAILURE
 await $fetch('/auth/token', {
@@ -237,91 +202,41 @@ await $fetch('/auth/token', {
 
 ### Generating CODEs
 
-```typescript
-// server/utils/authCode.ts
-import { randomBytes } from 'crypto'
-
-export function generateAuthCode(): string {
-  return randomBytes(32).toString('base64url')
-}
-
-export async function storeAuthCode(
-  code: string,
-  userData: Record<string, unknown>,
-  expiresIn: number = 60
-) {
-  const storage = useStorage('authCodeStore')
-  
-  await storage.setItem(`authcode:${code}`, {
-    user: userData,
-    expiresAt: Date.now() + (expiresIn * 1000),
-  })
-}
-```
+After successful provider authentication, the module generates and stores a CODE with the complete provider user data, provider name, resolved custom claims, and expiration time. Applications do not need to implement their own code store.
 
 ### Exchanging CODEs
 
+The module provides `POST /auth/token`; do not create a replacement route. It consumes the CODE and calls `generateAuthTokens(event, providerUserInfo, provider, customClaims)` using the stored data. When refresh is enabled, it sets the refresh token as a configured HttpOnly cookie, never in the JSON response.
+
+The response contains `accessToken`, `tokenType: 'Bearer'`, and optional `expiresIn` in seconds. For example, a `1h` access-token lifetime produces `expiresIn: 3600`.
+
+The module's callback page exchanges the CODE, stores the access token in memory, updates authentication state, clears the URL query, and redirects. The HTTP exchange itself has this shape, where `code` is the string from the callback URL:
+
 ```typescript
-// server/routes/auth/token.post.ts
-export default defineEventHandler(async (event) => {
-  const { code } = await readBody(event)
-  
-  if (!code) {
-    throw createError({ statusCode: 400, message: 'CODE required' })
-  }
-  
-  // Exchange CODE for user data (single-use)
-  const data = await exchangeAuthCode(code)
-  
-  // Generate JWT access token
-  const token = await generateAccessToken(data.user)
-  
-  return { token }
+import type { TokenExchangeResponse } from '#nuxt-aegis/types'
+
+const { accessToken, tokenType, expiresIn } = await $fetch<TokenExchangeResponse>('/auth/token', {
+  method: 'POST',
+  body: { code },
 })
 ```
 
 ### Error Handling
 
-```vue
-<script setup lang="ts">
-const route = useRoute()
+- **400:** Missing authorization code.
+- **401:** Invalid, expired, or already consumed authorization code.
+- **500:** Authentication token generation failed.
 
-onMounted(async () => {
-  const code = route.query.code
-  
-  if (!code) {
-    console.error('No authorization CODE in URL')
-    await navigateTo('/login')
-    return
-  }
-  
-  try {
-    const { token } = await $fetch('/auth/token', {
-      method: 'POST',
-      body: { code }
-    })
-    
-    // Store token and redirect
-    await saveToken(token)
-    await navigateTo('/dashboard')
-  } catch (error) {
-    if (error.statusCode === 401) {
-      // CODE expired or invalid
-      console.error('Authorization CODE expired')
-      await navigateTo('/login')
-    } else {
-      console.error('Token exchange failed:', error)
-    }
-  }
-})
-</script>
-```
+The module's callback page displays a generic authentication failure and redirects to `nuxtAegis.redirect.error`. Users must restart login after an invalid or expired CODE; retrying the same consumed CODE will not succeed.
 
 ## Testing Authorization CODE Flow
 
+The following test sketch assumes fixture helpers that create valid and expired CODEs in the module's internal store. These helpers are application-specific, not module exports.
+
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { $fetch } from '@nuxt/test-utils'
+import { $fetch } from '@nuxt/test-utils/e2e'
+import type { TokenExchangeResponse } from '#nuxt-aegis/types'
 
 describe('Authorization CODE Flow', () => {
   it('should exchange valid CODE for token', async () => {
@@ -329,12 +244,13 @@ describe('Authorization CODE Flow', () => {
     const code = await generateMockAuthCode()
     
     // Exchange CODE
-    const response = await $fetch('/auth/token', {
+    const response = await $fetch<TokenExchangeResponse>('/auth/token', {
       method: 'POST',
       body: { code }
     })
     
-    expect(response.token).toBeDefined()
+    expect(response.accessToken).toBeDefined()
+    expect(response.tokenType).toBe('Bearer')
   })
   
   it('should reject expired CODEs', async () => {

@@ -9,14 +9,14 @@
  *
  * No manual JWT verification, no jose imports — just use the module.
  */
-import { defineEventHandler, createError } from 'h3'
+import { defineEventHandler, createError } from 'nuxt/server'
 
 export default defineEventHandler((event) => {
   const user = getAuthUser(event)
 
   if (!user) {
     // Belt-and-suspenders — the route rule already blocks unauthenticated requests
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ status: 401, statusText: 'Unauthorized' })
   }
 
   return {

@@ -2,6 +2,30 @@
 
 Complete API reference for Nuxt Aegis.
 
+## Public Imports
+
+| Import Path | Contents | Context |
+|-------------|----------|---------|
+| `#nuxt-aegis/types` | Shared types, including token claims and provider configuration | App, server, shared code, and configuration |
+| `#nuxt-aegis/app` | `useAuth`, `useAegisFetch` | App code, including SSR |
+| `#nuxt-aegis/server` | Server operations, provider factories, and server-only types | Server code |
+
+```typescript
+import type { BaseTokenClaims, PasswordProviderConfig, OAuthTransactionConfig } from '#nuxt-aegis/types'
+import { useAuth, useAegisFetch } from '#nuxt-aegis/app'
+```
+
+In server code:
+
+```typescript
+import { requireAuth, defineOAuthGoogleEventHandler } from '#nuxt-aegis/server'
+import type { AegisHandler, UserPersistContext, OAuthProviderImplementation } from '#nuxt-aegis/server'
+```
+
+App composables and server operations remain auto-imported in their respective contexts. The built-in OAuth factories (`defineOAuthGoogleEventHandler`, `defineOAuthGithubEventHandler`, `defineOAuthAuth0EventHandler`, and `defineOAuthMockEventHandler`) are also server auto-imports. `defineOAuthProvider` and `defineOAuthEventHandler` require explicit server imports; server-only types are never globals.
+
+The server entry point exports `requireAuth`, `getAuthUser`, `generateAuthTokens`, `revokeRefreshToken`, `deleteUserRefreshTokens`, `recomputeCustomClaims`, `defineAegisHandler`, `useAegisHandler`, the four built-in OAuth factories, `defineOAuthProvider`, and `defineOAuthEventHandler`. Internal provider and storage helpers are not public exports.
+
 ## Client-Side API
 
 ### Composables

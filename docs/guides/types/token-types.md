@@ -32,7 +32,7 @@ This naming makes the relationship clear: you're adding custom claims on top of 
 The `CustomTokenClaims<T>` helper type combines `BaseTokenClaims` with your custom claims while ensuring type safety and JSON-serializability.
 
 ```typescript
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 type AppTokenClaims = CustomTokenClaims<{
   role: string              // Your custom claim
@@ -97,7 +97,7 @@ if (user.value) {
 Extract only custom claims from a token payload:
 
 ```typescript
-import type { ExtractClaims } from '#nuxt-aegis'
+import type { ExtractClaims } from '#nuxt-aegis/types'
 
 type AppTokenClaims = CustomTokenClaims<{
   role: string
@@ -169,7 +169,7 @@ Keep tokens small for:
 
 ```typescript
 // ~/types/token.ts
-import type { CustomTokenClaims } from '#nuxt-aegis'
+import type { CustomTokenClaims } from '#nuxt-aegis/types'
 
 /**
  * Application JWT token payload
