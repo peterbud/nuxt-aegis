@@ -5,6 +5,7 @@ import type { AuthCodeData } from '../../types'
 import { createLogger } from './logger'
 
 const logger = createLogger('AuthCode')
+const consumingCodes = new Set<string>()
 
 /**
  * Authorization Code Store Utilities
@@ -149,7 +150,9 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
 }
 
 /**
- * Retrieve and delete authorization code in a single atomic operation
+ * Retrieve and delete authorization code with a process-local consumption guard
+ * Reject overlapping exchanges for the same code within this process
+ * Shared storage across processes requires a backend-native atomic consume operation
  * Immediately delete CODE after successful exchange for single-use enforcement
  * Prevent CODE reuse by validating existence before deletion
  * Ensure single-use only
@@ -169,34 +172,42 @@ export async function validateAuthCode(code: string): Promise<AuthCodeData | nul
  * ```
  */
 export async function retrieveAndDeleteAuthCode(code: string): Promise<AuthCodeData | null> {
-  // First validate the code
-  const authCodeData = await validateAuthCode(code)
+  if (consumingCodes.has(code)) return null
+  consumingCodes.add(code)
 
-  if (!authCodeData) {
-    // EP-18: Code is invalid, expired, or not found
-    // Security event logging - failed exchange attempt
-    logger.security('Invalid authorization code exchange attempt', {
+  try {
+    // First validate the code
+    const authCodeData = await validateAuthCode(code)
+
+    if (!authCodeData) {
+      // EP-18: Code is invalid, expired, or not found
+      // Security event logging - failed exchange attempt
+      logger.security('Invalid authorization code exchange attempt', {
+        timestamp: new Date().toISOString(),
+        event: 'CODE_EXCHANGE_FAILED',
+        codePrefix: `${code.substring(0, 8)}...`,
+        reason: 'invalid_or_expired',
+        severity: 'warning',
+      })
+      return null
+    }
+
+    // CS-6, SC-10: Delete the code immediately to ensure single use
+    await useStorage('authCodeStore').removeItem(code)
+
+    // Security event logging - successful exchange
+    logger.security('Authorization code successfully exchanged', {
       timestamp: new Date().toISOString(),
-      event: 'CODE_EXCHANGE_FAILED',
+      event: 'CODE_EXCHANGE_SUCCESS',
       codePrefix: `${code.substring(0, 8)}...`,
-      reason: 'invalid_or_expired',
-      severity: 'warning',
+      codeAge: Date.now() - authCodeData.createdAt,
     })
-    return null
+
+    return authCodeData
   }
-
-  // CS-6, SC-10: Delete the code immediately to ensure single use
-  await useStorage('authCodeStore').removeItem(code)
-
-  // Security event logging - successful exchange
-  logger.security('Authorization code successfully exchanged', {
-    timestamp: new Date().toISOString(),
-    event: 'CODE_EXCHANGE_SUCCESS',
-    codePrefix: `${code.substring(0, 8)}...`,
-    codeAge: Date.now() - authCodeData.createdAt,
-  })
-
-  return authCodeData
+  finally {
+    consumingCodes.delete(code)
+  }
 }
 
 /**

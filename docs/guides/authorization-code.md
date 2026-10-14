@@ -89,7 +89,9 @@ export default defineNuxtConfig({
 The module validates each CODE's expiration and deletes it before generating tokens. Authorization-code storage helpers are internal implementation details, not public server utilities.
 
 ::: danger Single-Use Enforcement
-Reusing a consumed CODE results in a 401 error. Storage validation and deletion are separate operations, so the implementation does not guarantee atomic consumption for concurrent requests.
+Reusing a consumed CODE results in a 401 error. A process-local guard rejects overlapping exchanges for the same CODE before storage access, and the CODE is deleted before exchange data is returned. Storage failures do not return exchange data and always release the guard.
+
+This guarantee applies within one process only. Storage validation and deletion remain separate operations. Multiple workers or instances sharing authorization-code storage require a backend-native atomic consume operation; configuring shared Nitro storage alone does not prevent concurrent replay across processes.
 :::
 
 ### Cryptographically Secure

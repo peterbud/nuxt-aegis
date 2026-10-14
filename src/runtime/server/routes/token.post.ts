@@ -21,7 +21,7 @@ const logger = createLogger('TokenExchange')
  * Flow:
  * 1. Accept authorization CODE from request body
  * 2. Validate CODE exists in server-side key-value store
- * 3. Retrieve and delete CODE atomically (single-use enforcement)
+ * 3. Retrieve and delete CODE under a process-local consumption guard
  * 4. Generate JWT access token and refresh token
  * 5. Return access token in JSON response body
  * 6. Set refresh token as HttpOnly, Secure cookie
@@ -55,8 +55,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // EP-11, EP-12: Retrieve and delete CODE atomically
-  // This ensures single-use (SC-10) and prevents replay attacks (EP-18)
+  // EP-11, EP-12: Retrieve and delete CODE with process-local single-use enforcement
+  // Shared storage across processes requires backend-native atomic consumption
   const authCodeData = await retrieveAndDeleteAuthCode(body.code)
 
   // EP-17, EP-18: Validate CODE exists and is not expired/already used

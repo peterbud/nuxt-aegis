@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import task from '../../src/runtime/tasks/cleanup/auth-codes'
-import { storeAuthCode } from '../../src/runtime/server/utils/authCodeStore'
+import { retrieveAndDeleteAuthCode, storeAuthCode } from '../../src/runtime/server/utils/authCodeStore'
+import type { AuthCodeData } from '../../src/runtime/types'
 
 const { mockStorage, useStorage } = vi.hoisted(() => {
   const mockStorage = {
@@ -24,6 +25,92 @@ vi.mock('../../src/runtime/server/utils/logger', () => ({
     security: vi.fn(),
   }),
 }))
+
+describe('Authorization code consumption', () => {
+  const records = new Map<string, AuthCodeData>()
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    records.clear()
+    useStorage.mockReturnValue(mockStorage)
+    mockStorage.getItem.mockImplementation(async (code: string) => records.get(code) ?? null)
+    mockStorage.removeItem.mockImplementation(async (code: string) => {
+      records.delete(code)
+    })
+    records.set('test-code', {
+      providerUserInfo: { sub: 'user-123' },
+      provider: 'google',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+    })
+  })
+
+  it('allows exactly one concurrent consumption and rejects subsequent replay', async () => {
+    const record = records.get('test-code')
+    const results = await Promise.all(Array.from({ length: 20 }, () => retrieveAndDeleteAuthCode('test-code')))
+
+    expect(results.filter(Boolean)).toEqual([record])
+    expect(mockStorage.getItem).toHaveBeenCalledTimes(1)
+    expect(mockStorage.removeItem).toHaveBeenCalledExactlyOnceWith('test-code')
+    await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toBeNull()
+  })
+
+  it('allows different codes to be consumed concurrently', async () => {
+    const record = records.get('test-code')!
+    records.set('other-code', record)
+
+    await expect(Promise.all([
+      retrieveAndDeleteAuthCode('test-code'),
+      retrieveAndDeleteAuthCode('other-code'),
+    ])).resolves.toEqual([record, record])
+    expect(records.size).toBe(0)
+  })
+
+  it('does not return exchange data until deletion completes', async () => {
+    const deletion = Promise.withResolvers<undefined>()
+    const record = records.get('test-code')
+    mockStorage.removeItem.mockImplementationOnce(async (code: string) => {
+      await deletion.promise
+      records.delete(code)
+    })
+    const completed = vi.fn()
+    const consumption = retrieveAndDeleteAuthCode('test-code').then((result) => {
+      completed()
+      return result
+    })
+
+    try {
+      await vi.waitFor(() => expect(mockStorage.removeItem).toHaveBeenCalledOnce())
+      expect(completed).not.toHaveBeenCalled()
+      await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toBeNull()
+    }
+    finally {
+      deletion.resolve(undefined)
+      await expect(consumption).resolves.toEqual(record)
+    }
+  })
+
+  it('rejects and deletes expired codes', async () => {
+    records.get('test-code')!.expiresAt = Date.now() - 1
+
+    await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toBeNull()
+    expect(records.has('test-code')).toBe(false)
+  })
+
+  it('releases the guard when a code is missing', async () => {
+    mockStorage.getItem.mockResolvedValueOnce(null)
+
+    await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toBeNull()
+    await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toEqual(expect.objectContaining({ provider: 'google' }))
+  })
+
+  it.each(['getItem', 'removeItem'] as const)('propagates %s failures and releases the guard', async (operation) => {
+    mockStorage[operation].mockRejectedValueOnce(new Error('Storage unavailable'))
+
+    await expect(retrieveAndDeleteAuthCode('test-code')).rejects.toThrow('Storage unavailable')
+    await expect(retrieveAndDeleteAuthCode('test-code')).resolves.toEqual(expect.objectContaining({ provider: 'google' }))
+  })
+})
 
 describe('Authorization code cleanup task', () => {
   beforeEach(() => {
