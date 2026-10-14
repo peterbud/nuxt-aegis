@@ -421,19 +421,24 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.hook('nitro:config', (nitroConfig) => {
       nitroConfig.scanDirs = nitroConfig.scanDirs || []
       nitroConfig.scanDirs.push(resolver.resolve('./runtime'))
-    })
 
-    // Configure scheduled cleanup tasks
-    // Run cleanup tasks daily at 2:00 AM
-    if (!nuxt.options.nitro.scheduledTasks) {
-      nuxt.options.nitro.scheduledTasks = {}
-    }
-    nuxt.options.nitro.scheduledTasks['0 2 * * *'] = [
-      'cleanup:auth-codes',
-      'cleanup:refresh-tokens',
-      'cleanup:magic-codes',
-      'cleanup:reset-sessions',
-    ]
+      const cleanupTasks = [
+        'cleanup:auth-codes',
+        'cleanup:refresh-tokens',
+        'cleanup:magic-codes',
+        'cleanup:reset-sessions',
+      ]
+      const scheduledTasks = nitroConfig.scheduledTasks ||= {}
+      const configuredTasks = new Set(Object.values(scheduledTasks).flat())
+      const defaultTasks = cleanupTasks.filter(task => !configuredTasks.has(task))
+      if (defaultTasks.length > 0) {
+        const dailyTasks = scheduledTasks['0 2 * * *']
+        scheduledTasks['0 2 * * *'] = [
+          ...typeof dailyTasks === 'string' ? [dailyTasks] : dailyTasks || [],
+          ...defaultTasks,
+        ]
+      }
+    })
 
     // Ensure the storage configuration object exists within nitro
     if (!nuxt.options.nitro.storage) {

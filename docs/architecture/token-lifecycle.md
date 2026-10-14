@@ -306,11 +306,11 @@ The built-in `cleanup:refresh-tokens` task removes expired and revoked records f
 
 **Task Schedule Configuration**
 
-The module enables Nitro tasks and registers all four cleanup tasks on the daily 02:00 schedule automatically.
+The module enables Nitro tasks and registers each cleanup task on the daily 02:00 schedule unless that task already has an explicit schedule in `nitro.scheduledTasks`.
 
 **Custom Schedule**
 
-Add a schedule in your Nuxt configuration to run cleanup more frequently. This adds to, rather than replaces, the module's daily schedule.
+Configure a schedule in your Nuxt configuration to replace the daily default for the listed cleanup tasks. This example schedules all four tasks every six hours, without an additional 02:00 run:
 
 ```typescript
 export default defineNuxtConfig({
@@ -327,6 +327,8 @@ export default defineNuxtConfig({
   },
 })
 ```
+
+If you configure only some cleanup tasks, the remaining tasks keep the daily 02:00 default. Unrelated tasks and explicitly configured multiple schedules are preserved, including tasks at the same 02:00 cron entry.
 
 **Manual Cleanup**
 
