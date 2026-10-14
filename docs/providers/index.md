@@ -9,7 +9,6 @@ Nuxt Aegis supports multiple OAuth providers out of the box, plus password-based
 - [Google](/providers/google) - Google OAuth 2.0
 - [Auth0](/providers/auth0) - Auth0 Universal Login
 - [GitHub](/providers/github) - GitHub OAuth Apps
-- [Custom Provider](/providers/custom) - Build your own
 
 ### Password Authentication
 
@@ -103,4 +102,3 @@ Event handler parameters override module configuration parameters if both are de
 - Set up [Auth0](/providers/auth0)
 - Configure [Password Authentication](/providers/password)
 - Use the [Mock Provider](/providers/mock) for testing
-- Build a [Custom Provider](/providers/custom)

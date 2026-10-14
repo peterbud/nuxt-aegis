@@ -62,7 +62,6 @@ import type {
   Auth0ProviderConfig,
   MockProviderConfig,
   PasswordProviderConfig,
-  CustomProviderConfig,
   
   // Route Protection
   NitroAegisAuth,
@@ -73,7 +72,7 @@ import type {
 Server-only types are imported separately:
 
 ```typescript
-import type { AegisHandler, UserPersistContext, OAuthProviderImplementation } from '#nuxt-aegis/server'
+import type { AegisHandler, UserPersistContext } from '#nuxt-aegis/server'
 ```
 
 ---
@@ -874,20 +873,6 @@ interface PasswordProviderConfig {
 
 ::: tip Password Provider
 See the [Password Authentication guide](/providers/password.md) for implementation details.
-:::
-
-### `CustomProviderConfig`
-
-Custom OAuth provider configuration for implementing your own provider.
-
-```typescript
-interface CustomProviderConfig extends OAuthProviderConfig {
-  name: string                       // Unique name identifier for the custom provider
-}
-```
-
-::: tip Custom Providers
-See the [Custom Provider guide](/providers/custom.md) for creating custom OAuth providers.
 :::
 
 ## Callback Types

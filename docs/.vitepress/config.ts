@@ -67,7 +67,6 @@ export default defineConfig({
           { text: 'Auth0', link: '/providers/auth0' },
           { text: 'GitHub', link: '/providers/github' },
           { text: 'Mock Provider', link: '/providers/mock' },
-          { text: 'Custom Provider', link: '/providers/custom' },
         ],
       },
       {

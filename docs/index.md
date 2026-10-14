@@ -50,9 +50,6 @@ features:
   - icon: 🍪
     title: Secure Cookie Management
     details: HTTP-only, secure cookies for refresh tokens
-  - icon: 🔌
-    title: Extensible Providers
-    details: Easy to add custom OAuth providers
   - icon: 🥽
     title: Type Safe
     details: Written in TypeScript with full type definitions

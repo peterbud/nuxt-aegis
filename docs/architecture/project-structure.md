@@ -166,44 +166,7 @@ server/providers/
 
 Password authentication is implemented by the handlers in `server/routes/password/` and supporting utilities, not by a `server/providers/password.ts` file.
 
-**OAuth Provider Implementation Structure:**
-
-```typescript
-// OAuth providers use a declarative implementation pattern
-const providerImplementation = defineOAuthProvider({
-  runtimeConfigKey: 'google', // Provider identifier
-  defaultConfig: { scopes: ['openid', 'profile', 'email'] },
-  authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenUrl: 'https://oauth2.googleapis.com/token',
-  userInfoUrl: 'https://www.googleapis.com/oauth2/v3/userinfo',
-  
-  // Extract user info from provider response
-  extractUser: (userResponse) => userResponse,
-  
-  // Build authorization URL query parameters
-  buildAuthQuery: (config, redirectUri, state) => ({
-    response_type: 'code',
-    client_id: config.clientId,
-    redirect_uri: redirectUri,
-    scope: config.scopes.join(' '),
-    state,
-  }),
-  
-  // Build token exchange body parameters
-  buildTokenBody: (config, code, redirectUri) => ({
-    code,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-    redirect_uri: redirectUri,
-    grant_type: 'authorization_code',
-  }),
-})
-
-// Create event handler using the implementation
-export function defineOAuthGoogleEventHandler(options) {
-  return defineOAuthEventHandler(providerImplementation, options)
-}
-```
+The built-in OAuth providers share the flow implemented in `oauthBase.ts`. Applications create routes using the [built-in provider event handlers](/api/event-handlers).
 
 ### Middleware (`middleware/`)
 

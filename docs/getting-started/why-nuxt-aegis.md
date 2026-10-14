@@ -81,7 +81,6 @@ Nuxt Aegis is designed for real-world applications that need database integratio
 - **Event hooks** for authentication lifecycle events (login, logout, token refresh)
 - **Custom claims** support to enrich tokens with your application's user data
 - **Database integration** hooks to persist user information in your storage
-- **Custom provider** support for any OAuth 2.0 / OpenID Connect provider
 - **Middleware extensibility** for route protection and authorization
 
 ### Integration with Your Application

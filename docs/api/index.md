@@ -19,12 +19,12 @@ In server code:
 
 ```typescript
 import { requireAuth, defineOAuthGoogleEventHandler } from '#nuxt-aegis/server'
-import type { AegisHandler, UserPersistContext, OAuthProviderImplementation } from '#nuxt-aegis/server'
+import type { AegisHandler, UserPersistContext } from '#nuxt-aegis/server'
 ```
 
-App composables and server operations remain auto-imported in their respective contexts. The built-in OAuth factories (`defineOAuthGoogleEventHandler`, `defineOAuthGithubEventHandler`, `defineOAuthAuth0EventHandler`, and `defineOAuthMockEventHandler`) are also server auto-imports. `defineOAuthProvider` and `defineOAuthEventHandler` require explicit server imports; server-only types are never globals.
+App composables and server operations remain auto-imported in their respective contexts. The built-in OAuth factories (`defineOAuthGoogleEventHandler`, `defineOAuthGithubEventHandler`, `defineOAuthAuth0EventHandler`, and `defineOAuthMockEventHandler`) are also server auto-imports; server-only types are never globals.
 
-The server entry point exports `requireAuth`, `getAuthUser`, `generateAuthTokens`, `revokeRefreshToken`, `deleteUserRefreshTokens`, `recomputeCustomClaims`, `defineAegisHandler`, `useAegisHandler`, the four built-in OAuth factories, `defineOAuthProvider`, and `defineOAuthEventHandler`. Internal provider and storage helpers are not public exports.
+Documented server operations include `requireAuth`, `getAuthUser`, `generateAuthTokens`, `revokeRefreshToken`, `deleteUserRefreshTokens`, `recomputeCustomClaims`, `defineAegisHandler`, `useAegisHandler`, and the four built-in OAuth factories.
 
 ## Client-Side API
 
