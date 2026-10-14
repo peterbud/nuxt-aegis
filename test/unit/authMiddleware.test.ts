@@ -42,7 +42,7 @@ vi.mock('../../src/runtime/server/utils/refreshToken', () => ({
 }))
 
 function createEvent(path: string) {
-  return { path, context: {} } as Parameters<typeof authMiddleware>[0]
+  return { path, context: {} } as unknown as Parameters<typeof authMiddleware>[0]
 }
 
 beforeEach(() => {
