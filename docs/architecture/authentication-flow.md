@@ -92,8 +92,6 @@ sequenceDiagram
     end
 ```
 
-Stage 4 creates the short-lived Aegis authorization CODE only. The application's refresh token is generated and stored during Stage 5, after `POST /auth/token` consumes that CODE, and its HttpOnly cookie is set on the token-exchange response. These steps run only when application refresh tokens are enabled; the Aegis refresh token is separate from any refresh token returned by the OAuth provider in Stage 3.
-
 ## Authentication Stages
 
 ### Stage 1: OAuth Initiation
@@ -154,6 +152,8 @@ See the [OAuth handler](https://github.com/peterbud/nuxt-aegis/blob/main/src/run
 ### Stage 5: JWT Token Exchange
 
 The module's `AuthCallback.vue` page handles `/auth/callback`. Its `onMounted` handler reads the Aegis code from the URL and exchanges it via `POST /auth/token`. You do not need to implement a callback plugin, sign a JWT, or manage the refresh cookie in application code.
+
+The application's refresh token is generated and stored during Stage 5, after `POST /auth/token` consumes the Aegis authorization CODE from stage 4, and its HttpOnly cookie is set on the token-exchange response. These steps run only when application refresh tokens are enabled; the Aegis refresh token is separate from any refresh token returned by the OAuth provider in Stage 3.
 
 **Code-Exchange Request Contract**
 
