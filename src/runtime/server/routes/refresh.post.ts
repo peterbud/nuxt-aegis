@@ -12,7 +12,7 @@ import {
   getRefreshTokenData,
   revokeRefreshToken,
 } from '../utils/refreshToken'
-import { setRefreshTokenCookie } from '../utils/cookies'
+import { clearToken, setRefreshTokenCookie } from '../utils/cookies'
 import type { RefreshResponse, TokenConfig, CookieConfig, BaseTokenClaims, TokenRefreshConfig } from '../../types'
 import { createLogger } from '../utils/logger'
 
@@ -30,10 +30,11 @@ export default defineEventHandler(async (event) => {
   const tokenRefreshConfig = config.nuxtAegis?.tokenRefresh as TokenRefreshConfig
 
   if (!tokenConfig || !tokenConfig.secret) {
+    logger.error('Refresh failed: token configuration is missing')
     throw createError({
       status: 500,
       statusText: 'Internal Server Error',
-      message: 'Token configuration is missing',
+      message: 'Token refresh failed',
     })
   }
 
@@ -42,14 +43,16 @@ export default defineEventHandler(async (event) => {
   const refreshToken = getCookie(event, cookieName)
 
   if (!refreshToken) {
+    clearToken(event, cookieConfig)
     // EP-29: Return 401 when no token provided
     throw createError({
       status: 401,
       statusText: 'Unauthorized',
-      message: 'No refresh token found',
+      message: 'Invalid or expired session',
     })
   }
 
+  let rejection: unknown
   try {
     // Check if current session is impersonated (from Authorization header if present)
     // Impersonated sessions cannot be refreshed - user must call unimpersonate
@@ -59,11 +62,12 @@ export default defineEventHandler(async (event) => {
       const currentToken = await verifyToken(token, tokenConfig.secret, false) // Don't check expiration
 
       if (currentToken?.impersonation) {
-        throw createError({
+        rejection = createError({
           status: 403,
           statusText: 'Forbidden',
           message: 'Cannot refresh impersonated session. Please call unimpersonate to restore your original session.',
         })
+        throw rejection
       }
     }
 
@@ -75,15 +79,17 @@ export default defineEventHandler(async (event) => {
 
     // Validate token exists, not revoked, and not expired
     const isRevoked = storedRefreshToken?.isRevoked || false
-    const isExpired = storedRefreshToken?.expiresAt ? (Date.now() > storedRefreshToken.expiresAt) : true
+    const isExpired = storedRefreshToken?.expiresAt ? (Date.now() >= storedRefreshToken.expiresAt) : true
 
     if (!storedRefreshToken || isRevoked || isExpired) {
+      clearToken(event, cookieConfig)
       // EP-29: Return 401 when token is invalid, revoked, or expired
-      throw createError({
+      rejection = createError({
         status: 401,
         statusText: 'Unauthorized',
-        message: 'Invalid or expired refresh token',
+        message: 'Invalid or expired session',
       })
+      throw rejection
     }
 
     // EP-28b: Extract user object and custom claims from stored data
@@ -121,13 +127,13 @@ export default defineEventHandler(async (event) => {
         customClaims, // Preserve custom claims in new refresh token
       )
 
+      // Revoke the old refresh token
+      await revokeRefreshToken(hashedRefreshToken)
+
       // Set new refresh token cookie
       if (newRefreshToken) {
         setRefreshTokenCookie(event, newRefreshToken, cookieConfig)
       }
-
-      // Revoke the old refresh token
-      await revokeRefreshToken(hashedRefreshToken)
     }
     else {
       // Reuse existing refresh token - re-set cookie to ensure it doesn't expire in browser
@@ -141,11 +147,17 @@ export default defineEventHandler(async (event) => {
       accessToken: newToken,
     } as RefreshResponse
   }
-  catch {
-    // EP-21: Return 401 for any refresh errors
+  catch (error) {
+    if (rejection && error === rejection) {
+      throw error
+    }
+    const status = error && typeof error === 'object'
+      ? ('statusCode' in error ? error.statusCode : 'status' in error ? error.status : undefined)
+      : undefined
+    logger.error('Unexpected token refresh failure')
     throw createError({
-      status: 401,
-      statusText: 'Unauthorized',
+      status: typeof status === 'number' && status >= 500 && status <= 599 ? status : 500,
+      statusText: 'Internal Server Error',
       message: 'Token refresh failed',
     })
   }

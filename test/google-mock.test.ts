@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
-import { setup, $fetch, url as getUrl } from '@nuxt/test-utils/e2e'
+import { setup, $fetch, createPage, url as getUrl } from '@nuxt/test-utils/e2e'
 import {
   fetchOAuthCallback,
   extractCodeFromUrl,
@@ -23,12 +23,58 @@ import {
  *
  * What We're NOT Testing:
  * - Real Google OAuth (we use mocks)
- * - Browser interactions (we use direct HTTP requests)
  */
 describe('Aegis Module - Mock Google OAuth', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('./fixtures/google-mock', import.meta.url)),
     dev: true,
+  })
+
+  it('exposes a transient refresh failure through useAegisFetch and recovers on explicit retry', async () => {
+    const page = await createPage()
+    let armed = false
+    const refreshStatuses: number[] = []
+    let apiCalls = 0
+    const payload = Buffer.from(JSON.stringify({ sub: 'existing-user', email: 'test@example.com' })).toString('base64url')
+    const accessToken = `e30.${payload}.signature`
+    try {
+      await page.route('**/auth/refresh', async (route) => {
+        const status = !armed ? 401 : refreshStatuses.length === 1 ? 503 : 200
+        if (armed) {
+          refreshStatuses.push(status)
+        }
+        await route.fulfill({ status, json: status === 200 ? { accessToken } : {} })
+      })
+      await page.route('**/api/aegis-fetch*', async (route) => {
+        const status = armed && ++apiCalls === 1 ? 401 : 200
+        await route.fulfill({ status, json: { email: 'test@example.com', label: 'recovered', requestId: 'test' } })
+      })
+      await page.goto(getUrl('/aegis-fetch'), { waitUntil: 'hydration' })
+      await page.waitForFunction(() => document.querySelector('#mounted')?.textContent?.trim() === 'true')
+      armed = true
+
+      await page.locator('#execute').click()
+      await page.waitForFunction(() => document.querySelector('#deferred-error')?.textContent?.trim() === '503')
+      expect(await page.locator('#auth-error').textContent()).toContain('server_error')
+      expect(await page.locator('#auth-status').textContent()).toContain('authenticated')
+      expect(await page.locator('#auth-user').textContent()).toContain('existing-user')
+      expect(page.url()).toBe(getUrl('/aegis-fetch'))
+      expect(refreshStatuses).toEqual([200, 503])
+      expect(apiCalls).toBe(1)
+
+      await page.locator('#execute').click()
+      await page.waitForFunction(() => document.querySelector('#deferred-email')?.textContent?.trim() === 'test@example.com')
+      expect(await page.locator('#deferred-error').textContent()).toBe('')
+      expect(await page.locator('#auth-error').textContent()).toBe('')
+      expect(await page.locator('#auth-status').textContent()).toContain('authenticated')
+      expect(await page.locator('#auth-user').textContent()).toContain('existing-user')
+      expect(page.url()).toBe(getUrl('/aegis-fetch'))
+      expect(refreshStatuses).toEqual([200, 503, 200])
+      expect(apiCalls).toBe(2)
+    }
+    finally {
+      await page.close()
+    }
   })
 
   describe('OAuth Flow - Happy Path', () => {

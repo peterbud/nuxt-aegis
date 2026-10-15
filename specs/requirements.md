@@ -266,7 +266,7 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CL-2:** WHERE the authentication composable is used, the module SHALL provide a reactive `isLoggedIn` property indicating whether a user is logged in.
 
-**CL-3:** WHERE the authentication composable is used, the module SHALL provide a reactive `isLoading` property indicating the authentication state is being initialized.
+**CL-3:** WHERE the authentication composable is used, the module SHALL provide a reactive `isLoading` property indicating an active auth operation, and SHALL reset it when the operation succeeds or fails.
 
 **CL-4:** WHERE the authentication composable is used, the module SHALL provide a reactive `user` property containing the current user's data.
 
@@ -314,6 +314,18 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **CL-20:** WHEN the application needs to restore authentication state after a refresh, the module SHALL use the refresh token cookie to obtain a new access token.
 
+**CL-20a:** WHERE the authentication composable is used, the module SHALL expose `authStatus` as `unknown`, `authenticated`, or `guest`, and `error` as `AuthError | null` with a discriminating `category`, consumer-facing `message`, and HTTP status where applicable.
+
+**CL-20b:** WHEN initial resolution receives refresh 401 without a known identity, the module SHALL resolve to guest without a public error or error-level log. WHEN an established session receives refresh 401, the module SHALL clear its user and access token and expose `session_expired`.
+
+**CL-20c:** WHEN refresh fails due to a network error, 5xx, or 403, the module SHALL preserve existing identity and status, or retain unknown status without a verified identity, and SHALL expose `network_error`, `server_error`, or `forbidden` respectively without extending token validity.
+
+**CL-20d:** WHEN `ensureResolved()` cannot verify an unknown session due to a non-session failure, the method SHALL reject and permit a later retry. WHEN `refresh()` fails, it SHALL reject. Concurrent callers SHALL share in-flight work, and shared promises SHALL settle and reset on every outcome.
+
+**CL-20e:** WHEN a new refresh attempt begins or recovery succeeds, the module SHALL clear stale auth errors. WHEN a preliminary claims update fails, the module SHALL expose `operation_error` with `operation: 'update_claims'` without treating its 401 as refresh-session rejection.
+
+**CL-20f:** WHEN startup resolution fails, the startup caller SHALL contain the rejection without fabricating guest state or discarding a server-verified identity. The module SHALL NOT start a background retry loop.
+
 ### 6.7 Authentication Callback Handling
 
 **CL-21:** The module SHALL provide a callback handler at `/auth/callback` to receive the authorization CODE from provider endpoints.
@@ -347,6 +359,10 @@ This document specifies the functional and non-functional requirements for a Nux
 **CL-34:** The `auth-logged-out` middleware SHALL NOT check `publicRoutes` and SHALL only use the `loggedOutRedirectTo` configuration for redirection.
 
 **CL-35:** Client-side middleware SHALL NOT enforce security and SHALL be considered a user experience enhancement complementary to server-side Nitro route rules.
+
+**CL-35a:** WHERE global client protection is enabled, the middleware SHALL check public-route exemptions before resolving auth. WHEN a protected route's resolution fails with unknown status, middleware SHALL block navigation and propagate the failure; confirmed guests SHALL receive the configured sign-in redirect.
+
+**CL-35b:** WHEN logged-out-only middleware encounters an unresolved session after resolution failure, it SHALL allow navigation while retaining unknown status and the error. Authenticated users SHALL receive the configured logged-out redirect; confirmed guests SHALL be allowed.
 
 ## 7.Storage Requirements
 
@@ -544,13 +560,23 @@ This document specifies the functional and non-functional requirements for a Nux
 
 **EP-29:** WHEN a refresh token is invalid or expired, the refresh endpoint SHALL return a 401 Unauthorized response.
 
+**EP-29a:** WHEN the refresh token is missing, unknown, revoked, or expired, the refresh endpoint SHALL return 401 with a generic invalid-session message and clear the refresh cookie.
+
+**EP-29b:** WHEN refresh is prohibited, including for an impersonated session, the endpoint SHALL return 403 without invalidating the original session cookie solely for that operation.
+
+**EP-29c:** WHEN configuration, storage, token generation, or another unexpected operation fails, the refresh endpoint SHALL return an appropriate 5xx without clearing the refresh cookie or exposing internal details. It SHALL log unexpected failures without secrets and SHALL NOT log expected missing sessions as application errors.
+
 **EP-30:** WHEN a new access token is generated via refresh, the module SHALL optionally rotate the refresh token and set a new refresh token cookie.
 
 **EP-31:** WHERE `automaticRefresh` is configured, the module SHALL automatically attempt to refresh the access token when authentication state is initialized.
 
 **EP-32:** WHEN automatic refresh is triggered, the module SHALL ensure only one refresh request is in-flight at a time to prevent overwhelming the endpoint.
 
-**EP-33:** WHERE an API request receives a 401 Unauthorized response AND a refresh token cookie exists, the module SHALL attempt to refresh the token once and retry the original request before failing.
+**EP-33:** WHERE automatic refresh is enabled and a client API request receives 401, the module SHALL attempt refresh at most once and replay the original request at most once, preserving method and body, only after success supplies a token. A replayed 401 SHALL propagate without another refresh or automatic session invalidation.
+
+**EP-33a:** WHEN refresh definitively rejects the session, the API client SHALL retain the configured error redirect with `token_refresh_failed`. WHEN refresh fails otherwise, it SHALL propagate that refresh failure without redirect or unauthorized replay. These rules SHALL apply to `$api` and `useAegisFetch`, including when extra retries are requested.
+
+**EP-33b:** WHEN concurrent API callers require refresh, they SHALL share the attempt and SHALL NOT trigger duplicate session-rejection redirects. The API interceptor SHALL delegate auth-state transitions and classification to `useAuth()`.
 
 **EP-34:** The module SHALL provide a manual `refresh()` method in the `useAuth()` composable for developer-initiated token refresh.
 

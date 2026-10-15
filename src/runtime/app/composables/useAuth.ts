@@ -1,6 +1,6 @@
 import type { ComputedRef } from 'vue'
 import { useRuntimeConfig, navigateTo, useState, computed } from '#imports'
-import type { AuthStatus, BaseTokenClaims } from '../../types'
+import type { AuthError, AuthStatus, BaseTokenClaims } from '../../types'
 import { clearAccessToken, setAccessToken, getAccessToken } from '../utils/tokenStore'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
@@ -9,6 +9,18 @@ import { filterTimeSensitiveClaims } from '../utils/tokenUtils'
 const logger = createLogger('Auth')
 let initialResolutionPromise: Promise<void> | null = null
 let refreshPromise: Promise<void> | null = null
+
+function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') {
+    return undefined
+  }
+  const failure = error as { statusCode?: number, status?: number, response?: { status?: number } }
+  return failure.response?.status ?? failure.statusCode ?? failure.status
+}
+
+function operationError(error: unknown, operation: Extract<AuthError, { category: 'operation_error' }>['operation'], message: string): AuthError {
+  return { category: 'operation_error', operation, message, status: getErrorStatus(error) }
+}
 
 function decodeAccessToken(accessToken: string): BaseTokenClaims {
   const tokenParts = accessToken.split('.')
@@ -30,8 +42,8 @@ interface AuthState {
   authStatus: AuthStatus
   /** Loading state indicator */
   isLoading: boolean
-  /** Error message if authentication fails */
-  error: string | null
+  /** Error details if authentication fails */
+  error: AuthError | null
 }
 
 /**
@@ -50,7 +62,7 @@ interface UseAuthReturn<T extends BaseTokenClaims = BaseTokenClaims> {
   /** Reactive property containing the current user's data */
   user: ComputedRef<T | null>
   /** Error state for authentication operations */
-  error: ComputedRef<string | null>
+  error: ComputedRef<AuthError | null>
   /** Reactive property indicating if currently impersonating another user */
   isImpersonating: ComputedRef<boolean>
   /** Reactive property containing original user data when impersonating */
@@ -133,21 +145,25 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     authState.value.error = null
   }
 
-  function setGuestState(error: string | null = null): void {
+  function setGuestState(error: AuthError | null = null): void {
     authState.value.user = null
     authState.value.authStatus = 'guest'
     authState.value.error = error
   }
 
   function applyAccessToken(accessToken: string): void {
+    const user = decodeAccessToken(accessToken)
     setAccessToken(accessToken)
-    setAuthenticatedState(decodeAccessToken(accessToken))
+    setAuthenticatedState(user)
   }
 
   async function performRefresh(
     options?: { updateClaims?: boolean },
     settings?: { silentFailure?: boolean },
   ): Promise<void> {
+    const isStartup = authState.value.authStatus === 'unknown' && !authState.value.user
+    let updatingClaims = !!options?.updateClaims
+    let receivedResponse = false
     authState.value.isLoading = true
     authState.value.error = null
 
@@ -162,9 +178,11 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
         logger.debug('Claims updated successfully in storage')
       }
 
+      updatingClaims = false
       const response = await $fetch<{ accessToken: string }>(`${refreshPath}`, {
         method: 'POST',
       })
+      receivedResponse = true
 
       if (response?.accessToken) {
         applyAccessToken(response.accessToken)
@@ -172,14 +190,41 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
         return
       }
 
-      clearAccessToken()
-      setGuestState()
+      throw new Error('Invalid token refresh response')
     }
     catch (error: unknown) {
-      clearAccessToken()
-      setGuestState(settings?.silentFailure ? null : 'Failed to refresh authentication')
+      const status = getErrorStatus(error)
+      let failure: AuthError
+      if (updatingClaims) {
+        failure = operationError(error, 'update_claims', 'Failed to update claims')
+      }
+      else if (status === 401) {
+        failure = { category: 'session_expired', message: 'Session expired or invalid', status }
+      }
+      else if (status === 403) {
+        failure = { category: 'forbidden', message: 'Token refresh is forbidden', status }
+      }
+      else if (receivedResponse || (status !== undefined && status >= 500)) {
+        failure = { category: 'server_error', message: 'Token refresh failed', status }
+      }
+      else if (status === undefined) {
+        failure = { category: 'network_error', message: 'Unable to reach the authentication server' }
+      }
+      else {
+        failure = operationError(error, 'refresh', 'Failed to refresh authentication')
+      }
 
-      logger.error('Auth refresh failed:', error)
+      if (failure.category === 'session_expired') {
+        clearAccessToken()
+        setGuestState(settings?.silentFailure && isStartup ? null : failure)
+      }
+      else {
+        authState.value.error = failure
+      }
+
+      if (failure.category !== 'session_expired') {
+        logger.error('Auth refresh failed:', failure)
+      }
       throw error
     }
     finally {
@@ -281,13 +326,11 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     try {
       await queueRefresh(undefined, { silentFailure: true })
     }
-    catch {
-      logger.debug('Initial auth resolution determined user is a guest')
-    }
-    finally {
-      if (authState.value.authStatus === 'unknown') {
-        setGuestState()
+    catch (error) {
+      if (authState.value.authStatus !== 'guest' || authState.value.error) {
+        throw error
       }
+      logger.debug('Initial auth resolution determined user is a guest')
     }
   }
 
@@ -344,7 +387,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
       await navigateTo(loginUrl, { external: true })
     }
     catch (error) {
-      authState.value.error = 'Failed to initiate login'
+      authState.value.error = operationError(error, 'login', 'Failed to initiate login')
       logger.error('Login error:', error)
       throw error
     }
@@ -368,7 +411,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     }
     catch (error) {
       // Clear state even if API call fails
-      setGuestState('Logout completed with errors')
+      setGuestState(operationError(error, 'logout', 'Logout completed with errors'))
       logger.error('Logout error:', error)
     }
     finally {
@@ -432,7 +475,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     }
     catch (error: unknown) {
       const err = error as { statusCode?: number, message?: string, data?: { message?: string } }
-      authState.value.error = err.data?.message || err.message || 'Failed to start impersonation'
+      authState.value.error = operationError(error, 'impersonate', err.data?.message || err.message || 'Failed to start impersonation')
       logger.error('Impersonation failed:', error)
       throw error
     }
@@ -482,7 +525,7 @@ export function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): UseAuthR
     }
     catch (error: unknown) {
       const err = error as { statusCode?: number, message?: string, data?: { message?: string } }
-      authState.value.error = err.data?.message || err.message || 'Failed to stop impersonation'
+      authState.value.error = operationError(error, 'stop_impersonation', err.data?.message || err.message || 'Failed to stop impersonation')
       logger.error('Stop impersonation failed:', error)
       throw error
     }

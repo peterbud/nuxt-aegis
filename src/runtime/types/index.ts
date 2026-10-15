@@ -9,6 +9,7 @@ export type { } from './augmentation'
 // Auth state types
 export type {
   AuthStatus,
+  AuthError,
 } from './auth'
 
 // Token types

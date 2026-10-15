@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const auth = useAuth()
 const first = await useAegisFetch('/api/aegis-fetch')
 const second = await useAegisFetch('/api/aegis-fetch')
 const sharedFirst = await useAegisFetch('/api/aegis-fetch', { key: 'aegis-shared' })
@@ -19,7 +20,7 @@ onMounted(
 )
 
 async function fetchDeferred() {
-  await useAuth().refresh()
+  await auth.refresh()
   await deferred.execute()
 }
 </script>
@@ -55,6 +56,18 @@ async function fetchDeferred() {
     </div>
     <div id="deferred-email">
       {{ deferred.data.value?.email }}
+    </div>
+    <div id="deferred-error">
+      {{ deferred.error.value?.statusCode }}
+    </div>
+    <div id="auth-status">
+      {{ auth.authStatus.value }}
+    </div>
+    <div id="auth-user">
+      {{ auth.user.value?.sub }}
+    </div>
+    <div id="auth-error">
+      {{ auth.error.value?.category }}
     </div>
     <button
       id="execute"

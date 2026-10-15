@@ -28,7 +28,14 @@ export default defineNuxtRouteMiddleware(async () => {
     return
   }
 
-  await auth.ensureResolved()
+  try {
+    await auth.ensureResolved()
+  }
+  catch (error) {
+    if (auth.authStatus.value !== 'unknown' || !auth.error.value) {
+      throw error
+    }
+  }
 
   // Redirect to configured destination if authenticated
   if (auth.authStatus.value === 'authenticated') {

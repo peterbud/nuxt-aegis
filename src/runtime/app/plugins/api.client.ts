@@ -1,6 +1,6 @@
-import { defineNuxtPlugin, navigateTo, useRuntimeConfig } from '#app'
+import { defineNuxtPlugin, navigateTo } from '#app'
 import { useAuth } from '../composables/useAuth'
-import { getAccessToken, clearAccessToken } from '../utils/tokenStore'
+import { getAccessToken } from '../utils/tokenStore'
 import { isRouteMatch } from '../utils/routeMatching'
 import { createLogger } from '../utils/logger'
 import { validateRedirectPath } from '../utils/redirectValidation'
@@ -16,21 +16,36 @@ export default defineNuxtPlugin({
   name: 'nuxt-aegis-api-client',
   async setup(nuxtApp): Promise<{ provide: { api: typeof $fetch } }> {
     const autoRefreshEnabled = nuxtApp.$config.public.nuxtAegis.tokenRefresh.automaticRefresh ?? true
+    const refreshAttempted = Symbol('aegis-refresh-attempted')
+    let refreshPromise: Promise<string> | null = null
 
-    async function attemptTokenRefresh(): Promise<string | null> {
+    function attemptTokenRefresh(): Promise<string> {
+      if (refreshPromise) {
+        return refreshPromise
+      }
       logger.debug('Attempting token refresh...')
 
-      return nuxtApp.runWithContext(async () => {
+      refreshPromise = nuxtApp.runWithContext(async () => {
         const auth = useAuth()
         try {
           await auth.refresh()
-          return getAccessToken()
+          const token = getAccessToken()
+          if (!token) {
+            throw new Error('Token refresh did not provide an access token')
+          }
+          return token
         }
         catch (error) {
-          logger.error('Token refresh failed:', error)
-          return null
+          if (auth.error.value?.category === 'session_expired') {
+            const errorUrl = validateRedirectPath(nuxtApp.$config.public.nuxtAegis.redirect?.error || '/')
+            await nuxtApp.runWithContext(() => navigateTo(`${errorUrl}?error=token_refresh_failed&error_description=${encodeURIComponent('Session expired. Please log in again.')}`))
+          }
+          throw error
         }
+      }).finally(() => {
+        refreshPromise = null
       })
+      return refreshPromise
     }
 
     // CL-17, CL-18: Attach in-memory access token to API requests
@@ -44,24 +59,19 @@ export default defineNuxtPlugin({
         }
       },
       async onResponseError({ options, response }) {
-        if (response.status === 401 && autoRefreshEnabled) {
-          // Attempt token refresh
-          const newToken = await attemptTokenRefresh()
-
-          if (newToken) {
-            options.headers.set('Authorization', `Bearer ${newToken}`)
-            // Retry the request by re-throwing with retry
-            // ofetch will handle the retry automatically
-            return
-          }
-
-          // Refresh failed, clear token and redirect to configured error URL
-          // CL-19: Clear token from memory, not sessionStorage
-          clearAccessToken()
-          const config = useRuntimeConfig()
-          const errorUrl = validateRedirectPath(config.public.nuxtAegis.redirect?.error || '/')
-          await nuxtApp.runWithContext(() => navigateTo(`${errorUrl}?error=token_refresh_failed&error_description=${encodeURIComponent('Session expired. Please log in again.')}`))
+        if (response.status !== 401) {
+          return
         }
+        options.retry = 0
+        const requestOptions = options as typeof options & { [refreshAttempted]?: boolean }
+        if (!autoRefreshEnabled || requestOptions[refreshAttempted]) {
+          return
+        }
+        requestOptions[refreshAttempted] = true
+        const newToken = await attemptTokenRefresh()
+        options.headers.set('Authorization', `Bearer ${newToken}`)
+        options.retry = 1
+        options.retryStatusCodes = [401]
       },
       retry: autoRefreshEnabled ? 1 : 0,
       retryStatusCodes: [401],
@@ -113,8 +123,7 @@ export default defineNuxtPlugin({
             await useAuth().ensureResolved()
           }
           catch {
-            // Silent failure - user is just not authenticated
-            logger.debug('No valid refresh token found on startup')
+            logger.debug('Auth state remains unresolved after startup; resolution can be retried')
           }
         })
       })

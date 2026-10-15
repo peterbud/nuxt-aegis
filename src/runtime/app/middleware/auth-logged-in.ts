@@ -25,8 +25,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  await auth.ensureResolved()
-
   // Only check publicRoutes if middleware is registered globally
   // When used per-page via definePageMeta, the developer explicitly chooses
   // which pages to protect, so publicRoutes check is redundant
@@ -38,6 +36,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return
     }
   }
+
+  await auth.ensureResolved()
 
   // Redirect to login if not authenticated
   if (auth.authStatus.value === 'guest') {
