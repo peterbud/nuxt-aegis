@@ -63,6 +63,8 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   // Server-side route protection via Nuxt route rules
   routeRules: {
+    '/ssr': { ssr: true },
+    '/**': { ssr: false },
     // Protect all API routes (server-side)
     '/api/**': { nuxtAegis: { auth: true } },
     // Public API routes override
@@ -118,7 +120,7 @@ export default defineNuxtConfig({
     clientMiddleware: {
       enabled: true,
       global: false, // Don't protect all pages by default
-      redirectTo: '/login',
+      redirectTo: '/sign-in',
       loggedOutRedirectTo: '/',
     },
   },
