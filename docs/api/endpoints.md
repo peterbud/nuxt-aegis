@@ -125,7 +125,7 @@ const { token } = await $fetch('/auth/token', {
 
 ### POST `/auth/refresh`
 
-Refresh expired access token using refresh token cookie.
+Obtain a new access token using the refresh token cookie.
 
 **Request:**
 
@@ -139,8 +139,9 @@ Cookie: nuxt-aegis-refresh=refresh_token_value
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 3600
+  "success": true,
+  "message": "Token refreshed successfully",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
@@ -149,14 +150,22 @@ Cookie: nuxt-aegis-refresh=refresh_token_value
 ```json
 {
   "statusCode": 401,
-  "message": "Invalid or expired refresh token"
+  "message": "Invalid or expired session"
 }
 ```
+
+| Status | Meaning | Refresh cookie |
+|---|---|---|
+| `401` | Missing, unknown, expired, or revoked refresh token | Cleared |
+| `403` | Refresh prohibited, including an impersonated session | Retained |
+| `5xx` | Configuration, storage, token generation, or other unexpected failure | Not cleared |
+
+Invalid-session responses use `Invalid or expired session`; unexpected failures use `Token refresh failed` without internal details. Expected missing-session requests are not logged as application errors. A 403 alone does not invalidate the original session.
 
 **Example:**
 
 ```typescript
-const { token } = await $fetch('/auth/refresh', {
+const { accessToken } = await $fetch('/auth/refresh', {
   method: 'POST'
   // Refresh token cookie sent automatically
 })
@@ -324,6 +333,9 @@ All endpoints return standard HTTP error codes:
 | `401` | Unauthorized (invalid/expired token) |
 | `403` | Forbidden (insufficient permissions) |
 | `500` | Internal Server Error |
+| `503` | Service Unavailable |
+
+For `/auth/refresh`, only 401 confirms an invalid session and clears its cookie. Network failures and 5xx do not establish that the session is invalid; 403 rejects the operation, not necessarily the session. See [client failure handling](/api/composables#error).
 
 **Error Response Format:**
 
@@ -369,7 +381,7 @@ const { token } = await $fetch('/auth/token', {
 })
 
 // Refresh
-const { token } = await $fetch('/auth/refresh', {
+const { accessToken } = await $fetch('/auth/refresh', {
   method: 'POST'
 })
 
@@ -381,7 +393,7 @@ await $fetch('/auth/logout', {
 // Get user
 const user = await $fetch('/api/user/me', {
   headers: {
-    Authorization: `Bearer ${token}`
+    Authorization: `Bearer ${accessToken}`
   }
 })
 ```

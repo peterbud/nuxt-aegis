@@ -25,11 +25,11 @@ Nuxt Aegis provides full Server-Side Rendering (SSR) support with **authenticate
    - `event.context.user` is populated for middleware and server routes
 
 2. **Client-Side Hydration (After SSR)**
-   - Client calls `/auth/refresh` to get its own long-lived access token (1 hour by default)
-   - Refresh token is rotated by the client (not during SSR)
-   - Client token is used for all subsequent requests
-   - `$api` automatically uses the client token for subsequent calls
-   - Authentication state becomes reactive
+  - Server-verified user state is available through hydration; access tokens are not included in that state
+  - Eligible startup resolution restores unknown sessions; already-resolved identity is left intact
+  - A client API 401 can trigger refresh to obtain an in-memory access token
+  - Successful client refresh applies the configured rotation policy (never rotated during SSR)
+  - A transient client refresh failure preserves server-verified identity without renewing a token
 
 3. **Security**
    - SSR tokens are never sent to the client (stay in `event.context`)
@@ -190,7 +190,7 @@ const { data: items, pending, error } = await useAsyncData('dashboard-items',
 **How it works:**
 - **During SSR:** `$api` uses the short-lived SSR token from `event.context`
 - **On client:** `$api` uses the long-lived access token from memory
-- **Automatic refresh:** If client token expires, `$api` refreshes and retries automatically
+- **Automatic refresh:** A client API 401 triggers one refresh attempt; only success permits one replay
 
 If you want to skip SSR and fetch only on the client:
 
@@ -268,23 +268,26 @@ const { user } = useAuth()
 </script>
 ```
 
-### 5. Handling Loading States
+### 5. Handling Loading and Resolution Failures
 
-Even with authenticated SSR, you may want to show loading states for better UX during client-side navigation:
+Loading and unresolved auth are separate. Without a verified identity, network/5xx or forbidden startup failures leave status unknown and expose an error, not guest state. Startup catches these failures so public content can render; protected-route middleware still propagates resolution failures and blocks navigation.
 
 ```vue
 <template>
   <div>
     <p v-if="isLoading">Loading...</p>
     <p v-else-if="user">Hello, {{ user.name }}!</p>
+    <p v-else-if="authStatus === 'unknown'">{{ error?.message || 'Session not checked' }}</p>
     <p v-else>Please log in</p>
   </div>
 </template>
 
 <script setup>
-const { user, isLoading } = useAuth()
+const { user, isLoading, authStatus, error } = useAuth()
 </script>
 ```
+
+Retry unknown state with `ensureResolved()` and an established session with `refresh()`, handling rejection in either case. Refresh 401 clears auth; other refresh failures preserve existing identity. Preserved identity does not make an expired token valid or turn a failed API call into success. See [client retry handling](/guides/client-auth#ensureresolved).
 
 ## Security
 
@@ -301,13 +304,13 @@ Nuxt Aegis SSR implementation maintains strong security:
 ### Advantages
 - 🔒 **Secure**: No token exposure in HTML
 - 🚀 **Simple**: Minimal configuration required
-- ⚡ **Fast SSR**: No authentication latency during server rendering
+- **Authenticated first render**: Verified identity can be rendered on the server
 - 🔄 **Reactive**: Authentication state updates automatically
 
 ### Considerations
-- ⏱️ **~200-500ms delay**: Authentication state available after hydration and token refresh
-- 📱 **Loading states**: Components should handle loading period gracefully
-- 🔄 **Client-side data**: Authenticated API calls happen after hydration
+- **Identity and tokens differ**: Hydrated identity does not include a usable client access token
+- **Resolution failures**: Unknown-with-error is distinct from loading and guest
+- **Client recovery**: Explicit retry may be needed after transient failures; there is no background retry loop
 
 ## Disabling SSR or Authenticated SSR
 

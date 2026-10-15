@@ -89,10 +89,12 @@ stateDiagram-v2
     Generated --> Active: Client stores token
     Active --> Used: API requests with token
     Used --> Active: Success (200)
-    Used --> Expired: 401 response
-    Expired --> Refreshing: Intercept & refresh
+    Used --> Rejected: API 401 response
+    Rejected --> Refreshing: Attempt refresh
     Refreshing --> Generated: New token issued
-    Refreshing --> Failed: Refresh token invalid
+    Refreshing --> Failed: Refresh 401
+    Refreshing --> Unverified: Network failure or refresh 5xx/403
+    Unverified --> Refreshing: Explicit retry
     Failed --> [*]: Re-authentication required
     
     note right of Generated
@@ -106,10 +108,9 @@ stateDiagram-v2
         Server validates on each request
     end note
     
-    note right of Expired
-        Server returns 401
-        Client intercepts & refreshes
-        Original request retried
+    note right of Unverified
+      Existing identity preserved
+      No token renewal or request replay
     end note
 ```
 
@@ -156,7 +157,7 @@ sequenceDiagram
     Server-->>Client: 401 Unauthorized
     
     Note over Client,APIPlugin: Interceptor catches 401
-    APIPlugin->>APIPlugin: Detect token expired
+    APIPlugin->>APIPlugin: API request rejected; session not yet determined
     APIPlugin->>Server: POST /auth/refresh
     Note over APIPlugin,Server: Refresh token cookie sent automatically
     
@@ -170,16 +171,24 @@ sequenceDiagram
       Server-->>APIPlugin: { success: true, message, accessToken: NEW_JWT }
         APIPlugin->>APIPlugin: Update stored token
         APIPlugin->>Server: Retry original request
-        Server-->>Client: Success response
+        Server-->>Client: API response; propagate a replayed 401
     else Token Invalid/Expired
         Storage-->>Server: Token not found
-        Server-->>APIPlugin: 401 Unauthorized
+        Server-->>APIPlugin: 401 Unauthorized; clear refresh cookie
         APIPlugin->>APIPlugin: Clear auth state
         APIPlugin-->>Client: Redirect to error page
+      else Verification unavailable or refresh prohibited
+        Server-->>APIPlugin: 5xx or 403; cookie not cleared
+        APIPlugin->>APIPlugin: Preserve identity; record structured error
+        APIPlugin-->>Client: Reject with refresh failure; no replay or redirect
     end
 ```
 
 Ordinary refresh (`POST /auth/refresh` or `useAuth().refresh()`) reuses the provider profile and custom claims already stored in the refresh-token record. It does not fetch a fresh provider profile, reload application user data, or rerun `onUserPersist` or `customClaims` callbacks. Roles and permissions can therefore remain stale even after a new JWT is issued.
+
+An API 401 rejects that request, not necessarily the refresh session. The client shares one refresh attempt and replays at most once after success. A failed refresh never extends access-token validity or authorizes the failed request.
+
+At startup, `ensureResolved()` treats refresh 401 as a quiet guest result. Network, 5xx, and forbidden failures reject while status remains unknown. Established identity, including server-verified identity carried through hydration, is preserved on those failures. Consumers can explicitly retry; there is no background retry loop.
 
 Use `refresh({ updateClaims: true })` to request explicit claims recomputation via `/auth/update-claims` before refreshing the token. See [Updating JWT Claims](/guides/updating-claims) for configuration and handler requirements.
 
@@ -249,6 +258,8 @@ The module generates and stores refresh tokens automatically; applications do no
 - **Rotation disabled:** Reuse the existing refresh token and re-set its cookie with the configured `maxAge`. This renews the browser cookie lifetime but does not update the stored record or extend its `expiresAt`. Once the stored expiration is reached, refresh fails even if the browser still holds the cookie.
 
 New refresh-token records expire after `tokenRefresh.cookie.maxAge` seconds from creation (default: 604800 seconds, or 7 days). A successful refresh returns `{ success: true, message: 'Token refreshed successfully', accessToken }`.
+
+Missing, unknown, revoked, or expired refresh tokens return 401 and clear the cookie. Prohibited operations return 403 without invalidating the original cookie; unexpected failures return 5xx without clearing it. Inability to verify is not session invalidation.
 
 **Revocation (Logout)**
 

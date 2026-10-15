@@ -286,11 +286,12 @@ definePageMeta({
 
 ### `auth-logged-in` Middleware
 
-Redirects unauthenticated users to the configured `redirectTo` destination.
+Redirects confirmed guests to the configured `redirectTo` destination. Authenticated users continue; unresolved sessions do not pass through.
 
 **Behavior:**
-- When `global: true`: Runs on all routes, checks `publicRoutes` to skip protection
+- When `global: true`: Checks `publicRoutes` before attempting auth resolution
 - When `global: false`: Only runs on pages with `definePageMeta({ middleware: ['auth-logged-in'] })`
+- Awaits `ensureResolved()` on protected routes; a resolution failure propagates and blocks navigation, leaving unknown status and the structured error intact
 
 ### `auth-logged-out` Middleware
 
@@ -300,6 +301,7 @@ Redirects authenticated users away from pages that should only be accessible whe
 - Always per-page only (never global)
 - Does NOT check `publicRoutes`
 - Redirects to `loggedOutRedirectTo` if user is authenticated
+- Allows confirmed guests and unresolved visitors after a resolution failure; unknown status and its error are retained, not converted to guest
 
 **Usage:**
 
@@ -363,6 +365,10 @@ export default defineNuxtRouteMiddleware(async () => {
     return navigateTo('/login')
   }
 
+  if (authStatus.value === 'unknown') {
+    throw createError({ statusCode: 503, message: 'Session could not be verified' })
+  }
+
   // Check for admin role
   if (user.value?.role !== 'admin') {
     return navigateTo('/')
@@ -413,6 +419,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (authStatus.value === 'guest') {
     return navigateTo('/login')
   }
+  if (authStatus.value === 'unknown') {
+    throw createError({ statusCode: 503, message: 'Session could not be verified' })
+  }
 })
 ```
 
@@ -434,7 +443,7 @@ export default defineNuxtConfig({
 :::
 
 ::: tip Cold-Start Auth Decisions
-For custom client middleware, prefer `await ensureResolved()` before redirecting. This avoids treating a cold-start user as logged out before Nuxt Aegis has had a chance to restore a session from the refresh token cookie.
+Await `ensureResolved()` and let its rejection block protected navigation. Check public exemptions first. Do not catch a resolution failure and continue to protected content or turn unknown state into a login redirect.
 :::
 
 ## Role-Based Access Control (RBAC)
@@ -485,6 +494,10 @@ export default defineNuxtRouteMiddleware(async () => {
 
   if (authStatus.value === 'guest') {
     return navigateTo('/login')
+  }
+
+  if (authStatus.value === 'unknown') {
+    throw createError({ statusCode: 503, message: 'Session could not be verified' })
   }
 
   if (user.value?.role !== 'admin') {
@@ -599,26 +612,26 @@ const hasPermission = (permission: string) => {
 
 ## Error Handling
 
-Handle authentication errors gracefully:
+Protected-route resolution failures propagate to Nuxt's error handling rather than redirecting to login. Public routes remain accessible; login/register middleware may allow unknown visitors without claiming their session is invalid.
+
+For API calls, a request 401 is not itself proof of refresh-session rejection. `$api` handles the rejection-only redirect; show other failures using the request error and `useAuth().error`:
 
 ```vue
 <script setup lang="ts">
+const { $api } = useNuxtApp()
+const { error } = useAuth()
+
 async function fetchProtectedData() {
   try {
-    const data = await $fetch('/api/protected')
-    return data
-  } catch (error) {
-    if (error.status === 401) {
-      // Not authenticated
-      await navigateTo('/login')
-    } else if (error.status === 403) {
-      // Not authorized
-      showError('You do not have permission to access this resource')
-    }
+    return await $api('/api/protected')
+  } catch (failure) {
+    console.error(error.value?.message || 'Request failed', failure)
   }
 }
 </script>
 ```
+
+Preserving identity after transient refresh failure does not authorize the failed API request. Server-side authorization remains required.
 
 ## Testing Protected Routes
 

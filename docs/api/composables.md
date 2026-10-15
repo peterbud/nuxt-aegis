@@ -20,13 +20,14 @@ const { user, isLoggedIn, authStatus, isResolved, login, logout } = useAuth()
 
 ```typescript
 function useAuth<T extends BaseTokenClaims = BaseTokenClaims>(): {
-  authStatus: Ref<'unknown' | 'authenticated' | 'guest'>
-  isResolved: Ref<boolean>
-  user: Ref<T | null>
-  isLoggedIn: Ref<boolean>
-  isLoading: Ref<boolean>
-  isImpersonating: Ref<boolean>
-  originalUser: Ref<OriginalUser | null>
+  authStatus: ComputedRef<AuthStatus>
+  isResolved: ComputedRef<boolean>
+  user: ComputedRef<T | null>
+  isLoggedIn: ComputedRef<boolean>
+  isLoading: ComputedRef<boolean>
+  error: ComputedRef<AuthError | null>
+  isImpersonating: ComputedRef<boolean>
+  originalUser: ComputedRef<OriginalUser | null>
   login: (provider?: string, redirectTo?: string) => Promise<void>
   logout: (redirectTo?: string) => Promise<void>
   refresh: (options?: { updateClaims?: boolean }) => Promise<void>
@@ -44,7 +45,7 @@ Use the generic parameter to get type-safe access to custom claims. See [Token T
 
 ### `user`
 
-**Type:** `Ref<T | null>`
+**Type:** `ComputedRef<T | null>`
 
 Current authenticated user object, or `null` if not authenticated.
 
@@ -100,17 +101,18 @@ See [Token Types guide](/guides/types/) for comprehensive examples of type-safe 
 
 ### `authStatus`
 
-**Type:** `Ref<'unknown' | 'authenticated' | 'guest'>`
+**Type:** `ComputedRef<AuthStatus>`
 
 Explicit client-side authentication state.
 
-- `'unknown'`: initial state before Nuxt Aegis has determined whether a session can be restored
+- `'unknown'`: session not yet verified, including after a recoverable startup failure
 - `'authenticated'`: user is authenticated and `user.value` is populated
 - `'guest'`: auth has been resolved and no authenticated session is available
 
 ```vue
 <template>
-  <p v-if="authStatus === 'unknown'">Checking session...</p>
+  <p v-if="isLoading">Checking session...</p>
+  <p v-else-if="authStatus === 'unknown'">{{ error?.message || 'Session not checked' }}</p>
   <p v-else-if="authStatus === 'authenticated'">Welcome back!</p>
   <p v-else>Please log in.</p>
 </template>
@@ -118,9 +120,9 @@ Explicit client-side authentication state.
 
 ### `isResolved`
 
-**Type:** `Ref<boolean>`
+**Type:** `ComputedRef<boolean>`
 
-Boolean indicating whether the initial authentication state has been determined.
+Whether status is no longer `unknown`. This remains `false` after a recoverable startup failure, even when loading has finished.
 
 ```typescript
 const { isResolved, authStatus } = useAuth()
@@ -132,7 +134,7 @@ if (isResolved.value && authStatus.value === 'guest') {
 
 ### `isLoggedIn`
 
-**Type:** `Ref<boolean>`
+**Type:** `ComputedRef<boolean>`
 
 Boolean indicating whether the user is currently authenticated.
 
@@ -149,9 +151,10 @@ Boolean indicating whether the user is currently authenticated.
 
 ### `isLoading`
 
-**Type:** `Ref<boolean>`
+**Type:** `ComputedRef<boolean>`
 
 Boolean indicating whether an auth operation is currently in progress, such as refresh, impersonation, or logout.
+Resets after success or failure; it does not indicate whether a session is valid.
 
 ```vue
 <template>
@@ -168,6 +171,21 @@ Boolean indicating whether an auth operation is currently in progress, such as r
 `isLoading` does not mean initial auth is unresolved. Use `isResolved`, `authStatus`, or `await ensureResolved()` when you need a deterministic startup auth decision.
 :::
 
+### `error`
+
+**Type:** `ComputedRef<AuthError | null>`
+
+Structured auth failure. Display `error.message` and branch on `error.category`; see [AuthError](/api/types#autherror). A new refresh attempt and successful recovery clear stale errors.
+
+| Refresh outcome | Startup without identity | Established session |
+|---|---|---|
+| Success | Authenticate | Update user and token |
+| 401 | Guest; no public error from `ensureResolved()` | Clear user/token; `session_expired` |
+| Network / 5xx | Remain unknown; `network_error` / `server_error` | Preserve identity; expose error |
+| 403 | Remain unknown; `forbidden` | Preserve identity; `forbidden` |
+
+Preserved identity does not extend access-token validity or authorize a failed request.
+
 ### `ensureResolved()`
 
 **Type:** `() => Promise<void>`
@@ -176,19 +194,23 @@ Ensures the initial auth state has been determined. On cold start, this may rest
 
 This method deduplicates concurrent callers, so middleware, layouts, and components can safely await the same in-flight resolution work.
 
+An expected startup 401 resolves quietly to guest. Network, 5xx, and forbidden failures record an error and reject, leaving status unknown. Call again to retry; there is no background retry loop.
+
 ```typescript
-const { ensureResolved, authStatus } = useAuth()
+const { ensureResolved, error } = useAuth()
 
-await ensureResolved()
-
-if (authStatus.value === 'authenticated') {
-  console.log('Session restored')
+async function retrySession() {
+  try {
+    await ensureResolved()
+  } catch {
+    console.error(error.value?.message)
+  }
 }
 ```
 
 ### `isImpersonating`
 
-**Type:** `Ref<boolean>`
+**Type:** `ComputedRef<boolean>`
 
 Boolean indicating whether the current user is impersonating another user.
 
@@ -207,7 +229,7 @@ This property is only available when the impersonation feature is enabled in con
 
 ### `originalUser`
 
-**Type:** `Ref<OriginalUser | null>`
+**Type:** `ComputedRef<OriginalUser | null>`
 
 Original user information when impersonating. Returns `null` when not impersonating.
 
@@ -293,6 +315,7 @@ await logout('/goodbye')
 **Type:** `(options?: { updateClaims?: boolean }) => Promise<void>`
 
 Manually refreshes the access token using the refresh token cookie. Optionally recomputes custom claims before refreshing.
+Failures reject with the underlying error and set the structured `error` above. Concurrent callers share one refresh attempt. A preliminary claims-update failure is `operation_error` with `operation: 'update_claims'`; its 401 does not invalidate the refresh session.
 
 **Parameters:**
 
@@ -316,7 +339,7 @@ await refresh({ updateClaims: true })
 ```
 
 ::: info Automatic Refresh
-When `automaticRefresh: true` is configured, tokens are refreshed automatically. Manual refresh is rarely needed.
+With `automaticRefresh: true`, client API 401s trigger a refresh attempt. Failed attempts are not retried in the background; use `refresh()` for explicit recovery of an established session.
 :::
 
 ::: tip Updating Claims
@@ -355,9 +378,9 @@ Claims update requires `customClaims` to be defined in the global handler (`serv
 
 **Throws:**
 
-- `401` - No refresh token found or invalid token
-- `403` - Claims update feature disabled
-- `500` - Failed to recompute claims
+- `401` - Missing or invalid refresh session, or a rejected preliminary claims update
+- `403` - Refresh prohibited or claims update disabled
+- `5xx` or network failure - Unable to refresh or recompute claims
 
 **Configuration:**
 
@@ -462,13 +485,16 @@ try {
 
 ```vue
 <script setup lang="ts">
-const { user, authStatus, isResolved, login, logout } = useAuth()
+const { user, authStatus, isLoading, error, login, logout } = useAuth()
 </script>
 
 <template>
   <div>
-    <div v-if="!isResolved">
+    <div v-if="isLoading">
       Checking session...
+    </div>
+    <div v-else-if="authStatus === 'unknown'">
+      {{ error?.message || 'Session not checked' }}
     </div>
     <div v-else-if="authStatus === 'authenticated'">
       <p>Welcome, {{ user?.name }}!</p>

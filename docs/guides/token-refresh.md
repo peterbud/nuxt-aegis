@@ -29,11 +29,20 @@ sequenceDiagram
 
     Note over Client,Storage: Token Refresh Flow
     Client->>Server: Request with expired access token
-    Server->>Server: Detect expired token
+    Server-->>Client: API 401
+    Client->>Server: POST /auth/refresh with cookie
     Server->>Storage: Retrieve refresh token + user
-    Server->>Server: Generate new access token
-    Server->>Server: Apply custom claims callback
-    Server-->>Client: Return new access token
+    alt Valid refresh session
+      Server->>Server: Generate access token with stored claims
+      Server-->>Client: New access token
+      Client->>Server: Replay original request once
+    else Invalid refresh session
+      Server-->>Client: Refresh 401 and clear cookie
+      Note over Client: Clear auth; API interceptor redirects
+    else Verification unavailable or prohibited
+      Server-->>Client: 5xx or 403; cookie not cleared
+      Note over Client: Expose failure; do not replay or renew token
+    end
 ```
 
 **The refresh flow:**
@@ -43,6 +52,8 @@ sequenceDiagram
 3. **Expiration Handling** - When access token expires, client requests a new one using the refresh token cookie
 4. **Token Generation** - Server retrieves stored user object and regenerates access token with the same custom claims
 5. **Optional Rotation** - Server can rotate (replace) the refresh token for additional security
+
+Missing, unknown, expired, or revoked refresh tokens return 401 and clear the cookie. Prohibited refresh returns 403; unexpected failures return 5xx without clearing it. Public responses do not expose storage details or token values.
 
 ## Configuration
 
@@ -108,15 +119,13 @@ export default defineNuxtConfig({
 
 When `automaticRefresh: true`, the module automatically:
 
-1. Attempts to refresh access token when app initializes (if refresh token cookie exists)
-2. Handles access token expiration gracefully
-3. Refreshes tokens when they have expired (if refresh token is still valid)
-4. Retries failed API requests after token refresh
-5. Prevents multiple simultaneous refresh requests
+1. Attempts initial resolution on mount, except on callback/public routes or when a token already exists.
+2. Refreshes after a client API 401 and replays once only if refresh succeeds.
+3. Shares in-flight refresh work between concurrent callers.
 
-::: tip Seamless Experience
-With automatic refresh enabled, users remain authenticated across page reloads and browser sessions without re-login.
-:::
+An expected startup 401 resolves quietly to guest, with no public error or error-level log. Startup network/5xx failures leave status unknown with an error; established sessions retain identity. A 403 does not imply a guest session. There is no pre-expiry timer or background retry loop.
+
+Only refresh-session rejection triggers the API interceptor's configured error redirect. Other failures remain available to `$api` and `useAegisFetch` consumers. Preserved identity does not extend access-token validity.
 
 ## Refresh Token Storage
 
@@ -258,31 +267,29 @@ You can manually refresh tokens using the `useAuth` composable:
 
 ```vue
 <script setup lang="ts">
-const { refresh, user, isAuthenticated } = useAuth()
+const { refresh, isLoading, error } = useAuth()
 
 async function refreshToken() {
   try {
     await refresh()
-    console.log('Token refreshed successfully')
-    console.log('User:', user.value)
-  } catch (error) {
-    console.error('Token refresh failed:', error)
-    // Redirect to login or show error
+  } catch {
+    console.error(error.value?.message)
   }
 }
 </script>
 
 <template>
   <div>
-    <button v-if="isAuthenticated" @click="refreshToken">
-      Refresh Token
+    <p v-if="error">{{ error.message }}</p>
+    <button :disabled="isLoading" @click="refreshToken">
+      Retry Session
     </button>
   </div>
 </template>
 ```
 
 ::: info Automatic vs Manual
-Manual refresh is rarely needed when `automaticRefresh: true` is configured. The module handles refresh automatically.
+Use `ensureResolved()` to retry unknown startup state and `refresh()` to recover an established session. Both share in-flight work and clear stale errors on a new attempt. Explicit `refresh()` rejects on failure, including 401; successful recovery clears the error.
 :::
 
 ## Custom Claims on Refresh
@@ -446,7 +453,7 @@ export default defineEventHandler(async (event) => {
 
 ## Testing Token Refresh
 
-If your app test suite is **not** exercising Nuxt Aegis auth routes, disable automatic refresh during tests. Otherwise the client plugin will attempt `POST /auth/refresh` on startup and log a 404 warning when that route is not registered in the test app.
+If your app tests do not register Nuxt Aegis auth routes, disable automatic refresh to avoid unrelated startup failures. A real missing-session 401 is expected and quiet; a missing endpoint is not.
 
 ```typescript
 const isTest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'
@@ -482,17 +489,19 @@ describe('Token Refresh', () => {
     
     // Request refresh
     const response = await $fetch('/auth/refresh', {
+      method: 'POST',
       headers: {
         Cookie: `nuxt-aegis-refresh=${refreshToken}`
       }
     })
     
-    expect(response.token).toBeDefined()
-    expect(response.token).not.toBe(accessToken)
+    expect(response.accessToken).toBeDefined()
+    expect(response.accessToken).not.toBe(accessToken)
   })
   
   it('should reject invalid refresh tokens', async () => {
     await expect($fetch('/auth/refresh', {
+      method: 'POST',
       headers: {
         Cookie: 'nuxt-aegis-refresh=invalid-token'
       }
@@ -503,24 +512,9 @@ describe('Token Refresh', () => {
 
 ## Monitoring and Debugging
 
-Log refresh events for monitoring:
+Inspect `useAuth().error` for `category`, `message`, and HTTP `status` where present. Expected startup 401s are not application errors. Unexpected server failures are logged without token values or internal details in responses; network/5xx failures should be monitored separately from session rejection.
 
-```typescript
-// server/plugins/aegis.ts
-export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('nuxt-aegis:token-refreshed', async (payload) => {
-    console.log('[REFRESH] Token refreshed', {
-      userId: payload.user.sub,
-      timestamp: new Date().toISOString(),
-    })
-    
-    // Send to monitoring service
-    await monitoring.track('token_refresh', {
-      userId: payload.user.sub,
-    })
-  })
-})
-```
+Tests should distinguish startup 401 from 503/offline failures, verify cookie cleanup only for invalid sessions, and check explicit recovery. For API calls, verify no replay after failed refresh and no second refresh after a replayed 401.
 
 ## Best Practices
 
@@ -531,7 +525,7 @@ export default defineNitroPlugin((nitroApp) => {
 4. **Set appropriate TTL** - Balance security and convenience (7 days is common)
 5. **Rotate tokens** - Consider rotating refresh tokens periodically
 6. **Monitor refresh events** - Track refresh failures for security
-7. **Handle expiration gracefully** - Redirect to login when refresh fails
+7. **Distinguish failures** - Offer retry for transient failures; request login only for a rejected session
 8. **Use HTTPS** - Always set `secure: true` in production
 :::
 

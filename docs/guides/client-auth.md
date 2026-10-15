@@ -10,7 +10,7 @@ The `useAuth()` composable provides reactive authentication state and methods fo
 
 ```vue
 <script setup lang="ts">
-const { user, authStatus, isResolved, isLoggedIn, login, logout } = useAuth()
+const { user, authStatus, isLoading, error, login, logout } = useAuth()
 </script>
 
 <template>
@@ -19,12 +19,13 @@ const { user, authStatus, isResolved, isLoggedIn, login, logout } = useAuth()
       <p>Welcome, {{ user?.name }}!</p>
       <button @click="logout">Logout</button>
     </div>
-    <div v-else-if="isResolved">
+    <div v-else-if="authStatus === 'guest'">
       <button @click="login('google')">Login with Google</button>
     </div>
-    <div v-else>
+    <div v-else-if="isLoading">
       <p>Checking session...</p>
     </div>
+    <p v-else>{{ error?.message || 'Session not checked' }}</p>
   </div>
 </template>
 ```
@@ -79,7 +80,7 @@ const { isLoggedIn } = useAuth()
 
 Explicit auth state with three values:
 
-- `'unknown'` while Nuxt Aegis is still determining whether a session can be restored
+- `'unknown'` before verification, or after a recoverable startup failure
 - `'authenticated'` when a user is logged in
 - `'guest'` when auth has been resolved and no session is available
 
@@ -95,7 +96,7 @@ if (authStatus.value === 'guest') {
 
 Boolean indicating whether the initial auth state has been determined.
 
-Use this when your UI needs to distinguish between “still checking” and “known guest”.
+Use this to distinguish unresolved sessions from confirmed guests. An unresolved session can have an error without loading.
 
 ### `isLoading`
 
@@ -103,7 +104,7 @@ Boolean indicating whether an auth operation is currently running.
 
 ```vue
 <script setup lang="ts">
-const { isLoading, authStatus, user } = useAuth()
+const { isLoading, authStatus, user, error } = useAuth()
 </script>
 
 <template>
@@ -114,6 +115,7 @@ const { isLoading, authStatus, user } = useAuth()
     <div v-else-if="authStatus === 'authenticated'">
       <p>Welcome, {{ user?.name }}!</p>
     </div>
+    <p v-else-if="authStatus === 'unknown'">{{ error?.message || 'Session not checked' }}</p>
     <div v-else>
       <p>Please log in</p>
     </div>
@@ -129,19 +131,33 @@ Use `isResolved` or `await ensureResolved()` when you need a deterministic start
 
 Resolves the initial auth state on demand. This is especially useful in middleware, layouts, or guarded pages that must wait for cold-start session restoration before deciding what to render or where to redirect.
 
+Startup 401 resolves quietly to guest. Network, 5xx, and forbidden failures reject, retain unknown status, expose `error`, and reset loading. Concurrent callers share one attempt; a later call retries while status remains unknown. Already-resolved sessions are unchanged.
+
 ```typescript
-const { ensureResolved, authStatus } = useAuth()
+const { ensureResolved, error } = useAuth()
 
-await ensureResolved()
-
-if (authStatus.value === 'authenticated') {
-  console.log('Session is ready')
+async function retrySession() {
+  try {
+    await ensureResolved()
+  } catch {
+    console.error(error.value?.message)
+  }
 }
 ```
 
 ### `error`
 
-Error message from authentication operations, or `null` if no error.
+`AuthError | null`, exposed as a computed ref. Display `error.message`; inspect `error.category` for specific handling.
+
+| Refresh failure | Startup | Established session |
+|---|---|---|
+| 401 (`session_expired`) | Guest; `ensureResolved()` suppresses the public error | Clear user/token; expose error |
+| Network / 5xx (`network_error` / `server_error`) | Remain unknown; expose error | Preserve identity; expose error |
+| 403 (`forbidden`) | Remain unknown; expose error | Preserve identity; expose error |
+
+New refresh attempts and successful recovery clear stale errors. Other auth-operation failures use `operation_error`; a claims-update 401 is not refresh-session rejection. See [AuthError](/api/types#autherror).
+
+Preserved identity does not extend token validity or authorize a failed API call. The module provides no error UI or background retry loop.
 
 ```vue
 <script setup lang="ts">
@@ -150,7 +166,7 @@ const { error, login } = useAuth()
 
 <template>
   <div>
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="error" class="error">{{ error.message }}</p>
     <button @click="login('google')">Login</button>
   </div>
 </template>
@@ -258,6 +274,7 @@ await logout('/goodbye')
 ### `refresh(options?)`
 
 Manually refreshes the access token using the refresh token. Optionally recomputes custom claims.
+Failures reject with the underlying error and set `useAuth().error`. Use `refresh()` to explicitly recover an established session; `ensureResolved()` is a no-op once status is resolved.
 
 ```typescript
 const { refresh, user } = useAuth()
@@ -275,7 +292,7 @@ await refresh({ updateClaims: true })
 ```
 
 ::: tip Automatic Refresh
-Tokens are automatically refreshed before expiration when `automaticRefresh: true` is configured. Manual refresh is rarely needed.
+With `automaticRefresh: true`, the client attempts restoration at eligible startup and refreshes after an API 401. It replays the request once only after success. Network, 5xx, and forbidden failures do not redirect; definitive refresh-session rejection does. There is no pre-expiry timer or background retry loop.
 :::
 
 ### `impersonate(targetUserId, reason?)`
@@ -340,18 +357,19 @@ try {
 
 ```vue
 <script setup lang="ts">
-const { isLoggedIn, user } = useAuth()
+const { authStatus, user, error } = useAuth()
 </script>
 
 <template>
-  <div v-if="isLoggedIn">
+  <div v-if="authStatus === 'authenticated'">
     <h1>Welcome back, {{ user?.name }}!</h1>
     <p>{{ user?.email }}</p>
   </div>
-  <div v-else>
+  <div v-else-if="authStatus === 'guest'">
     <h1>Welcome, Guest!</h1>
     <p>Please log in to access your account.</p>
   </div>
+  <p v-else>{{ error?.message || 'Session not checked' }}</p>
 </template>
 ```
 
@@ -359,7 +377,7 @@ const { isLoggedIn, user } = useAuth()
 
 ```vue
 <script setup lang="ts">
-const { isLoading, isLoggedIn, user, login } = useAuth()
+const { isLoading, authStatus, user, error, login } = useAuth()
 </script>
 
 <template>
@@ -367,10 +385,11 @@ const { isLoading, isLoggedIn, user, login } = useAuth()
     <div v-if="isLoading">
       <p>Loading...</p>
     </div>
-    <div v-else-if="isLoggedIn">
+    <div v-else-if="authStatus === 'authenticated'">
       <img :src="user?.picture" :alt="user?.name" />
       <p>{{ user?.name }}</p>
     </div>
+    <p v-else-if="authStatus === 'unknown'">{{ error?.message || 'Session not checked' }}</p>
     <div v-else>
       <button @click="login('google')">Login</button>
     </div>
@@ -420,7 +439,15 @@ const isPremium = computed(() => user.value?.premium === true)
 
 ```vue
 <script setup lang="ts">
-const { user, isLoggedIn, isLoading, login, logout } = useAuth()
+const { user, authStatus, isLoading, error, ensureResolved, login, logout } = useAuth()
+
+async function retrySession() {
+  try {
+    await ensureResolved()
+  } catch {
+    console.error(error.value?.message)
+  }
+}
 
 const providers = [
   { name: 'google', label: 'Google' },
@@ -431,13 +458,14 @@ const providers = [
 
 <template>
   <div>
-    <!-- Loading State -->
     <div v-if="isLoading">
       <p>Loading...</p>
     </div>
-    
-    <!-- Authenticated State -->
-    <div v-else-if="isLoggedIn">
+    <div v-else-if="authStatus === 'unknown'">
+      <p>{{ error?.message || 'Session not checked' }}</p>
+      <button @click="retrySession">Retry</button>
+    </div>
+    <div v-else-if="authStatus === 'authenticated'">
       <img :src="user?.picture" :alt="user?.name" />
       <h2>{{ user?.name }}</h2>
       <p>{{ user?.email }}</p>
@@ -445,7 +473,6 @@ const providers = [
       <button @click="logout('/')">Logout</button>
     </div>
     
-    <!-- Guest State -->
     <div v-else>
       <h2>Welcome!</h2>
       <p>Choose a provider to log in:</p>

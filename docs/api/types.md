@@ -8,6 +8,8 @@ Shared types are available from `#nuxt-aegis/types` in app, server, shared code,
 
 ```typescript
 import type {
+  AuthError,
+  AuthStatus,
   // Token/Payload Types
   BaseTokenClaims,
   CustomTokenClaims,
@@ -76,6 +78,52 @@ import type { AegisHandler, UserPersistContext } from '#nuxt-aegis/server'
 ```
 
 ---
+
+## Authentication State
+
+### `AuthStatus`
+
+```typescript
+type AuthStatus = 'unknown' | 'authenticated' | 'guest'
+```
+
+`unknown` means the session has not been verified, not that the visitor is signed out. It can persist after a recoverable startup failure.
+
+### `AuthError`
+
+Exported discriminated union used by `useAuth().error` (`ComputedRef<AuthError | null>`):
+
+```typescript
+type AuthError
+  = | { category: 'session_expired', message: string, status: 401 }
+    | { category: 'network_error', message: string }
+    | { category: 'server_error', message: string, status?: number }
+    | { category: 'forbidden', message: string, status: 403 }
+    | {
+      category: 'operation_error'
+      message: string
+      operation: 'login' | 'logout' | 'update_claims' | 'refresh' | 'impersonate' | 'stop_impersonation'
+      status?: number
+    }
+```
+
+| Category | Meaning |
+|---|---|
+| `session_expired` | Refresh endpoint rejected the session with 401 |
+| `network_error` | Refresh could not reach the server |
+| `server_error` | Refresh returned 5xx or an invalid success response |
+| `forbidden` | Refresh operation prohibited (403) |
+| `operation_error` | Another auth operation failed; not proof of an invalid refresh session |
+
+Display `error.message`; use `error.category` for failure-specific handling. Expected startup 401s from `ensureResolved()` leave `error` null. Other refresh failures preserve existing identity, but do not extend token validity. Methods reject with the underlying error, not this union.
+
+```typescript
+const { error } = useAuth()
+
+if (error.value?.category === 'operation_error') {
+  console.error(error.value.operation, error.value.message)
+}
+```
 
 ## Token & Payload Types
 

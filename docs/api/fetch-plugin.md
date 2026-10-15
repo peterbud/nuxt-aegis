@@ -92,17 +92,17 @@ await $api('/api/user/profile')
 
 When a request returns a 401 Unauthorized response:
 
-1. `$api` automatically calls `/auth/refresh` to get a new access token
-2. Retries the original request with the new token
-3. If refresh fails, redirects to the configured error page
+1. If automatic refresh is enabled, `$api` makes one shared refresh attempt via `useAuth().refresh()`.
+2. Only a successful refresh supplying a token permits one replay, preserving the request method and body.
+3. Refresh 401 clears auth and redirects to the configured error page. Network, 5xx, and forbidden failures reject without redirecting or clearing identity.
 
-This happens **transparently** - your code doesn't need to handle token expiration.
+If the replay returns 401, the API failure propagates without another refresh or session invalidation. Extra `retry` options cannot bypass this limit. An API 401 alone does not prove the refresh session is invalid.
 
 ```typescript
-// Even if token expires mid-request, this will succeed:
 const data = await $api('/api/protected/resource')
-// $api handles refresh and retry automatically
 ```
+
+`$api` rejects with the refresh failure when refresh fails. `useAegisFetch` exposes that failure in its `error` ref; `useAuth().error` supplies the structured category for both consumers.
 
 ### SSR vs Client Behavior
 
@@ -248,7 +248,7 @@ const { data } = await useAsyncData('key', () => $api('/endpoint'))
 
 ### Client-Side Plugin
 
-**Location:** `src/runtime/app/plugins/01.api.client.ts`
+**Location:** `src/runtime/app/plugins/api.client.ts`
 
 The client-side plugin creates a custom `$fetch` instance with the following interceptors:
 
@@ -271,29 +271,7 @@ onRequest({ options }) {
 
 #### 2. Response Error Interceptor (Auto-Refresh on 401)
 
-```typescript
-async onResponseError({ options, response }) {
-  if (response.status === 401 && autoRefreshEnabled) {
-    const newToken = await attemptTokenRefresh()
-    
-    if (newToken) {
-      options.headers.set('Authorization', `Bearer ${newToken}`)
-      return // Retry the request
-    }
-    
-    // Refresh failed, redirect to error page
-    clearAccessToken()
-    await navigateTo(`${errorUrl}?error=token_refresh_failed&...`)
-  }
-}
-```
-
-**Behavior:**
-- Automatically triggered on 401 Unauthorized responses
-- Only active when `automaticRefresh: true` (default)
-- Prevents multiple simultaneous refresh requests (singleton pattern)
-- Retries the original request **once** with new token
-- Redirects to configured error page if refresh fails
+The interceptor delegates refresh and auth-state transitions to `useAuth()`. Concurrent requests share one attempt and, for session rejection, one redirect. It does not independently clear tokens or classify failures.
 
 #### 3. Retry Configuration
 
@@ -303,48 +281,13 @@ retryStatusCodes: [401],
 ```
 
 **Behavior:**
-- Automatically retries requests that fail with 401
-- Only retries **once** after token refresh
+- Disables replay until refresh successfully supplies a token
+- Replays **once** after successful refresh; a replayed 401 propagates
 - No retry if `automaticRefresh: false`
 
 #### 4. Token Refresh Mechanism
 
-The `attemptTokenRefresh()` function:
-
-```typescript
-async function attemptTokenRefresh(): Promise<string | null> {
-  if (refreshInProgress) {
-    // Wait for existing refresh to complete
-    return refreshPromise
-  }
-  
-  refreshInProgress = true
-  refreshPromise = (async () => {
-    try {
-      await $fetch('/auth/refresh', {
-        method: 'POST',
-        credentials: 'include', // Send httpOnly cookie
-      })
-      return getAccessToken()
-    } catch (error) {
-      console.error('[Aegis] Token refresh failed:', error)
-      return null
-    } finally {
-      refreshInProgress = false
-      refreshPromise = null
-    }
-  })()
-  
-  return refreshPromise
-}
-```
-
-**Key Features:**
-- **Singleton pattern** - Prevents multiple simultaneous refresh requests
-- Uses `$fetch` directly (not `$api`) to avoid circular refresh loops
-- Sends httpOnly refresh token cookie automatically
-- Returns new access token from memory after successful refresh
-- Gracefully handles errors by logging and returning `null`
+Refresh uses `$fetch`, not `$api`, to avoid recursive interception. The refresh cookie is sent automatically. Success returns the new in-memory token; failure rejects. Shared work is cleared after either outcome so a later call can retry.
 
 ::: danger Critical Warning: Circular Reference Prevention
 **NEVER use `$api` to call the `/auth/refresh` endpoint or any authentication-related endpoints.** Always use `$fetch` directly in these cases to avoid triggering the 401 interceptor, which would cause an infinite refresh loop.
@@ -353,8 +296,8 @@ async function attemptTokenRefresh(): Promise<string | null> {
 // ❌ WRONG - causes infinite loop
 await $api('/auth/refresh')
 
-// ✅ CORRECT - use $fetch directly
-await $fetch('/auth/refresh')
+// ✅ CORRECT - use the composable to update auth state too
+await useAuth().refresh()
 ```
 
 This applies to:
@@ -366,23 +309,7 @@ This applies to:
 
 #### 5. Automatic Initialization on Mount
 
-When the app mounts, the client plugin attempts automatic token refresh:
-
-```typescript
-onNuxtReady(async () => {
-  // Skip if on callback page
-  if (isCallbackPage()) return
-  
-  // Skip if on public route
-  if (isPublicRoute()) return
-  
-  // Skip if token already exists
-  if (getAccessToken()) return
-  
-  // Attempt refresh from httpOnly cookie
-  await attemptTokenRefresh()
-})
-```
+On `app:mounted`, the plugin calls `ensureResolved()` unless on a callback/public route or an access token already exists. Already-resolved state is left intact.
 
 **Behavior:**
 - Runs after Nuxt app hydration completes
@@ -390,10 +317,12 @@ onNuxtReady(async () => {
 - Skips on OAuth callback pages
 - Skips on configured public routes
 - Attempts to restore session from httpOnly refresh cookie
+- Contains startup failures so public content can render; unknown state and structured errors remain available for explicit retry
+- Expected startup 401 resolves quietly to guest; no background retry loop is started
 
 ### Server-Side Plugin (SSR)
 
-**Location:** `src/runtime/app/plugins/01.api.server.ts`
+**Location:** `src/runtime/app/plugins/api.server.ts`
 
 The server-side plugin creates a simpler `$fetch` instance for SSR:
 
@@ -444,7 +373,7 @@ export default defineNuxtConfig({
     enableSSR: true, // default: true when ssr: true
     
     redirect: {
-      // Where to redirect when refresh fails
+      // Destination for a rejected refresh session (401)
       error: '/auth-failed', // default: '/'
     },
   }
@@ -514,7 +443,7 @@ event.context.ssrAccessToken = generateShortLivedToken(claims, '5m')
 
 ### Refresh Failure
 
-When token refresh fails, `$api` redirects to the configured error URL:
+Only a definitive refresh-session rejection (`session_expired`, refresh 401) triggers the configured redirect:
 
 ```typescript
 const errorUrl = validateRedirectPath(
@@ -551,20 +480,23 @@ const errorMessage = route.query.error_description || 'Authentication failed'
 
 ### Network Errors
 
-Network errors are **not** automatically retried:
+Network, server, and forbidden refresh failures do not redirect or replay the failed API call. Existing identity is preserved, but its token is not renewed. `useAegisFetch` reports the refresh failure through its `error` ref:
 
 ```typescript
-try {
-  const data = await $api('/api/endpoint')
-} catch (error) {
-  if (error.statusCode === 401) {
-    // Already handled by $api
-  } else {
-    // Handle other errors (network, 500, etc.)
-    console.error('Request failed:', error)
+const auth = useAuth()
+const profile = await useAegisFetch('/api/user/profile')
+
+async function retryProfile() {
+  try {
+    await auth.refresh()
+    await profile.refresh()
+  } catch {
+    console.error(auth.error.value?.message)
   }
 }
 ```
+
+Read `profile.error.value` for the request failure and `auth.error.value?.category` for the refresh category. Only retry the protected fetch after auth refresh succeeds. There is no automatic background retry.
 
 ### Timeout
 
