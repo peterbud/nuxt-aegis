@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.1.0-beta.1
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.8...v1.1.0-beta.1)
+
+### 🚀 Enhancements
+
+- Update requirements to support Nuxt 4.6.0 and Node.js 24.15.0 or higher ([a6881bc](https://github.com/peterbud/nuxt-aegis/commit/a6881bc))
+- Migrate request handling to `nuxt/server` ([e4e649e](https://github.com/peterbud/nuxt-aegis/commit/e4e649e))
+- Add `useAegisFetch` ([2d45ec6](https://github.com/peterbud/nuxt-aegis/commit/2d45ec6))
+- Add cleanup task for expired authorization codes with tests ([4d76cdf](https://github.com/peterbud/nuxt-aegis/commit/4d76cdf))
+- Implement OAuth transaction management and validation ([4df6730](https://github.com/peterbud/nuxt-aegis/commit/4df6730))
+- Enhance and restructure type imports ([b1308c7](https://github.com/peterbud/nuxt-aegis/commit/b1308c7))
+- **auth:** Enhance error handling and token refresh logic ([31011ab](https://github.com/peterbud/nuxt-aegis/commit/31011ab))
+- **ci:** Add Chromium installation step for browser integration tests ([2337ce7](https://github.com/peterbud/nuxt-aegis/commit/2337ce7))
+
+### 🩹 Fixes
+
+- Cleanup task scheduling configuration based on config ([2913f7f](https://github.com/peterbud/nuxt-aegis/commit/2913f7f))
+- Optimize  middleware logging ([5e52cd9](https://github.com/peterbud/nuxt-aegis/commit/5e52cd9))
+- Update type assertion in createEvent function ([2b2861f](https://github.com/peterbud/nuxt-aegis/commit/2b2861f))
+- Implement process-local consumption guard for authorization codes ([1405953](https://github.com/peterbud/nuxt-aegis/commit/1405953))
+
+### 💅 Refactors
+
+- Improve type safety ([e3968ed](https://github.com/peterbud/nuxt-aegis/commit/e3968ed))
+- Contain Nitro dependencies ([2cced11](https://github.com/peterbud/nuxt-aegis/commit/2cced11))
+- Remove providerTokens from the authorization-code record ([dc77e88](https://github.com/peterbud/nuxt-aegis/commit/dc77e88))
+- Remove custom provider documentation and references ([e7404be](https://github.com/peterbud/nuxt-aegis/commit/e7404be))
+- Restructure playground ([0253d27](https://github.com/peterbud/nuxt-aegis/commit/0253d27))
+
+### 📖 Documentation
+
+- Refactor and review all architecture docs ([6c15b4f](https://github.com/peterbud/nuxt-aegis/commit/6c15b4f))
+- Update README ([3cb2999](https://github.com/peterbud/nuxt-aegis/commit/3cb2999))
+- Update compatibility requirements ([e13825a](https://github.com/peterbud/nuxt-aegis/commit/e13825a))
+- Refresh and review API docs ([b199d30](https://github.com/peterbud/nuxt-aegis/commit/b199d30))
+- Clarify refresh token generation process in authentication flow ([9940cdd](https://github.com/peterbud/nuxt-aegis/commit/9940cdd))
+
+### ✅ Tests
+
+- Remove browser test ([118be88](https://github.com/peterbud/nuxt-aegis/commit/118be88))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
 
 ## v1.1.0-alpha.8
 
