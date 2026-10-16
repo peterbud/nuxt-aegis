@@ -3,7 +3,7 @@ name: Deploy Docs
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
   workflow_dispatch:
 
@@ -25,7 +25,7 @@ jobs:
     name: Build Docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -35,13 +35,13 @@ jobs:
           corepack enable
 
       - name: 💾 Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: 📦 Install dependencies
         run: pnpm install --frozen-lockfile
@@ -53,7 +53,7 @@ jobs:
         run: pnpm run docs:build
 
       - name: ⬆️ Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/.vitepress/dist
 
@@ -68,4 +68,4 @@ jobs:
     steps:
       - name: ✅ Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
