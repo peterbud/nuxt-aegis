@@ -13,7 +13,7 @@
     },
     "dependencies": {
         "@peterbud/nuxt-aegis": "workspace:*",
-        "nuxt": "^4.6.1"
+        "nuxt": "^4.7.0"
     },
     "devDependencies": {
         "vue": "latest"
