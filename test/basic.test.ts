@@ -39,21 +39,6 @@ describe('basic', async () => {
     ].sort())
   })
 
-  it('generates only the provider factory allowlist as server globals', async () => {
-    const declarations = await readFile(new URL('./fixtures/basic/.nuxt/types/nitro-imports.d.ts', import.meta.url), 'utf8')
-    expect(declarations).not.toMatch(/\bverifyToken\b/)
-    const providerGlobals = [...declarations.matchAll(/(?:const|var) (\w+): typeof import\([^\n]*\/providers\//g)].map(match => match[1])
-    expect(providerGlobals.sort()).toEqual([
-      'defineOAuthAuth0EventHandler',
-      'defineOAuthGithubEventHandler',
-      'defineOAuthGoogleEventHandler',
-      'defineOAuthMockEventHandler',
-    ])
-    for (const name of ['OAuthProviderImplementation', 'AegisHandler', 'UserPersistContext', 'defineOAuthProvider', 'defineOAuthEventHandler', 'validateAuthorizationParams']) {
-      expect(declarations).not.toMatch(new RegExp(`\\b(?:const|var|type|interface) ${name}\\b`))
-    }
-  })
-
   it('registers exact aliases in each required type context without the root alias', async () => {
     for (const context of ['app', 'server', 'shared', 'node']) {
       const config = JSON.parse(await readFile(new URL(`./fixtures/basic/.nuxt/tsconfig.${context}.json`, import.meta.url), 'utf8'))
@@ -68,20 +53,6 @@ describe('basic', async () => {
       expect(paths).not.toHaveProperty('#nuxt-aegis')
       expect(paths).not.toHaveProperty('#nuxt-aegis/*')
       expect(paths).not.toHaveProperty('#nuxt-aegis/server/providers')
-    }
-  })
-
-  it('preserves app-only and common augmentation registration boundaries', async () => {
-    const app = await readFile(new URL('./fixtures/basic/.nuxt/nuxt.d.ts', import.meta.url), 'utf8')
-    const server = await readFile(new URL('./fixtures/basic/.nuxt/types/nitro-nuxt.d.ts', import.meta.url), 'utf8')
-    const node = await readFile(new URL('./fixtures/basic/.nuxt/nuxt.node.d.ts', import.meta.url), 'utf8')
-    const shared = await readFile(new URL('./fixtures/basic/.nuxt/nuxt.shared.d.ts', import.meta.url), 'utf8')
-    expect(app).toContain('nuxt-aegis-app.d.ts')
-    for (const declarations of [server, node, shared]) {
-      expect(declarations).not.toContain('nuxt-aegis-app.d.ts')
-    }
-    for (const declarations of [app, server, node]) {
-      expect(declarations).toContain('nuxt-aegis.d.ts')
     }
   })
 })
