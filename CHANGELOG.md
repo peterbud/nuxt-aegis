@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.1.0-beta.2
+
+[compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-beta.1...v1.1.0-beta.2)
+
+### 🚀 Enhancements
+
+- Add support for required secret schemas in runtime config ([cd53abd](https://github.com/peterbud/nuxt-aegis/commit/cd53abd))
+- Add nitropack as a dependency ([c2d5a20](https://github.com/peterbud/nuxt-aegis/commit/c2d5a20))
+
+### 🩹 Fixes
+
+- Router options handling uses `findPath` ([3cff568](https://github.com/peterbud/nuxt-aegis/commit/3cff568))
+- Reduce noise at encryption key validation ([0410301](https://github.com/peterbud/nuxt-aegis/commit/0410301))
+
+### 💅 Refactors
+
+- Trim tokenRefresh info in public runtime config ([1e065c4](https://github.com/peterbud/nuxt-aegis/commit/1e065c4))
+
+### 📖 Documentation
+
+- Update environment variable references for runtime configuration ([fc42ef7](https://github.com/peterbud/nuxt-aegis/commit/fc42ef7))
+
+### 🏡 Chore
+
+- Update GitHub Actions to latest versions ([19450e5](https://github.com/peterbud/nuxt-aegis/commit/19450e5))
+- Update dependencies ([223761c](https://github.com/peterbud/nuxt-aegis/commit/223761c))
+
+### ✅ Tests
+
+- Remove obsolete tests ([91db4b3](https://github.com/peterbud/nuxt-aegis/commit/91db4b3))
+
+### ❤️ Contributors
+
+- Peter Budai <peterbudai@hotmail.com>
+
 ## v1.1.0-beta.1
 
 [compare changes](https://github.com/peterbud/nuxt-aegis/compare/v1.1.0-alpha.8...v1.1.0-beta.1)
