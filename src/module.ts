@@ -10,11 +10,13 @@ import {
   defineNuxtModule,
   extendPages,
   findPath,
+  hasNuxtCompatibility,
   updateRuntimeConfig,
   useLogger,
 } from '@nuxt/kit'
 import type { ModuleOptions } from './runtime/types'
 import { defu } from 'defu'
+import { declareSecretSchemas } from './secretSchemas'
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -95,7 +97,10 @@ export default defineNuxtModule<ModuleOptions>({
       originalUserLookupClaim: 'sub',
     },
   },
-  setup(options, nuxt) {
+  async setup(options, nuxt) {
+    // Runtime config schemas are supported from Nuxt 4.7; older versions keep the plain '' defaults
+    const supportsSchemas = await hasNuxtCompatibility({ nuxt: '>=4.7.0' })
+
     // Runtime Config
     options.enableSSR = options.enableSSR ?? (nuxt.options.ssr === true ? true : false)
     updateRuntimeConfig({
@@ -118,7 +123,7 @@ export default defineNuxtModule<ModuleOptions>({
           enableSSR: options.enableSSR,
         },
       },
-      nuxtAegis: options,
+      nuxtAegis: supportsSchemas ? declareSecretSchemas(options) : options,
     })
 
     const runtimeConfig = nuxt.options.runtimeConfig

@@ -32,6 +32,10 @@ NUXT_NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_SECRET=your-github-client-secret
 Never commit environment variables containing secrets to version control. Use `.env` files for local development and secure secret management in production.
 :::
 
+::: info Missing secrets are reported
+On Nuxt 4.7 and later, the module declares `token.secret`, `tokenRefresh.encryption.key` (when encryption is enabled) and the `clientId`/`clientSecret` of the Google, Microsoft, GitHub and Auth0 providers as required runtime config values. If one is not set in `nuxt.config` or by an environment variable, Nuxt prints a warning at startup. The warning becomes an error with `future.compatibilityVersion: 5`. To always fail on a missing secret, declare your own schema for it in `runtimeConfig.nuxtAegis`. A schema you declare takes precedence over the module's.
+:::
+
 ::: tip Generating Secure Secrets
 Use OpenSSL to generate cryptographically secure secrets:
 
