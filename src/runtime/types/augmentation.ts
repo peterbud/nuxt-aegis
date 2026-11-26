@@ -63,7 +63,7 @@ declare module '@nuxt/schema' {
       refreshPath: string
       userInfoPath: string
       redirect: RedirectConfig
-      tokenRefresh: TokenRefreshConfig
+      tokenRefresh: Pick<TokenRefreshConfig, 'automaticRefresh'>
       clientMiddleware?: ClientMiddlewareConfig
       logging: LoggingConfig
       enableSSR: boolean

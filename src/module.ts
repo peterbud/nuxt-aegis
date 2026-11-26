@@ -107,10 +107,14 @@ export default defineNuxtModule<ModuleOptions>({
           logoutPath: options.endpoints?.logoutPath || '/auth/logout',
           refreshPath: options.endpoints?.refreshPath || '/auth/refresh',
           userInfoPath: options.endpoints?.userInfoPath || '/api/user/me',
-          redirect: options.redirect,
-          tokenRefresh: options.tokenRefresh,
-          clientMiddleware: options.clientMiddleware,
-          logging: options.logging,
+          // Copies only: nothing may be shared with the private config (encryption key, storage, cookie)
+          redirect: { ...options.redirect },
+          tokenRefresh: { automaticRefresh: options.tokenRefresh?.automaticRefresh ?? true },
+          clientMiddleware: options.clientMiddleware && {
+            ...options.clientMiddleware,
+            publicRoutes: [...(options.clientMiddleware.publicRoutes || [])],
+          },
+          logging: { ...options.logging },
           enableSSR: options.enableSSR,
         },
       },
@@ -118,15 +122,6 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     const runtimeConfig = nuxt.options.runtimeConfig
-    const mutableRuntimeConfig = runtimeConfig as {
-      nuxtAegis?: {
-        tokenRefresh?: {
-          encryption?: {
-            key?: string
-          }
-        }
-      }
-    }
 
     // Get logger for validation warnings/errors
     const logger = useLogger('nuxt-aegis')
@@ -160,18 +155,6 @@ export default defineNuxtModule<ModuleOptions>({
           + 'Please set tokenRefresh.encryption.key in nuxt.config.ts or in the appropriate environment variable.',
         )
       }
-
-      // Store encryption key in runtime config for server access
-      if (!mutableRuntimeConfig.nuxtAegis) {
-        mutableRuntimeConfig.nuxtAegis = {}
-      }
-      if (!mutableRuntimeConfig.nuxtAegis.tokenRefresh) {
-        mutableRuntimeConfig.nuxtAegis.tokenRefresh = {}
-      }
-      if (!mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption) {
-        mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption = {}
-      }
-      mutableRuntimeConfig.nuxtAegis.tokenRefresh.encryption.key = encryptionKey
     }
 
     addPlugin(resolver.resolve('./runtime/app/plugins/api.client'))
