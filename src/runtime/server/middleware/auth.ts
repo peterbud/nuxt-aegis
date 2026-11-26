@@ -26,7 +26,9 @@ export default defineEventHandler(async (event) => {
   const authPath = config.public.nuxtAegis.authPath
 
   // Skip authentication for auth routes (login, callback, etc.)
-  if (requestURL.pathname.startsWith(authPath)) {
+  // Match the path itself or its sub-paths only, so '/authors' is not treated as an auth route
+  const authBase = authPath.replace(/\/+$/, '')
+  if (requestURL.pathname === authBase || requestURL.pathname.startsWith(`${authBase}/`)) {
     return
   }
 

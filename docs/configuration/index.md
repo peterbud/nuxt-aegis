@@ -15,15 +15,14 @@ export default defineNuxtConfig({
     token: {
       secret: '...', // Required
       expiresIn: '1h',              // Access token expiration (default: 1 hour)
-      algorithm: 'HS256',           // Signing algorithm (HS256 or RS256)
+      algorithm: 'HS256',           // Signing algorithm (HMAC: HS256, HS384 or HS512)
       issuer: 'https://myapp.com',  // Token issuer
       audience: 'https://myapp.com/api', // Token audience
     },
     
     // Token Refresh Configuration
     tokenRefresh: {
-      enabled: true,
-      automaticRefresh: true,       // Auto-refresh on app startup
+      automaticRefresh: true,       // Resolve auth on app mount and refresh after a 401
       rotationEnabled: true,        // Enable refresh token rotation
       cookie: {
         cookieName: 'nuxt-aegis-refresh',
@@ -36,13 +35,12 @@ export default defineNuxtConfig({
       // Persistent storage configuration
       storage: {
         driver: 'fs',                // 'fs', 'redis', or 'memory'
-        prefix: 'refresh:',
-        base: './.data/refresh-tokens',
+        base: './.data/refresh-tokens', // Directory (fs) or key prefix (redis)
       },
       // Optional: Encryption at rest
       encryption: {
         enabled: false,              // Enable for sensitive data
-        key: '...', // 32+ characters
+        key: '...', // At least 32 characters (only the first 32 are used)
         algorithm: 'aes-256-gcm',
       },
     },
@@ -87,7 +85,7 @@ export default defineNuxtConfig({
       callbackPath: '/auth/callback', // OAuth callback path
       logoutPath: '/auth/logout',  // Logout endpoint path
       refreshPath: '/auth/refresh', // Token refresh endpoint path
-      userInfoPath: '/api/user/me', // User info endpoint path (for future use)
+      userInfoPath: '/api/user/me', // User info endpoint path
     },
     
     // OAuth Providers
@@ -124,14 +122,14 @@ Configure JWT token generation and validation.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `secret` | `string` | - | **Required**. Secret key for signing JWTs (min 32 characters) |
+| `secret` | `string` | - | **Required**. Secret key for signing JWTs (at least 32 characters recommended; not enforced) |
 | `expiresIn` | `string \| number` | `'1h'` | Access token expiration time |
-| `algorithm` | `'HS256' \| 'RS256'` | `'HS256'` | JWT signing algorithm |
+| `algorithm` | `'HS256' \| 'HS384' \| 'HS512'` | `'HS256'` | JWT signing algorithm. Tokens are signed with the shared `secret`, so only HMAC algorithms work. RS* values are accepted by the type but are not yet supported |
 | `issuer` | `string` | `'nuxt-aegis'` | Token issuer claim |
 | `audience` | `string` | `''` | Token audience claim |
 
 ::: danger Token Secret
-The `secret` must be a cryptographically secure random string of at least 32 characters. Never commit this to version control!
+The `secret` must be a cryptographically secure random string of at least 32 characters. The module does not check the length, so a short secret is accepted silently. Never commit this to version control!
 :::
 
 ## Token Refresh Configuration
@@ -140,26 +138,26 @@ Configure automatic token refresh functionality.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Enable token refresh functionality |
-| `automaticRefresh` | `boolean` | `true` | Auto-refresh tokens before expiration |
+| `automaticRefresh` | `boolean` | `true` | Resolve the auth state when the app mounts and refresh once after an API call returns 401. |
 | `rotationEnabled` | `boolean` | `true` | Enable automatic refresh token rotation |
 | `cookie.cookieName` | `string` | `'nuxt-aegis-refresh'` | Refresh token cookie name |
 | `cookie.maxAge` | `number` | `604800` | Cookie max age in seconds (7 days) |
 | `cookie.httpOnly` | `boolean` | `true` | HTTP-only flag for security |
 | `cookie.secure` | `boolean` | `true` | Secure flag (HTTPS only) |
 | `cookie.sameSite` | `'lax' \| 'strict' \| 'none'` | `'lax'` | SameSite cookie attribute |
-| `encryption.enabled` | `boolean` | `false` | Enable encryption at rest for user data |
-| `encryption.key` | `string` | - | Encryption key (32+ characters) |
+| `encryption.enabled` | `boolean` | `false` | Encrypt stored refresh token records at rest |
+| `encryption.key` | `string` | - | Encryption key (at least 32 characters; only the first 32 are used, shorter keys are padded with `0`) |
 | `encryption.algorithm` | `'aes-256-gcm'` | `'aes-256-gcm'` | Encryption algorithm |
 | `storage.driver` | `'fs' \| 'redis' \| 'memory'` | `'fs'` | Storage backend driver |
-| `storage.base` | `string` | `'./.data/refresh-tokens'` | Base path for filesystem storage |
+| `storage.base` | `string` | `'./.data/refresh-tokens'` | Base path for filesystem storage. With `redis`, the driver uses it as a key prefix, so set your own value (see [Redis storage](/configuration/storage#redis-storage)) |
+| `storage.prefix` | `string` | `'refresh:'` | Reserved. It is not applied to storage keys |
 
 ::: tip Token Rotation
 When `rotationEnabled: true` (default), refresh tokens are automatically replaced on every use for maximum security. Set to `false` for fixed-duration sessions. See [Token Refresh Guide](/guides/token-refresh#token-rotation) for details.
 :::
 
 ::: tip Production Storage
-In production, use Redis or a database for refresh token storage, not the filesystem.
+In production, use Redis or another shared database driver for refresh token storage. Do not use the filesystem or memory drivers.
 :::
 
 ## Authorization CODE Configuration
@@ -210,6 +208,10 @@ export default defineNuxtConfig({
 
 ::: tip Route Matching Precedence
 Nitro matches routes by specificity. More specific patterns take precedence over less specific ones.
+:::
+
+::: warning Auth paths are not protected by route rules
+The auth middleware skips `endpoints.authPath` (default `/auth`) and every path below it, such as `/auth/login`. Route rules for these paths have no effect. Keep your own protected routes outside `authPath`.
 :::
 
 ### Client-Side Protection (Middleware)

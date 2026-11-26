@@ -18,13 +18,15 @@ export default defineNitroPlugin((nitroApp) => {
     const config = useRuntimeConfig()
     const authPath = config.public.nuxtAegis?.authPath || '/auth'
     const requestPath = getRequestURL(event).pathname
+    const authBase = authPath.replace(/\/+$/, '')
 
     // Skip SSR auth for:
     // 1. Auth routes (handled by their own endpoints)
     // 2. Static assets (_nuxt, favicon, etc.)
     // 3. API routes (should use Bearer tokens)
     if (
-      requestPath.startsWith(authPath)
+      requestPath === authBase
+      || requestPath.startsWith(`${authBase}/`)
       || requestPath.startsWith('/_nuxt/')
       || requestPath.startsWith('/api/')
       || requestPath.includes('/favicon.ico')

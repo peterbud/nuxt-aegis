@@ -2,16 +2,16 @@
 
 Configure Nuxt Aegis using environment variables for secure credential management.
 
-## Required Variables
+## Variables
 
-These environment variables are required for Nuxt Aegis to function properly.
+`NUXT_NUXT_AEGIS_TOKEN_SECRET` is always required. The provider variables are only required for the providers you use.
 
-- `NUXT_` prefix is required for Nuxt to expose these variables to the runtime config
-- `NUXT_AEGIS` is the namespace used by nuxt-aegis module
+- The `NUXT_` prefix is required for Nuxt to map these variables onto the runtime config
+- The runtime config key of the module is `nuxtAegis`, so every variable starts with `NUXT_NUXT_AEGIS_`
 
 ```dotenv
 
-# JWT Token Secret (minimum 32 characters)
+# JWT Token Secret (at least 32 characters recommended)
 NUXT_NUXT_AEGIS_TOKEN_SECRET=your-super-secret-jwt-signing-key-here-min-32-chars
 
 # Google OAuth (if using Google provider)
@@ -40,10 +40,10 @@ On Nuxt 4.7 and later, the module declares `token.secret`, `tokenRefresh.encrypt
 Use OpenSSL to generate cryptographically secure secrets:
 
 ```bash
-# Generate JWT token secret (32+ characters)
+# Generate JWT token secret (44 characters)
 openssl rand -base64 32
 
-# Generate encryption key (32+ characters)
+# Generate encryption key (44 characters, only the first 32 are used)
 openssl rand -base64 32
 ```
 :::

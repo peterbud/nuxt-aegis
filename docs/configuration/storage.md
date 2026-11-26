@@ -13,7 +13,11 @@ Nuxt Aegis supports multiple storage backends for refresh tokens:
 | `redis` | Production, multi-server | ✅ Redis | ⚡ Fast |
 
 ::: danger Production Storage
-Never use `memory` driver in production. Use `redis`, `fs`, or a database for scalable, persistent storage.
+Never use the `memory` or `fs` drivers in production. Use `redis` or another shared database driver for scalable, persistent storage.
+:::
+
+::: info Other stores are always memory
+Authorization CODEs, magic codes and password reset sessions are short-lived and always use process-local memory. Only refresh tokens use the driver configured here.
 :::
 
 ## Filesystem Storage
@@ -29,7 +33,6 @@ export default defineNuxtConfig({
       storage: {
         driver: 'fs',
         base: './.data/refresh-tokens',
-        prefix: 'refresh:',
       },
     },
   },
@@ -72,7 +75,6 @@ export default defineNuxtConfig({
     tokenRefresh: {
       storage: {
         driver: 'redis',
-        prefix: 'refresh:',
       },
     },
   },
@@ -85,11 +87,19 @@ export default defineNuxtConfig({
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,
         db: parseInt(process.env.REDIS_DB || '0'),
+        base: 'nuxt-aegis:refresh', // Redis key prefix
+        ttl: 60 * 60 * 24 * 7, // Seconds. Match tokenRefresh.cookie.maxAge
       },
     },
   },
 })
 ```
+:::
+
+::: warning Set `base` and `ttl` yourself
+- `tokenRefresh.storage.driver` only selects the driver. Connection settings belong in `nitro.storage.refreshTokenStore`.
+- The module defaults `base` to `./.data/refresh-tokens`, which the Redis driver would use as a key prefix. Set your own `base`.
+- Nuxt Aegis does not set a TTL on stored tokens. Redis only expires keys if you set the driver `ttl` option, as above. Without it, expired tokens are removed by the [cleanup tasks](#automatic-cleanup-tasks).
 :::
 
 ### Environment Variables
@@ -107,7 +117,7 @@ REDIS_DB=0
 **Pros:**
 - High performance
 - Scales to multiple servers
-- Built-in TTL (automatic expiration)
+- Native key expiration through the driver `ttl` option
 - Production-ready
 
 **Cons:**
@@ -146,7 +156,7 @@ Memory storage loses all data on server restart. Only use for automated testing.
 
 ## Encryption at Rest
 
-Enable encryption for sensitive user data stored with refresh tokens.
+Enable encryption for the refresh token records in storage.
 
 ### Configuration
 
@@ -167,45 +177,45 @@ export default defineNuxtConfig({
 ### Generate Encryption Key
 
 ```bash
-# Generate a 32-character encryption key
+# Generate an encryption key (44 characters)
 openssl rand -base64 32
 ```
 
 Add to `.env`:
 
 ```bash
-NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY=your-generated-32-character-key
+NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY=your-generated-encryption-key
 ```
+
+The key length is not validated. Only the first 32 characters are used, and a shorter key is padded with `0`.
 
 ### What Gets Encrypted
 
-When encryption is enabled, the following user data is encrypted at rest:
+When encryption is enabled, the whole stored record is encrypted with AES-256-GCM:
 
-- User profile information (name, email)
+- `sub`, `expiresAt`, `isRevoked` and `previousTokenHash`
+- Provider user data (`providerUserInfo`) and the provider name
 - Custom claims
-- Provider-specific user data
-- Any additional user metadata
 
-::: tip Encryption Overhead
-Encryption adds minimal CPU overhead (~2-5ms per operation) but significantly improves security for sensitive user data.
+The storage key (the SHA-256 hash of the refresh token) is not encrypted.
+
+::: tip Encryption at rest
+Encryption protects the stored data if someone reads the storage backend directly. Records written before you enable encryption stay readable and unencrypted until they are rewritten.
 :::
 
 ## Storage Key Format
 
-Nuxt Aegis uses the following key format in storage:
-
-```
-{prefix}{userId}
-```
+Each refresh token is stored under one key: the SHA-256 hash (hex) of the refresh token value. The raw token is never stored. There is no per-user key and no prefix.
 
 **Example:**
-- Prefix: `refresh:`
-- User ID: `google:123456789`
-- Full key: `refresh:google:123456789`
+- Refresh token: `k3J...` (random, only sent in the cookie)
+- Full key: `9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08`
 
-## TTL (Time To Live)
+With the Redis driver, the driver `base` option is added in front of this key.
 
-Refresh tokens automatically expire based on cookie `maxAge`:
+## Expiration
+
+Each stored record contains an `expiresAt` timestamp, set from the cookie `maxAge`:
 
 ```typescript
 export default defineNuxtConfig({
@@ -219,8 +229,10 @@ export default defineNuxtConfig({
 })
 ```
 
-::: warning Storage TTL
-Ensure your storage driver supports TTL. Redis handles this automatically, but filesystem storage requires manual cleanup.
+The server rejects expired and revoked tokens when it reads them. It does not set a storage TTL, so the record stays in storage until a [cleanup task](#automatic-cleanup-tasks) removes it. With Redis, you can also set the driver `ttl` option to the same value as `maxAge`.
+
+::: warning Revoked tokens stay in storage
+Rotation marks the old token as revoked instead of deleting it. Run the cleanup task to remove revoked and expired records.
 :::
 
 ## OAuth Login Transactions
@@ -259,10 +271,6 @@ serverless OAuth deployments are unsupported. Load-balancer affinity does not ma
 this store shared or durable. Restarting the process invalidates pending logins.
 :::
 
-The installed unstorage 1.17.5 API provides separate get/remove operations, not an
-atomic conditional consume. A future shared backend must implement native
-conditional validation and deletion, such as a Redis script, with transaction TTLs.
-
 Behind an HTTPS-terminating proxy, set `oauthTransaction.trustProxy: true` only when
 the application is reachable exclusively through trusted proxies that overwrite
 `X-Forwarded-Proto`. This opts into Nuxt's forwarded-protocol handling for redirect
@@ -276,9 +284,12 @@ These cookies protect pending OAuth login only; they do not bind issued bearer J
 
 ## Automatic Cleanup Tasks
 
-Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired data from storage. These tasks run daily at 2:00 AM by default (configurable via Nitro's `scheduledTasks`).
+Nuxt Aegis includes built-in scheduled tasks that clean up expired data. By default, the module schedules them daily at 2:00 AM. It only adds a task to the default schedule if you have not already scheduled it yourself.
 
 ### Cleanup Tasks
+
+**Authorization CODE Cleanup** (`cleanup:auth-codes`)
+- Removes expired authorization CODEs from the in-memory CODE store
 
 **Refresh Token Cleanup** (`cleanup:refresh-tokens`)
 - Removes expired and revoked refresh tokens from storage
@@ -296,14 +307,15 @@ Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired
 
 ### Task Configuration
 
-The cleanup schedule is configured in `nuxt.config.ts`:
+To change the schedule, set `nitro.scheduledTasks` in `nuxt.config.ts`. Tasks you list are not added to the default schedule again, so list every task you want to run:
 
 ```typescript
 export default defineNuxtConfig({
   nitro: {
     scheduledTasks: {
-      // Run cleanup tasks daily at 2:00 AM (cron format)
-      '0 2 * * *': [
+      // Run cleanup tasks every 6 hours (cron format)
+      '0 */6 * * *': [
+        'cleanup:auth-codes',
         'cleanup:refresh-tokens',
         'cleanup:magic-codes',
         'cleanup:reset-sessions',
@@ -328,13 +340,14 @@ You can also trigger cleanup tasks manually using Nitro's task API:
 // server/api/admin/cleanup.post.ts
 export default defineEventHandler(async (event) => {
   // Ensure user is admin
-  const user = await requireUser(event)
+  const { user } = requireAuth(event).context
   if (!user.isAdmin) {
     throw createError({ statusCode: 403, message: 'Forbidden' })
   }
 
   // Run cleanup tasks
   const results = await Promise.all([
+    runTask('cleanup:auth-codes'),
     runTask('cleanup:refresh-tokens'),
     runTask('cleanup:magic-codes'),
     runTask('cleanup:reset-sessions'),
@@ -356,10 +369,11 @@ export default defineEventHandler(async (event) => {
 - Add `.data/` to `.gitignore`
 
 **Production:**
-- Use `redis` driver for scalability
+- Use the `redis` driver for scalability
+- Set `base` and `ttl` on the Redis driver
 - Enable encryption at rest
 - Use managed Redis service
-- Set appropriate TTL values
+- Keep the cleanup tasks scheduled
 - Monitor storage usage
 - Implement backup strategy
 :::
@@ -372,12 +386,12 @@ export default defineEventHandler(async (event) => {
 | **Multi-server** | ❌ No | ❌ No | ✅ Yes |
 | **Performance** | ⚡⚡⚡ Fastest | 🔶 Medium | ⚡⚡ Fast |
 | **Setup** | ✅ None | ✅ Simple | 🔶 Requires Redis |
-| **TTL Support** | ❌ Manual | ❌ Manual | ✅ Built-in |
-| **Auto Cleanup** | ✅ Scheduled Tasks | ✅ Scheduled Tasks | ✅ TTL + Tasks |
+| **Native TTL** | ❌ No | ❌ No | 🔶 Only with the driver `ttl` option |
+| **Auto Cleanup** | ✅ Scheduled Tasks | ✅ Scheduled Tasks | ✅ Scheduled Tasks (+ TTL if set) |
 | **Production** | ❌ Never | ❌ No | ✅ Recommended |
 
 ::: info Automatic Cleanup
-Nuxt Aegis includes built-in scheduled tasks that automatically clean up expired tokens, magic codes, and reset sessions regardless of storage driver. Redis additionally supports native TTL for automatic expiration.
+Nuxt Aegis includes built-in scheduled tasks that clean up expired tokens, CODEs, magic codes, and reset sessions regardless of storage driver. Redis can additionally expire keys natively if you set the driver `ttl` option.
 :::
 
 ## Next Steps

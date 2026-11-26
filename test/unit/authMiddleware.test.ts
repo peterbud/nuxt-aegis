@@ -59,6 +59,16 @@ describe('Authentication middleware logging', () => {
     expect(mocks.getRouteRules).not.toHaveBeenCalled()
   })
 
+  it.each(['/auth', '/auth/'])('skips the auth path itself: %s', async (path) => {
+    await authMiddleware(createEvent(path))
+    expect(mocks.getRouteRules).not.toHaveBeenCalled()
+  })
+
+  it.each(['/authors', '/author/1', '/auth-admin/users'])('does not skip paths that only share the auth prefix: %s', async (path) => {
+    await expect(authMiddleware(createEvent(path))).rejects.toMatchObject({ status: 401 })
+    expect(mocks.getRouteRules).toHaveBeenCalled()
+  })
+
   it.each(['/_payload.json', '/account/_payload.json', '/media/photo.jpg'])('preserves protection for %s', async (path) => {
     await expect(authMiddleware(createEvent(path))).rejects.toMatchObject({ status: 401 })
     expect(mocks.verifyToken).not.toHaveBeenCalled()
@@ -87,6 +97,11 @@ describe('SSR authentication exclusions', () => {
     await runSSR(path)
     expect(mocks.debug).not.toHaveBeenCalled()
     expect(mocks.getCookie).not.toHaveBeenCalled()
+  })
+
+  it('still attempts SSR authentication for paths that only share the auth prefix', async () => {
+    await runSSR('/authors')
+    expect(mocks.getCookie).toHaveBeenCalled()
   })
 
   it('does not log or read cookies when SSR auth is disabled', async () => {
