@@ -149,11 +149,13 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
 
     // SC-19: Validate encryption configuration
+    // The key is normally injected at runtime through an environment variable, so it is legitimately
+    // absent at build time. On Nuxt >= 4.7 the runtime config schema reports a missing key at startup;
+    // on older versions only warn in dev, where the runtime environment is the local one.
     if (options.tokenRefresh?.encryption?.enabled) {
       const encryptionKey = options.tokenRefresh.encryption.key
 
-      if (!encryptionKey && nuxt.options._prepare !== true) {
-        // Warn during build time, but don't throw - validation happens at runtime
+      if (!supportsSchemas && nuxt.options.dev && !encryptionKey && nuxt.options._prepare !== true) {
         logger.warn(
           '[Nuxt Aegis] Encryption is enabled but no encryption key is configured. '
           + 'The application will fail at runtime if encryption is attempted. '
