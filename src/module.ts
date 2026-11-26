@@ -9,6 +9,7 @@ import {
   createResolver,
   defineNuxtModule,
   extendPages,
+  findPath,
   updateRuntimeConfig,
   useLogger,
 } from '@nuxt/kit'
@@ -471,9 +472,12 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Add a routerOption for the AuthCallback page
     // to prevent Vue Router warnings about invalid hash
-    nuxt.hook('pages:routerOptions', (routerOptions) => {
+    nuxt.hook('pages:routerOptions', async (routerOptions) => {
+      // Resolve the extension: Nuxt reads this file to check it does not modify routes
+      // (needed for experimental.early404 / staticRoutes), and an extensionless path is unreadable.
+      const path = await findPath(resolver.resolve('./runtime/app/router.options'))
       routerOptions.files.push({
-        path: resolver.resolve('./runtime/app/router.options'),
+        path: path || resolver.resolve('./runtime/app/router.options'),
       })
     })
 
