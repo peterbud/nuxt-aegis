@@ -24,8 +24,8 @@ export default defineNuxtConfig({
   nuxtAegis: {
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        // clientId and clientSecret are read from the NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_*
+        // environment variables at runtime (see below)
       },
     },
   },
@@ -37,8 +37,8 @@ export default defineNuxtConfig({
 Add your Google credentials to `.env`:
 
 ```bash
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
 ### 4. Create Server Route

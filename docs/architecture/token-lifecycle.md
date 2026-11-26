@@ -199,7 +199,7 @@ export default defineNuxtConfig({
     token: {
       expiresIn: 3600, // 1 hour (seconds)
       algorithm: 'HS256',
-      secret: process.env.NUXT_AEGIS_JWT_SECRET,
+      // The secret is read from NUXT_NUXT_AEGIS_TOKEN_SECRET at runtime
     },
     tokenRefresh: {
       cookie: {

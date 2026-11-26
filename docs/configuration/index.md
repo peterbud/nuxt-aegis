@@ -292,7 +292,7 @@ Each provider has its own configuration options. See the [Providers](/providers/
 export default defineNuxtConfig({
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      // The secret is read from NUXT_NUXT_AEGIS_TOKEN_SECRET at runtime
       expiresIn: '8h', // Longer for development
     },
     tokenRefresh: {
@@ -308,7 +308,7 @@ export default defineNuxtConfig({
 export default defineNuxtConfig({
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      // The secret is read from NUXT_NUXT_AEGIS_TOKEN_SECRET at runtime
       expiresIn: '1h', // Shorter for security
     },
     tokenRefresh: {
@@ -321,7 +321,7 @@ export default defineNuxtConfig({
       },
       encryption: {
         enabled: true, // Enable encryption
-        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY!,
+        // The key is read from NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY at runtime
       },
     },
   },

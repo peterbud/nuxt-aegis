@@ -134,7 +134,7 @@ Nuxt Aegis addresses key OWASP vulnerabilities:
 
 ### Required for Production
 
-- [ ] Set strong `NUXT_AEGIS_TOKEN_SECRET` (32+ characters)
+- [ ] Set strong `NUXT_NUXT_AEGIS_TOKEN_SECRET` (32+ characters)
 - [ ] Enable HTTPS (`secure: true` in cookies)
 - [ ] Keep OAuth initiation/callback in one long-lived process; shared deployments are unsupported
 - [ ] Trust forwarded protocol only behind an exclusive, header-sanitizing proxy

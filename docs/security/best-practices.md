@@ -16,8 +16,8 @@ openssl rand -base64 32  # For JWT token secret
 openssl rand -base64 32  # For encryption key
 
 # Store in environment variables
-NUXT_AEGIS_TOKEN_SECRET=your-generated-secret-here
-NUXT_AEGIS_ENCRYPTION_KEY=your-encryption-key-here
+NUXT_NUXT_AEGIS_TOKEN_SECRET=your-generated-secret-here
+NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY=your-encryption-key-here
 ```
 
 **Use secret management services:**
@@ -122,7 +122,7 @@ export default defineNuxtConfig({
     tokenRefresh: {
       encryption: {
         enabled: true,
-        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY!,
+        // The key is read from NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY at runtime
         algorithm: 'aes-256-gcm',
       },
     },

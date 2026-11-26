@@ -50,19 +50,21 @@ openssl rand -base64 32
 
 ## Accessing Environment Variables
 
-Environment variables are automatically loaded by Nuxt if you use the `NUXT_` prefix. Alternatively, you can wire your env variable directly in your `nuxt.config.ts`:
+Nuxt maps environment variables with the `NUXT_` prefix onto the runtime config at runtime, so you do not need to reference them in `nuxt.config.ts`. The variable name is `NUXT_` followed by the config path in upper snake case, for example `nuxtAegis.tokenRefresh.encryption.key` becomes `NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY`.
+
+Alternatively, you can wire your own env variables directly in your `nuxt.config.ts`. These are read at build time:
 
 ```typescript
 // In nuxt.config.ts
 export default defineNuxtConfig({
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      secret: process.env.MY_TOKEN_SECRET!,
     },
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: process.env.MY_GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.MY_GOOGLE_CLIENT_SECRET!,
       },
     },
   },

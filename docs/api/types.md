@@ -1095,15 +1095,15 @@ if (user.value?.role === 'admin') {
 export default defineNuxtConfig({
   nuxtAegis: {
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      // The secret is read from NUXT_NUXT_AEGIS_TOKEN_SECRET at runtime
       expiresIn: '1h',
       algorithm: 'HS256',
     } as TokenConfig,
     
     providers: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        // clientId and clientSecret are read from NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID
+        // and NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET at runtime
         scopes: ['openid', 'email', 'profile'],
       } as GoogleProviderConfig,
     },

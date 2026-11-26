@@ -35,7 +35,7 @@ NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_ID=your-google-client-id
 NUXT_NUXT_AEGIS_PROVIDERS_GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Optional: Encryption key for refresh token storage (32+ characters)
-NUXT_NUXT_AEGIS_ENCRYPTION_KEY=your-encryption-key-minimum-32-characters
+NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY=your-encryption-key-minimum-32-characters
 ```
 
 ::: danger Never Commit Secrets

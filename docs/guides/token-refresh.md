@@ -107,7 +107,7 @@ export default defineNuxtConfig({
       // Encryption at rest
       encryption: {
         enabled: true,
-        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY!,
+        // The key is read from NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY at runtime
         algorithm: 'aes-256-gcm',
       },
     },
@@ -221,7 +221,7 @@ export default defineNuxtConfig({
     tokenRefresh: {
       encryption: {
         enabled: true,
-        key: process.env.NUXT_AEGIS_ENCRYPTION_KEY!,
+        // The key is read from NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY at runtime
         algorithm: 'aes-256-gcm',
       },
     },
@@ -239,7 +239,7 @@ openssl rand -base64 32
 Add to `.env`:
 
 ```bash
-NUXT_AEGIS_ENCRYPTION_KEY=your-generated-32-character-key-here
+NUXT_NUXT_AEGIS_TOKEN_REFRESH_ENCRYPTION_KEY=your-generated-32-character-key-here
 ```
 
 ### Security Features

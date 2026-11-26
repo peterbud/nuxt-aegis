@@ -24,8 +24,8 @@ export default defineNuxtConfig({
   nuxtAegis: {
     providers: {
       github: {
-        clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        // clientId and clientSecret are read from the NUXT_NUXT_AEGIS_PROVIDERS_GITHUB_*
+        // environment variables at runtime (see below)
       },
     },
   },
@@ -37,8 +37,8 @@ export default defineNuxtConfig({
 Add your GitHub credentials to `.env`:
 
 ```bash
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
+NUXT_NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_ID=your-github-client-id
+NUXT_NUXT_AEGIS_PROVIDERS_GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
 ### 4. Create Server Route

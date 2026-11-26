@@ -187,7 +187,7 @@ export default defineNuxtConfig({
     },
     
     token: {
-      secret: process.env.NUXT_AEGIS_TOKEN_SECRET!,
+      // The secret is read from NUXT_NUXT_AEGIS_TOKEN_SECRET at runtime
       expiresIn: '15m',
     },
     
@@ -629,7 +629,7 @@ Store sensitive configuration in environment variables:
 
 ```bash
 # .env
-NUXT_AEGIS_TOKEN_SECRET=your-secret-key-min-32-chars
+NUXT_NUXT_AEGIS_TOKEN_SECRET=your-secret-key-min-32-chars
 SENDGRID_API_KEY=your-sendgrid-api-key
 DATABASE_URL=your-database-url
 ```

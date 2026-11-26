@@ -38,9 +38,8 @@ export default defineNuxtConfig({
   nuxtAegis: {
     providers: {
       auth0: {
-        clientId: process.env.AUTH0_CLIENT_ID!,
-        clientSecret: process.env.AUTH0_CLIENT_SECRET!,
-        domain: process.env.AUTH0_DOMAIN!,
+        // clientId, clientSecret and domain are read from the NUXT_NUXT_AEGIS_PROVIDERS_AUTH0_*
+        // environment variables at runtime (see below)
       },
     },
   },
@@ -52,9 +51,9 @@ export default defineNuxtConfig({
 Add your Auth0 credentials to `.env`:
 
 ```bash
-AUTH0_CLIENT_ID=your-auth0-client-id
-AUTH0_CLIENT_SECRET=your-auth0-client-secret
-AUTH0_DOMAIN=your-tenant.auth0.com  # or your-tenant.us.auth0.com
+NUXT_NUXT_AEGIS_PROVIDERS_AUTH0_CLIENT_ID=your-auth0-client-id
+NUXT_NUXT_AEGIS_PROVIDERS_AUTH0_CLIENT_SECRET=your-auth0-client-secret
+NUXT_NUXT_AEGIS_PROVIDERS_AUTH0_DOMAIN=your-tenant.auth0.com  # or your-tenant.us.auth0.com
 ```
 
 ### 5. Create Server Route
